@@ -46,7 +46,7 @@ const NewAppointmentPage = () => {
   
   // Query for professionals based on selected service
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery({
-    queryKey: ["/api/professionals/service", selectedService?.id],
+    queryKey: [`/api/professionals/service/${selectedService?.id}`],
     enabled: !!selectedService?.id,
   });
   
