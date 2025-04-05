@@ -99,6 +99,7 @@ const AppointmentsPage = () => {
   // Get professionals by service for new appointment
   const { data: professionalsByService, isLoading: isLoadingProfessionalsByService } = useQuery({
     queryKey: ["/api/professionals/service", selectedService],
+    queryFn: selectedService ? undefined : () => Promise.resolve([]),
     enabled: !!selectedService, // Only run query when a service is selected
   });
   
