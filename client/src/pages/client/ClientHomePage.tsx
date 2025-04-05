@@ -49,28 +49,24 @@ const ClientHomePage = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Link href="/new-appointment">
-            <a className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center text-center hover:shadow-xl transition duration-300 cursor-pointer">
-              <div className="bg-secondary-light/20 p-4 rounded-full mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-primary mb-2">Novo Agendamento</h3>
-              <p className="text-neutral-dark">Agende um novo serviço com nossos profissionais.</p>
-            </a>
+          <Link href="/new-appointment" className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center text-center hover:shadow-xl transition duration-300 cursor-pointer">
+            <div className="bg-secondary-light/20 p-4 rounded-full mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-primary mb-2">Novo Agendamento</h3>
+            <p className="text-neutral-dark">Agende um novo serviço com nossos profissionais.</p>
           </Link>
           
-          <Link href="/check-appointment">
-            <a className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center text-center hover:shadow-xl transition duration-300 cursor-pointer">
-              <div className="bg-primary/10 p-4 rounded-full mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-primary mb-2">Consultar Agendamento</h3>
-              <p className="text-neutral-dark">Verifique ou cancele seu agendamento existente.</p>
-            </a>
+          <Link href="/check-appointment" className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center text-center hover:shadow-xl transition duration-300 cursor-pointer">
+            <div className="bg-primary/10 p-4 rounded-full mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-primary mb-2">Consultar Agendamento</h3>
+            <p className="text-neutral-dark">Verifique ou cancele seu agendamento existente.</p>
           </Link>
         </div>
         
