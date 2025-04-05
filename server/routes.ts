@@ -16,6 +16,64 @@ import { z } from "zod";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   setupAuth(app);
+  
+  // GET /api/users - Get all users (admin only)
+  app.get("/api/users", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Acesso não autorizado" });
+      }
+      
+      const users = await storage.getAllUsers();
+      
+      // Não retornar as senhas para o frontend
+      const sanitizedUsers = users.map(user => {
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+      
+      res.json(sanitizedUsers);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar usuários" });
+    }
+  });
+  
+  // DELETE /api/users/:id - Delete a user (admin only)
+  app.delete("/api/users/:id", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Acesso não autorizado" });
+      }
+      
+      const userId = parseInt(req.params.id);
+      
+      // Não permitir excluir o próprio usuário logado
+      if (userId === req.user.id) {
+        return res.status(400).json({ message: "Não é possível excluir o próprio usuário logado" });
+      }
+      
+      // Verificar se o usuário existe
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      // Não permitir excluir o usuário admin padrão
+      if (user.username === "admin") {
+        return res.status(400).json({ message: "Não é possível excluir o usuário admin padrão" });
+      }
+      
+      const deleted = await storage.deleteUser(userId);
+      
+      if (deleted) {
+        res.status(200).json({ message: "Usuário excluído com sucesso" });
+      } else {
+        res.status(500).json({ message: "Falha ao excluir usuário" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao excluir usuário" });
+    }
+  });
 
   // GET /api/services - Get all services
   app.get("/api/services", async (req: Request, res: Response) => {

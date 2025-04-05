@@ -14,9 +14,11 @@ const MemoryStore = createMemoryStore(session);
 // Define the interface for storage operations
 export interface IStorage {
   // User operations
+  getAllUsers(): Promise<User[]>;
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  deleteUser(id: number): Promise<boolean>;
   
   // Service operations
   getAllServices(): Promise<Service[]>;
@@ -100,6 +102,10 @@ export class MemStorage implements IStorage {
   }
 
   // User operations
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+  
   async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
   }
@@ -115,6 +121,10 @@ export class MemStorage implements IStorage {
     const user: User = { ...userData, id };
     this.users.set(id, user);
     return user;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    return this.users.delete(id);
   }
   
   // Service operations

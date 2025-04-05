@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LogOut, Home, Calendar, Users, DollarSign, Scissors, Settings } from "lucide-react";
+import { LogOut, Home, Calendar, Users, DollarSign, Scissors, Settings, UserPlus } from "lucide-react";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -63,12 +63,20 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
                 </a>
               </Link>
               {user?.role === "admin" && (
-                <Link href="/admin/settings">
-                  <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/settings" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
-                    <Settings className="h-5 w-5 mr-3" />
-                    Configurações
-                  </a>
-                </Link>
+                <>
+                  <Link href="/admin/users">
+                    <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/users" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
+                      <UserPlus className="h-5 w-5 mr-3" />
+                      Usuários
+                    </a>
+                  </Link>
+                  <Link href="/admin/settings">
+                    <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/settings" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
+                      <Settings className="h-5 w-5 mr-3" />
+                      Configurações
+                    </a>
+                  </Link>
+                </>
               )}
               <button
                 onClick={handleLogout}
