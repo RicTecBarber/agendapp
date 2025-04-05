@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useAppointments } from "@/hooks/use-appointments";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { format, isToday, isTomorrow, isThisWeek, isThisMonth, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -26,6 +28,9 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, MoreHorizontal, Calendar as CalendarIcon, CheckCircle, XCircle, Clock } from "lucide-react";
 import {
   DropdownMenu,
@@ -59,6 +64,20 @@ const AppointmentsPage = () => {
     appointment: null,
     newStatus: ""
   });
+  
+  // Estado para controlar o modal de novo agendamento
+  const [newAppointmentDialog, setNewAppointmentDialog] = useState(false);
+  
+  // Estados para o formulário de novo agendamento
+  const [selectedService, setSelectedService] = useState<number | null>(null);
+  const [selectedProfessional, setSelectedProfessional] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [notifyWhatsapp, setNotifyWhatsapp] = useState(true);
+  const [isRewardRedemption, setIsRewardRedemption] = useState(false);
+  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
 
   // Get appointments data
   const { 
@@ -70,6 +89,52 @@ const AppointmentsPage = () => {
   // Get professionals for filter
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery({
     queryKey: ["/api/professionals"],
+  });
+
+  // Get services for new appointment
+  const { data: services, isLoading: isLoadingServices } = useQuery({
+    queryKey: ["/api/services"],
+  });
+  
+  // Get professionals by service for new appointment
+  const { data: professionalsByService, isLoading: isLoadingProfessionalsByService } = useQuery({
+    queryKey: ["/api/professionals/service", selectedService],
+    enabled: !!selectedService, // Only run query when a service is selected
+  });
+  
+  // Get availability for selected professional and date
+  const { data: availability, isLoading: isLoadingAvailability } = useQuery({
+    queryKey: ["/api/availability", selectedProfessional, format(selectedDate, "yyyy-MM-dd")],
+    enabled: !!selectedProfessional && !!selectedDate, // Only run query when both are selected
+  });
+  
+  // Get toast
+  const { toast } = useToast();
+
+  // Create appointment mutation
+  const createAppointment = useMutation({
+    mutationFn: async (appointmentData: any) => {
+      const res = await apiRequest("POST", "/api/appointments", appointmentData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      // Reset form and close dialog
+      setNewAppointmentDialog(false);
+      resetNewAppointmentForm();
+      // Invalidate appointments query to refresh list
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      toast({
+        title: "Agendamento criado",
+        description: "O agendamento foi criado com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao criar agendamento",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Filter appointments by tab and professional
@@ -121,6 +186,65 @@ const AppointmentsPage = () => {
     }
   };
 
+  // Reset new appointment form
+  const resetNewAppointmentForm = () => {
+    setSelectedService(null);
+    setSelectedProfessional(null);
+    setSelectedDate(new Date());
+    setSelectedTime(null);
+    setClientName("");
+    setClientPhone("");
+    setNotifyWhatsapp(true);
+    setIsRewardRedemption(false);
+    setAvailableTimes([]);
+  };
+  
+  // Effect to update available times when availability data changes
+  useEffect(() => {
+    if (availability && Array.isArray(availability)) {
+      const times = availability.map((slot: any) => slot.time);
+      setAvailableTimes(times);
+      // Reset selected time if not available anymore
+      if (selectedTime && !times.includes(selectedTime)) {
+        setSelectedTime(null);
+      }
+    } else {
+      setAvailableTimes([]);
+      setSelectedTime(null);
+    }
+  }, [availability, selectedTime]);
+  
+  // Handle appointment submission
+  const handleCreateAppointment = () => {
+    if (!selectedService || !selectedProfessional || !selectedDate || !selectedTime || !clientName || !clientPhone) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Prepare date with time
+    const [hours, minutes] = selectedTime.split(':').map(Number);
+    const appointmentDate = new Date(selectedDate);
+    appointmentDate.setHours(hours, minutes, 0, 0);
+    
+    // Create appointment data
+    const appointmentData = {
+      service_id: selectedService,
+      professional_id: selectedProfessional,
+      appointment_date: appointmentDate.toISOString(),
+      client_name: clientName,
+      client_phone: clientPhone,
+      notify_whatsapp: notifyWhatsapp,
+      is_loyalty_reward: isRewardRedemption,
+      status: "scheduled"
+    };
+    
+    createAppointment.mutate(appointmentData);
+  };
+  
   // Get status badge styles
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -209,7 +333,7 @@ const AppointmentsPage = () => {
             </div>
             
             <div className="flex items-center">
-              <Button variant="default">
+              <Button variant="default" onClick={() => setNewAppointmentDialog(true)}>
                 Novo Agendamento
               </Button>
             </div>
@@ -439,6 +563,196 @@ const AppointmentsPage = () => {
               disabled={updateAppointmentStatus.isPending}
             >
               {updateAppointmentStatus.isPending ? "Processando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Dialog for creating a new appointment */}
+      <Dialog open={newAppointmentDialog} onOpenChange={(open) => {
+        if (!open) {
+          setNewAppointmentDialog(false);
+          resetNewAppointmentForm();
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Novo Agendamento</DialogTitle>
+            <DialogDescription>
+              Preencha os campos abaixo para criar um novo agendamento.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-5 py-4">
+            {/* Service selection */}
+            <div className="grid gap-2">
+              <Label htmlFor="service">Serviço</Label>
+              <Select
+                value={selectedService ? selectedService.toString() : ''}
+                onValueChange={(value) => {
+                  setSelectedService(parseInt(value));
+                  setSelectedProfessional(null);
+                  setSelectedTime(null);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um serviço" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!isLoadingServices && services?.map((service: any) => (
+                    <SelectItem key={service.id} value={service.id.toString()}>
+                      {service.name} - R$ {service.price.toFixed(2)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Professional selection */}
+            <div className="grid gap-2">
+              <Label htmlFor="professional">Profissional</Label>
+              <Select
+                value={selectedProfessional ? selectedProfessional.toString() : ''}
+                onValueChange={(value) => {
+                  setSelectedProfessional(parseInt(value));
+                  setSelectedTime(null);
+                }}
+                disabled={!selectedService || isLoadingProfessionalsByService}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um profissional" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!isLoadingProfessionalsByService && professionalsByService?.map((professional: any) => (
+                    <SelectItem key={professional.id} value={professional.id.toString()}>
+                      {professional.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Date and time selection */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="date">Data</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                      disabled={!selectedProfessional}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        setSelectedDate(date || new Date());
+                        setSelectedTime(null);
+                      }}
+                      initialFocus
+                      disabled={[
+                        { before: new Date() }, 
+                        (date) => date.getDay() === 0, // Disable Sundays
+                      ]}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="time">Horário</Label>
+                <Select
+                  value={selectedTime || ''}
+                  onValueChange={setSelectedTime}
+                  disabled={!selectedProfessional || !selectedDate || isLoadingAvailability}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um horário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingAvailability ? (
+                      <SelectItem value="loading" disabled>
+                        Carregando horários...
+                      </SelectItem>
+                    ) : availableTimes.length > 0 ? (
+                      availableTimes.map((time) => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>
+                        Nenhum horário disponível
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Customer info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nome do cliente</Label>
+                <Input
+                  id="name"
+                  placeholder="Nome completo"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="phone">Telefone</Label>
+                <Input
+                  id="phone"
+                  placeholder="(00) 00000-0000"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            {/* Options */}
+            <div className="grid gap-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="notify"
+                  checked={notifyWhatsapp}
+                  onCheckedChange={setNotifyWhatsapp}
+                />
+                <Label htmlFor="notify">Notificar cliente via WhatsApp</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="reward"
+                  checked={isRewardRedemption}
+                  onCheckedChange={setIsRewardRedemption}
+                />
+                <Label htmlFor="reward">Utilizar como resgate de fidelidade</Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setNewAppointmentDialog(false);
+              resetNewAppointmentForm();
+            }}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreateAppointment}
+              disabled={createAppointment.isPending}
+            >
+              {createAppointment.isPending ? "Criando..." : "Criar Agendamento"}
             </Button>
           </DialogFooter>
         </DialogContent>
