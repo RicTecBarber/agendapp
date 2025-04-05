@@ -1,0 +1,79 @@
+Crie um sistema completo de agendamento para barbearia chamado **BarberSync** com duas interfaces separadas:
+
+---
+
+## 1. Interface do Cliente (sem login)
+
+🔸 Fluxo:
+- Tela inicial com duas opções: "Consultar Agendamento" e "Novo Agendamento"
+- Novo Agendamento:
+  - Seleciona o tipo de serviço (nome, descrição e valor)
+  - Seleciona o profissional
+  - Visualiza e escolhe horário disponível da semana
+  - Informa nome e número de celular
+  - Confirma agendamento e exibe resumo
+- Consultar Agendamento:
+  - Informa nome e celular
+  - Exibe agendamentos futuros com opção de cancelar
+
+---
+
+## 2. Interface da Barbearia (com login)
+
+🔸 Funcionalidades:
+- Login com e-mail e senha (autenticação via JWT)
+- Cadastro de usuários com papéis: admin e barbeiro
+- Visualização de agenda mensal e semanal
+  - Com filtros por barbeiro
+  - Cores diferentes por status (agendado, realizado, cancelado)
+- Dashboard com filtros por período:
+  - Valor faturado total
+  - Quantidade de atendimentos realizados
+  - Gráfico diário ou por profissional
+
+---
+
+## 3. Sistema de Fidelidade
+
+🔸 Regra:
+- A cada X atendimentos (ex: 10), o cliente ganha 1 serviço gratuito
+- O cliente pode ver:
+  - Quantos atendimentos já realizou
+  - Quantos faltam para o próximo brinde
+  - Histórico de brindes usados
+- No painel da barbearia:
+  - Exibir fidelidade por cliente
+  - Registrar uso de brinde
+  - Permitir conceder recompensa manualmente
+
+---
+
+## 💾 Banco de Dados (PostgreSQL com Prisma ORM)
+
+Tabelas sugeridas:
+- `users` (id, nome, email, senha_hash, role)
+- `services` (id, nome, descrição, valor)
+- `professionals` (id, nome, serviços_oferecidos[])
+- `availability` (professional_id, dia_semana, horários_disponíveis[])
+- `appointments` (id, cliente_nome, telefone, service_id, professional_id, data, horário, status)
+- `client_rewards` (id, nome, telefone, total_attendances, free_services_used, last_reward_at)
+
+---
+
+## 📦 Tecnologias:
+- **Frontend**: React + Tailwind CSS (separado em `/client` e `/admin`)
+- **Backend**: Node.js + Express
+- **Banco de dados**: PostgreSQL com Prisma
+- **Deploy**: Replit com NeonDB
+
+---
+
+## 🗂 Estrutura de Pastas:
+- `/client`: Interface para clientes
+- `/admin`: Interface para barbearia
+- `/server`: Backend Express com rotas REST
+- `/shared`: Tipos comuns e utilitários
+
+---
+
+Crie o projeto com essa estrutura inicial, incluindo os arquivos de configuração e um banco de dados já com seeds de exemplo (serviços, profissionais e um cliente fictício). Prepare a base para deploy no Replit.
