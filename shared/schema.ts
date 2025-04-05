@@ -70,10 +70,19 @@ export const appointments = pgTable("appointments", {
   is_loyalty_reward: boolean("is_loyalty_reward").default(false),
 });
 
-export const insertAppointmentSchema = createInsertSchema(appointments).omit({ 
+// Create base schema
+const baseAppointmentSchema = createInsertSchema(appointments).omit({ 
   id: true, 
   created_at: true,
   status: true 
+});
+
+// Modify to allow string for appointment_date and transform it to Date
+export const insertAppointmentSchema = baseAppointmentSchema.extend({
+  appointment_date: z.preprocess(
+    (arg) => (typeof arg === 'string' ? new Date(arg) : arg),
+    z.date()
+  ),
 });
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type Appointment = typeof appointments.$inferSelect;

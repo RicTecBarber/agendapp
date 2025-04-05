@@ -264,11 +264,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
-      // Convert appointment_date string to Date if needed
-      if (typeof appointmentData.appointment_date === "string") {
-        appointmentData.appointment_date = new Date(appointmentData.appointment_date);
-      }
-      
       // Validate service exists
       const service = await storage.getService(appointmentData.service_id);
       if (!service) {
@@ -287,8 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if the appointment slot is available
-      const date = new Date(appointmentData.appointment_date);
-      const dayOfWeek = date.getDay();
+      const dayOfWeek = appointmentData.appointment_date.getDay();
       
       const availabilityList = await storage.getAvailabilityByProfessionalId(appointmentData.professional_id);
       const dayAvailability = availabilityList.find(a => a.day_of_week === dayOfWeek);
