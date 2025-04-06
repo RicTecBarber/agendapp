@@ -105,7 +105,22 @@ const NewAppointmentPage = () => {
           const formattedDate = format(selectedDate, "yyyy-MM-dd");
           const res = await fetch(`/api/availability/${selectedProfessional.id}/${formattedDate}`);
           const data = await res.json();
-          setAvailableTimes(data.available_slots || []);
+          
+          // Limpar horários anteriores antes de atualizar
+          setAvailableTimes([]);
+          
+          // Certificar-se de que estamos recebendo um array válido de horários
+          if (Array.isArray(data.available_slots)) {
+            console.log("Horários disponíveis recebidos:", data.available_slots);
+            setAvailableTimes(data.available_slots);
+          } else {
+            console.error("Formato inválido de dados recebidos:", data);
+            toast({
+              title: "Erro ao carregar horários",
+              description: "Os dados de horários disponíveis estão em formato inválido.",
+              variant: "destructive",
+            });
+          }
           
           // Se tiver uma mensagem de indisponibilidade, exibir para o usuário
           if (data.message) {
@@ -122,6 +137,9 @@ const NewAppointmentPage = () => {
             variant: "destructive",
           });
         }
+      } else {
+        // Limpar os horários se a data ou profissional não forem selecionados
+        setAvailableTimes([]);
       }
     };
     
