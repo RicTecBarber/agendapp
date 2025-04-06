@@ -359,7 +359,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all appointments for this professional on this date
       // Para garantir que estamos filtrando a data corretamente, precisamos adicionar logs e verificar o formato
       console.log(`Buscando agendamentos para a data: ${date.toISOString()}`);
-      const appointments = await storage.getAppointmentsByDate(date);
+      
+      // Obter todos os agendamentos para garantir que não haja problemas de filtro por data
+      const allAppointments = await storage.getAllAppointments();
+      console.log(`Total de agendamentos no sistema: ${allAppointments.length}`);
+      
+      // Filtragem manual para garantir que todos os agendamentos corretos sejam considerados
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      // Verificar manualmente todos os agendamentos para esta data
+      const manuallyFilteredAppointments = allAppointments.filter(a => {
+        const appointmentDate = new Date(a.appointment_date);
+        const isSameDay = 
+          appointmentDate.getFullYear() === date.getFullYear() &&
+          appointmentDate.getMonth() === date.getMonth() &&
+          appointmentDate.getDate() === date.getDate();
+          
+        if (isSameDay) {
+          console.log(`ENCONTRADO MANUALMENTE: Agendamento #${a.id} em ${appointmentDate.toISOString()}`);
+        }
+        
+        return isSameDay;
+      });
+      
+      console.log(`Agendamentos encontrados manualmente: ${manuallyFilteredAppointments.length}`);
+      
+      // Use os agendamentos filtrados manualmente em vez dos filtrados pelo método da classe
+      const appointments = manuallyFilteredAppointments;
       
       // Vamos logar os agendamentos encontrados para diagnóstico
       console.log(`Agendamentos encontrados (${appointments.length}):`, 
@@ -396,8 +426,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       // Generate time slots
-      const timeSlots = [];
-      const slotDetails = []; // Array para detalhes dos slots
+      const timeSlots: string[] = [];
+      // Array para detalhes dos slots com tipagem explícita
+      interface SlotDetail {
+        time: string;
+        available: boolean;
+        is_past: boolean;
+        conflicts: number[] | null;
+      }
+      const slotDetails: SlotDetail[] = [];
       
       // Get professional's availability time
       let startTime = parseTime(dayAvailability.start_time);
@@ -546,6 +583,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/appointments", async (req: Request, res: Response) => {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
+      
+      // Validação de segurança adicional: verificar se esse mesmo horário e dia/mês/ano já tem um agendamento
+      const appointmentDate = new Date(appointmentData.appointment_date);
+      const timeStr = `${appointmentDate.getHours().toString().padStart(2, '0')}:${appointmentDate.getMinutes().toString().padStart(2, '0')}`;
+      console.log(`VERIFICANDO DUPLICAÇÃO: Horário solicitado: ${timeStr}, Data: ${appointmentDate.toISOString()}`);
+      
+      // Buscar todos os agendamentos para verificar manualmente
+      const allAppointments = await storage.getAllAppointments();
+      
+      // Verificar agendamentos no mesmo dia e horário
+      const conflictingAppointments = allAppointments.filter(a => {
+        const existingDate = new Date(a.appointment_date);
+        const isSameDay = 
+          existingDate.getFullYear() === appointmentDate.getFullYear() &&
+          existingDate.getMonth() === appointmentDate.getMonth() &&
+          existingDate.getDate() === appointmentDate.getDate();
+          
+        const isSameTime = 
+          existingDate.getHours() === appointmentDate.getHours() &&
+          existingDate.getMinutes() === appointmentDate.getMinutes();
+          
+        const isSameProfessional = a.professional_id === appointmentData.professional_id;
+        const isActive = a.status !== "cancelled";
+        
+        if (isSameDay && isSameTime && isSameProfessional && isActive) {
+          console.log(`CONFLITO ENCONTRADO: Agendamento #${a.id} às ${existingDate.toISOString()}`);
+        }
+        
+        return isSameDay && isSameTime && isSameProfessional && isActive;
+      });
+      
+      if (conflictingAppointments.length > 0) {
+        return res.status(400).json({ 
+          message: "Este horário já está reservado para outro cliente. Escolha um horário diferente.",
+          debug: {
+            conflicting_appointments: conflictingAppointments.map(a => ({
+              id: a.id,
+              date: new Date(a.appointment_date).toISOString()
+            }))
+          }
+        });
+      }
       
       // Validate service exists
       const service = await storage.getService(appointmentData.service_id);
