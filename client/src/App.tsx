@@ -45,6 +45,7 @@ function Router() {
       <ProtectedRoute path="/admin/professionals/:id/availability" component={AvailabilityManagementPage} />
       <ProtectedRoute path="/admin/users" component={UsersPage} />
       <ProtectedRoute path="/admin/settings" component={BarbershopSettingsPage} />
+      <ProtectedRoute path="/admin/barbershop-settings" component={BarbershopSettingsPage} />
       
       {/* Fallback Route */}
       <Route component={NotFound} />

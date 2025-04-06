@@ -139,6 +139,7 @@ export const barbershopSettings = pgTable("barbershop_settings", {
   phone: text("phone").notNull(),
   email: text("email").notNull(),
   logo_url: text("logo_url"),
+  timezone: text("timezone").notNull().default("America/Sao_Paulo"), // Fuso horário
   open_time: text("open_time").notNull().default("08:00"),
   close_time: text("close_time").notNull().default("20:00"),
   open_days: integer("open_days").array().notNull().default([1, 2, 3, 4, 5, 6]), // Days of the week: 0 = Sunday, 1 = Monday, etc.

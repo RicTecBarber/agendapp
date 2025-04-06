@@ -76,8 +76,8 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
                       Usuários
                     </a>
                   </Link>
-                  <Link href="/admin/settings">
-                    <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/settings" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
+                  <Link href="/admin/barbershop-settings">
+                    <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/barbershop-settings" || location === "/admin/settings" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                       <Settings className="h-5 w-5 mr-3" />
                       Configurações
                     </a>

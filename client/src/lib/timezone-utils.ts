@@ -1,15 +1,41 @@
 import { format, parseISO } from 'date-fns';
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
+import { apiRequest } from '@/lib/queryClient';
 
 // Fuso horário padrão do Brasil (Brasília)
 export const BRAZIL_TIMEZONE = 'America/Sao_Paulo';
 
+// Armazena o fuso horário configurado nas configurações da barbearia
+let configuredTimezone: string | null = null;
+
 /**
- * Obtém o fuso horário local do navegador
+ * Carrega o fuso horário configurado nas configurações da barbearia
+ */
+export async function loadConfiguredTimezone(): Promise<string> {
+  try {
+    const response = await apiRequest('GET', '/api/barbershop-settings');
+    const settings = await response.json();
+    if (settings && settings.timezone) {
+      configuredTimezone = settings.timezone;
+      console.log(`Fuso horário carregado: ${configuredTimezone}`);
+    } else {
+      configuredTimezone = BRAZIL_TIMEZONE;
+      console.log(`Usando fuso horário padrão: ${configuredTimezone}`);
+    }
+    return configuredTimezone;
+  } catch (error) {
+    console.error('Erro ao carregar o fuso horário configurado:', error);
+    configuredTimezone = BRAZIL_TIMEZONE;
+    return BRAZIL_TIMEZONE;
+  }
+}
+
+/**
+ * Obtém o fuso horário configurado
  */
 export function getLocalTimeZone(): string {
-  // Sempre retorna o fuso horário de Brasília para garantir consistência
-  return BRAZIL_TIMEZONE;
+  // Retorna o fuso horário configurado ou o padrão do Brasil se não estiver configurado
+  return configuredTimezone || BRAZIL_TIMEZONE;
 }
 
 /**

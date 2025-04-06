@@ -27,6 +27,7 @@ const barbershopSettingsSchema = z.object({
   address: z.string().min(1, "Endereço é obrigatório"),
   phone: z.string().min(1, "Telefone é obrigatório"),
   email: z.string().email("Email inválido"),
+  timezone: z.string().min(1, "Fuso horário é obrigatório"),
   open_time: z.string().min(1, "Horário de abertura é obrigatório"),
   close_time: z.string().min(1, "Horário de fechamento é obrigatório"),
   open_days: z.array(z.number()),
@@ -82,6 +83,7 @@ export default function BarbershopSettingsPage() {
       address: "",
       phone: "",
       email: "",
+      timezone: "America/Sao_Paulo",
       open_time: "08:00",
       close_time: "20:00",
       open_days: [1, 2, 3, 4, 5, 6],
@@ -319,7 +321,22 @@ export default function BarbershopSettingsPage() {
                 )}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Fuso horário */}
+                <FormField
+                  control={form.control}
+                  name="timezone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fuso Horário</FormLabel>
+                      <FormControl>
+                        <Input placeholder="America/Sao_Paulo" {...field} value={field.value || "America/Sao_Paulo"} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
                 {/* Horário de Abertura */}
                 <FormField
                   control={form.control}

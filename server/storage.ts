@@ -583,6 +583,7 @@ export class MemStorage implements IStorage {
     if (settings.address !== undefined) updatedSettings.address = settings.address;
     if (settings.phone !== undefined) updatedSettings.phone = settings.phone;
     if (settings.email !== undefined) updatedSettings.email = settings.email;
+    if (settings.timezone !== undefined) updatedSettings.timezone = settings.timezone;
     if (settings.open_time !== undefined) updatedSettings.open_time = settings.open_time;
     if (settings.close_time !== undefined) updatedSettings.close_time = settings.close_time;
     if (settings.open_days !== undefined) updatedSettings.open_days = settings.open_days;
@@ -605,6 +606,7 @@ export class MemStorage implements IStorage {
       phone: "(11) 98765-4321",
       email: "contato@barbersync.com",
       logo_url: "https://images.unsplash.com/photo-1583334837046-34ede1126010?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&h=200&q=80",
+      timezone: "America/Sao_Paulo", // Fuso horário de São Paulo (UTC-3)
       open_time: "08:00",
       close_time: "20:00",
       open_days: [1, 2, 3, 4, 5, 6],
