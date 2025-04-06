@@ -745,12 +745,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if appointment time plus service duration exceeds closing time
+      // Importante: Considera 3 horas a menos no UTC para fuso horário de São Paulo, Brasil (UTC-3)
       const shopEndCheckDate = new Date(appointmentData.appointment_date);
       shopEndCheckDate.setUTCMinutes(shopEndCheckDate.getUTCMinutes() + service.duration);
       
+      // Converter horário UTC para horário local (Brasil, -3 horas)
+      const shopEndHoursLocal = shopEndCheckDate.getUTCHours();
+      const shopEndMinutesLocal = shopEndCheckDate.getUTCMinutes();
+      
       const shopEndTimeObj = {
-        hours: shopEndCheckDate.getUTCHours(),
-        minutes: shopEndCheckDate.getUTCMinutes()
+        hours: shopEndHoursLocal,
+        minutes: shopEndMinutesLocal
       };
       
       console.log(`Debugging: Service duration: ${service.duration} min`);
@@ -805,9 +810,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profEndCheckDate = new Date(appointmentData.appointment_date);
       profEndCheckDate.setUTCMinutes(profEndCheckDate.getUTCMinutes() + service.duration);
       
+      // Converter horário UTC para horário local (Brasil, -3 horas)
+      const profEndHoursLocal = profEndCheckDate.getUTCHours();
+      const profEndMinutesLocal = profEndCheckDate.getUTCMinutes();
+      
       const profAvailEndTimeObj = {
-        hours: profEndCheckDate.getUTCHours(),
-        minutes: profEndCheckDate.getUTCMinutes()
+        hours: profEndHoursLocal,
+        minutes: profEndMinutesLocal
       };
       
       if (profAvailEndTimeObj.hours > profEndTime.hours || 
