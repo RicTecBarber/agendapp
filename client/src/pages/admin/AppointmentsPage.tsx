@@ -80,6 +80,26 @@ const AppointmentsPage = () => {
   const [isRewardRedemption, setIsRewardRedemption] = useState(false);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   
+  // Obter parâmetros da URL para pré-preencher o formulário
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const clienteParam = params.get('cliente');
+    const telefoneParam = params.get('telefone');
+    
+    if (clienteParam) {
+      setClientName(decodeURIComponent(clienteParam));
+    }
+    
+    if (telefoneParam) {
+      setClientPhone(decodeURIComponent(telefoneParam));
+    }
+    
+    // Se tiver parâmetros, abrir o diálogo de agendamento automaticamente
+    if (clienteParam || telefoneParam) {
+      setNewAppointmentDialog(true);
+    }
+  }, []);
+  
   // Logging para debug
   useEffect(() => {
     console.log("selectedService alterado:", selectedService);

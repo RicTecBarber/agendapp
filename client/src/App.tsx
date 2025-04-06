@@ -38,6 +38,7 @@ function Router() {
       <Route path="/admin/auth" component={AuthPage} />
       <ProtectedRoute path="/admin/dashboard" component={DashboardPage} />
       <ProtectedRoute path="/admin/appointments" component={AppointmentsPage} />
+      <ProtectedRoute path="/admin/agendamentos/novo" component={AppointmentsPage} />
       <ProtectedRoute path="/admin/clients" component={ClientsPage} />
       <ProtectedRoute path="/admin/loyalty" component={LoyaltyManagementPage} />
       <ProtectedRoute path="/admin/services" component={ServicesPage} />
