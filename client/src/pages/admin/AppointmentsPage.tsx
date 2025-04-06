@@ -78,6 +78,11 @@ const AppointmentsPage = () => {
   const [notifyWhatsapp, setNotifyWhatsapp] = useState(true);
   const [isRewardRedemption, setIsRewardRedemption] = useState(false);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  
+  // Logging para debug
+  useEffect(() => {
+    console.log("selectedService alterado:", selectedService);
+  }, [selectedService]);
 
   // Get appointments data
   const { 
@@ -98,9 +103,14 @@ const AppointmentsPage = () => {
   
   // Get professionals by service for new appointment
   const { data: professionalsByService, isLoading: isLoadingProfessionalsByService } = useQuery({
-    queryKey: [`/api/professionals/service/${selectedService}`],
-    queryFn: selectedService ? undefined : () => Promise.resolve([]),
+    queryKey: ["/api/professionals/service", selectedService],
     enabled: !!selectedService, // Only run query when a service is selected
+    queryFn: async () => {
+      if (!selectedService) return [];
+      const res = await fetch(`/api/professionals/service/${selectedService}`);
+      if (!res.ok) throw new Error("Erro ao buscar profissionais");
+      return res.json();
+    }
   });
   
   // Get availability for selected professional and date
@@ -125,7 +135,7 @@ const AppointmentsPage = () => {
       // Invalidate appointments and professionals queries to refresh lists
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
       if (selectedService) {
-        queryClient.invalidateQueries({ queryKey: [`/api/professionals/service/${selectedService}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/professionals/service", selectedService] });
       }
       toast({
         title: "Agendamento criado",
@@ -593,7 +603,9 @@ const AppointmentsPage = () => {
               <Select
                 value={selectedService ? selectedService.toString() : ''}
                 onValueChange={(value) => {
-                  setSelectedService(parseInt(value));
+                  console.log("Service selecionado:", value); 
+                  const serviceId = parseInt(value);
+                  setSelectedService(serviceId);
                   setSelectedProfessional(null);
                   setSelectedTime(null);
                 }}
