@@ -31,11 +31,12 @@ export async function loadConfiguredTimezone(): Promise<string> {
 }
 
 /**
- * Obtém o fuso horário configurado
+ * ABORDAGEM SIMPLIFICADA: Sempre retorna o fuso horário padrão do Brasil
  */
 export function getLocalTimeZone(): string {
-  // Retorna o fuso horário configurado ou o padrão do Brasil se não estiver configurado
-  return configuredTimezone || BRAZIL_TIMEZONE;
+  // Retorna sempre o padrão do Brasil
+  console.log(`Usando fuso horário fixo: ${BRAZIL_TIMEZONE}`);
+  return BRAZIL_TIMEZONE;
 }
 
 /**

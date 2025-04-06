@@ -350,15 +350,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const professionalId = parseInt(req.params.professionalId);
       const dateParam = req.params.date; // Format: YYYY-MM-DD
-      const date = parseISO(dateParam);
       
-      // Get the day of week (0 = Sunday, 1 = Monday, etc.)
+      console.log(`[ABORDAGEM SIMPLIFICADA] Buscando disponibilidade para ${dateParam}`);
+      
+      // Criar objeto Date apenas para obter o dia da semana
+      const date = new Date(dateParam);
       const dayOfWeek = date.getDay();
       
       // Get barbershop settings
       const barbershopSettings = await storage.getBarbershopSettings();
       
-      // Check if the barbershop is open on this day
+      // Verificar se a barbearia está aberta nesse dia da semana
       if (!barbershopSettings.open_days.includes(dayOfWeek)) {
         return res.json({ 
           available_slots: [],
@@ -366,7 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get professional's availability for this day
+      // Obter disponibilidade do profissional para esse dia da semana
       const availabilityList = await storage.getAvailabilityByProfessionalId(professionalId);
       const dayAvailability = availabilityList.find(a => a.day_of_week === dayOfWeek && a.is_available);
       
@@ -661,19 +663,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
-      // NOVA ABORDAGEM: Trabalhar com horários locais em todo o fluxo
-      // A data vem do cliente já no formato local (conforme nova abordagem no timezone-utils.ts)
-      console.log(`Data do agendamento recebida: ${appointmentData.appointment_date.toISOString()}`);
-      
-      // Usamos a data como está, sem conversões para UTC
+      // ABORDAGEM SIMPLIFICADA: Trabalhar diretamente com os horários fornecidos
       const appointmentDate = appointmentData.appointment_date;
       
-      // Extraímos a representação da hora para logs usando getHours para horário local
-      const timeStr = `${appointmentDate.getHours().toString().padStart(2, '0')}:${appointmentDate.getMinutes().toString().padStart(2, '0')}`;
-      console.log(`[NOVA ABORDAGEM] VERIFICANDO AGENDAMENTO: Horário local: ${timeStr}, Data: ${appointmentDate.toISOString()}`);
+      // Extrair as horas e minutos para facilitar comparações
+      const appointmentHour = appointmentDate.getHours();
+      const appointmentMinute = appointmentDate.getMinutes();
+      const timeStr = `${appointmentHour.toString().padStart(2, '0')}:${appointmentMinute.toString().padStart(2, '0')}`;
+      
+      console.log(`[ABORDAGEM SIMPLIFICADA] VERIFICANDO AGENDAMENTO: Horário: ${timeStr}, Data: ${appointmentDate.toISOString()}`);
+      
+      // Obter configurações da barbearia para verificar horário de funcionamento
+      const barbershopSettings = await storage.getBarbershopSettings();
+      const openTime = parseTime(barbershopSettings.open_time);
+      const closeTime = parseTime(barbershopSettings.close_time);
+      
+      console.log(`[ABORDAGEM SIMPLIFICADA] Verificando horários - Agendamento: ${appointmentHour}:${appointmentMinute}, Barbearia abre: ${openTime.hours}:${openTime.minutes}, fecha: ${closeTime.hours}:${closeTime.minutes}`);
+      
+      // Verificar se o horário está dentro do período de funcionamento da barbearia
+      const isBeforeOpen = 
+        appointmentHour < openTime.hours || 
+        (appointmentHour === openTime.hours && appointmentMinute < openTime.minutes);
+        
+      // Verificar duração do serviço
+      const service = await storage.getService(appointmentData.service_id);
+      if (!service) {
+        return res.status(400).json({ message: "Serviço não encontrado" });
+      }
+      
+      // Calcular horário de término do serviço
+      let endHour = appointmentHour;
+      let endMinute = appointmentMinute + service.duration;
+      
+      // Ajustar se cruzar hora
+      while (endMinute >= 60) {
+        endHour++;
+        endMinute -= 60;
+      }
+      
+      console.log(`[ABORDAGEM SIMPLIFICADA] Verificando horário de término - Serviço: ${service.duration} min`);
+      console.log(`[ABORDAGEM SIMPLIFICADA] Horário início: ${appointmentHour}:${appointmentMinute}`);
+      console.log(`[ABORDAGEM SIMPLIFICADA] Horário término calculado: ${endHour}:${endMinute}`);
+      console.log(`[ABORDAGEM SIMPLIFICADA] Horário fechamento da barbearia: ${closeTime.hours}:${closeTime.minutes}`);
+      
+      // Verificar se o horário de término está após o fechamento
+      const isAfterClose = 
+        endHour > closeTime.hours || 
+        (endHour === closeTime.hours && endMinute > closeTime.minutes);
+      
+      if (isBeforeOpen) {
+        return res.status(400).json({ 
+          message: `Não é possível agendar para antes do horário de abertura da barbearia (${barbershopSettings.open_time})`
+        });
+      }
+      
+      if (isAfterClose) {
+        return res.status(400).json({ 
+          message: `O serviço de ${service.duration} minutos agendado para ${timeStr} terminaria após o horário de fechamento da barbearia (${barbershopSettings.close_time})`
+        });
+      }
       
       // Buscar apenas os agendamentos para o mesmo dia
-      // Criamos uma data para o início do dia (usando horário local)
       const sameDate = new Date(
         appointmentDate.getFullYear(),
         appointmentDate.getMonth(),
@@ -714,11 +764,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Validate service exists
-      const service = await storage.getService(appointmentData.service_id);
-      if (!service) {
-        return res.status(400).json({ message: "Serviço inválido" });
-      }
+      // Já validamos o serviço no início da função
       
       // Validate professional exists
       const professional = await storage.getProfessional(appointmentData.professional_id);
@@ -731,11 +777,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Este profissional não oferece o serviço selecionado" });
       }
       
-      // Get barbershop settings
-      const barbershopSettings = await storage.getBarbershopSettings();
-      
       // Get day of week for the appointment
-      const dayOfWeek = appointmentData.appointment_date.getDay();
+      const dayOfWeek = appointmentDate.getDay();
       
       // Check if the barbershop is open on this day
       if (!barbershopSettings.open_days.includes(dayOfWeek)) {
@@ -747,10 +790,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hours: appointmentDate.getHours(),
         minutes: appointmentDate.getMinutes()
       };
-      
-      // Check if the appointment is within barbershop hours
-      const openTime = parseTime(barbershopSettings.open_time);
-      const closeTime = parseTime(barbershopSettings.close_time);
       
       console.log(`[NOVA ABORDAGEM] Verificando horários - Agendamento: ${appointmentTime.hours}:${appointmentTime.minutes}, Barbearia abre: ${openTime.hours}:${openTime.minutes}, fecha: ${closeTime.hours}:${closeTime.minutes}`);
       
