@@ -385,19 +385,30 @@ export class MemStorage implements IStorage {
   async createAppointment(appointmentData: InsertAppointment): Promise<Appointment> {
     const id = this.appointmentIdCounter++;
     const now = new Date();
+    
+    // SOLUÇÃO RADICAL: Usar appointment_date como string
+    // Verificar se a data é string ou Date
+    const dateValue = appointmentData.appointment_date;
+    console.log(`[STORAGE] Tipo de appointment_date recebido: ${typeof dateValue}`);
+    
+    // Criar o objeto de agendamento
     const appointment: Appointment = { 
       ...appointmentData, 
       id, 
       created_at: now,
-      status: "scheduled",
-      notify_whatsapp: appointmentData.notify_whatsapp || null,
-      is_loyalty_reward: appointmentData.is_loyalty_reward || null
+      status: appointmentData.status || "scheduled",
+      notify_whatsapp: appointmentData.notify_whatsapp || false,
+      is_loyalty_reward: appointmentData.is_loyalty_reward || false
     };
+    
+    // Log para debug
+    console.log(`[STORAGE] Agendamento criado com data: ${appointment.appointment_date}`);
     
     this.appointments.set(id, appointment);
     
     // Limpar o cache de agendamentos para este dia
-    const appointmentDate = new Date(appointment.appointment_date);
+    // Vamos usar um objeto Date apenas para extrair a data (ano, mês, dia)
+    const appointmentDate = new Date(String(appointment.appointment_date));
     const dateKey = appointmentDate.toISOString().split('T')[0];
     this._appointmentsByDateCache.delete(dateKey);
     console.log(`Cache invalidado para data ${dateKey} após criação de novo agendamento`);

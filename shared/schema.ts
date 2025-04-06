@@ -77,11 +77,11 @@ const baseAppointmentSchema = createInsertSchema(appointments).omit({
   status: true 
 });
 
-// Modify to allow string for appointment_date and transform it to Date
+// SOLUÇÃO PARA O PROBLEMA DE TIMEZONE: Manter o horário como string
 export const insertAppointmentSchema = baseAppointmentSchema.extend({
   appointment_date: z.union([
-    z.string().transform(str => new Date(str)),
-    z.date()
+    z.string(), // Manter como string para preservar o horário exato
+    z.date().transform(date => date.toISOString()) // Converter Date para string ISO
   ]),
   status: z.string().optional().default("scheduled"),
 });

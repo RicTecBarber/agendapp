@@ -673,8 +673,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let appointmentData: InsertAppointment;
       
       if (typeof req.body.appointment_date === 'string' && req.body.appointment_date.includes('LOCAL')) {
-        // O front-end está usando nosso formato personalizado
-        // Vamos extrair o horário diretamente da string no formato '2025-04-07T18:30:00.000LOCAL'
+        // NOVA SOLUÇÃO: Vamos trabalhar com a data em formato de string diretamente
+        // Formato esperado do frontend: '2025-04-07T09:00:00.000LOCAL'
         const dateString = req.body.appointment_date.replace('LOCAL', '');
         
         // Extrair os componentes da data
@@ -682,30 +682,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (match) {
           const [_, year, month, day, hours, minutes] = match;
-          console.log(`[SOLUÇÃO FINAL] Data extraída manualmente: ano=${year}, mês=${month}, dia=${day}, hora=${hours}, minutos=${minutes}`);
+          console.log(`[SOLUÇÃO RADICAL] Data extraída: ano=${year}, mês=${month}, dia=${day}, hora=${hours}, minutos=${minutes}`);
           
-          // CORREÇÃO: Criar a data como UTC diretamente para preservar o horário exato
-          // Ao criar a data como UTC, o horário se mantém igual, independente do fuso horário
-          appointmentDate = new Date(Date.UTC(
-            parseInt(year),
-            parseInt(month) - 1, // mês em JS começa em 0
-            parseInt(day),
-            parseInt(hours),
-            parseInt(minutes),
-            0, 0
-          ));
+          // Criar uma string ISO padrão com os valores exatos (sem conversão de timezone)
+          // Este formato será salvo diretamente no banco sem conversões
+          const rawISOString = `${year}-${month}-${day}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00.000Z`;
+          console.log(`[SOLUÇÃO RADICAL] String ISO criada: ${rawISOString}`);
           
-          console.log(`[CORREÇÃO] Data UTC criada para: ${appointmentDate.toISOString()}`);
-          console.log(`[CORREÇÃO] Horário extraído original: ${hours}:${minutes}`);
-          console.log(`[CORREÇÃO] Horário na data criada: ${appointmentDate.getUTCHours()}:${appointmentDate.getUTCMinutes()}`);
+          // Criar a data oficial apenas para validações
+          appointmentDate = new Date(rawISOString);
           
-          // Criar um novo objeto com os dados validados
+          // Log de diagnóstico
+          console.log(`[SOLUÇÃO RADICAL] Horário original: ${hours}:${minutes}`);
+          console.log(`[SOLUÇÃO RADICAL] String ISO para salvar: ${rawISOString}`);
+          
+          // Criar um novo objeto com os dados validados - usando a string ISO diretamente
           appointmentData = {
             client_name: req.body.client_name,
             client_phone: req.body.client_phone,
             service_id: req.body.service_id,
             professional_id: req.body.professional_id,
-            appointment_date: appointmentDate,
+            // Usar a string diretamente, sem criar um objeto Date
+            appointment_date: rawISOString,
             notify_whatsapp: req.body.notify_whatsapp,
             is_loyalty_reward: req.body.is_loyalty_reward,
             status: "scheduled"
@@ -717,7 +715,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Usar o esquema normal de validação (isso não deve mais acontecer)
         appointmentData = insertAppointmentSchema.parse(req.body);
-        appointmentDate = new Date(appointmentData.appointment_date);
+        const dateObj = new Date(appointmentData.appointment_date);
+        
+        // Converter para string ISO diretamente
+        const rawISOString = dateObj.toISOString();
+        appointmentData.appointment_date = rawISOString;
+        appointmentDate = dateObj;
       }
       
       console.log(`[SOLUÇÃO FINAL] Data recebida (tipo): ${typeof req.body.appointment_date}`);
@@ -995,11 +998,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Log para diagnóstico
-      console.log(`Data original recebida: ${req.body.appointment_date}`);
-      console.log(`Data ajustada para salvamento: ${fixedAppointmentData.appointment_date.toISOString()}`);
+      console.log(`[SOLUÇÃO RADICAL] Data original recebida: ${req.body.appointment_date}`);
+      console.log(`[SOLUÇÃO RADICAL] Data para salvar (string): ${appointmentData.appointment_date}`);
       
-      // Create the appointment
-      const appointment = await storage.createAppointment(fixedAppointmentData);
+      // Verifica se appointment_date é string ou Date
+      console.log(`[SOLUÇÃO RADICAL] Tipo da data para salvar: ${typeof appointmentData.appointment_date}`);
+      
+      // Create the appointment com a data em formato string
+      const appointment = await storage.createAppointment(appointmentData);
       
       // If this is a loyalty reward redemption, update the client's loyalty record
       if (appointmentData.is_loyalty_reward) {
