@@ -4,7 +4,8 @@ import {
   professionals, type Professional, type InsertProfessional,
   availability, type Availability, type InsertAvailability,
   appointments, type Appointment, type InsertAppointment,
-  clientRewards, type ClientReward, type InsertClientReward
+  clientRewards, type ClientReward, type InsertClientReward,
+  barbershopSettings, type BarbershopSettings, type InsertBarbershopSettings
 } from "@shared/schema";
 import createMemoryStore from "memorystore";
 import session from "express-session";
@@ -56,6 +57,11 @@ export interface IStorage {
   incrementAttendanceCount(clientPhone: string): Promise<ClientReward | undefined>;
   useReward(clientPhone: string): Promise<ClientReward | undefined>;
   
+  // Barbershop Settings operations
+  getBarbershopSettings(): Promise<BarbershopSettings | undefined>;
+  createBarbershopSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings>;
+  updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings | undefined>;
+  
   // SessionStore for auth
   sessionStore: session.SessionStore;
 }
@@ -68,6 +74,7 @@ export class MemStorage implements IStorage {
   private availability: Map<number, Availability>;
   private appointments: Map<number, Appointment>;
   private clientRewards: Map<number, ClientReward>;
+  private barbershopSettings: BarbershopSettings | undefined;
   
   sessionStore: session.SessionStore;
   
@@ -366,8 +373,68 @@ export class MemStorage implements IStorage {
     return updatedReward;
   }
   
+  // Barbershop Settings operations
+  async getBarbershopSettings(): Promise<BarbershopSettings | undefined> {
+    return this.barbershopSettings;
+  }
+  
+  async createBarbershopSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings> {
+    const now = new Date();
+    this.barbershopSettings = {
+      id: 1,
+      ...settings,
+      created_at: now,
+      updated_at: now
+    };
+    return this.barbershopSettings;
+  }
+  
+  async updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings | undefined> {
+    if (!this.barbershopSettings) {
+      // Se as configurações não existirem, crie-as com valores padrão
+      return this.createBarbershopSettings({
+        name: "BarberSync",
+        address: "Rua Exemplo, 123",
+        phone: "(11) 99999-9999",
+        email: "contato@barbersync.com",
+        open_time: "08:00",
+        close_time: "20:00",
+        open_days: [1, 2, 3, 4, 5, 6],
+        description: "A melhor barbearia da cidade",
+        ...settings
+      });
+    }
+    
+    const updatedSettings = {
+      ...this.barbershopSettings,
+      ...settings,
+      updated_at: new Date()
+    };
+    
+    this.barbershopSettings = updatedSettings;
+    return updatedSettings;
+  }
+  
   // Seed initial data for development
   private seedInitialData() {
+    // Add barbershop settings
+    this.barbershopSettings = {
+      id: 1,
+      name: "BarberSync",
+      address: "Avenida Paulista, 1000 - São Paulo, SP",
+      phone: "(11) 98765-4321",
+      email: "contato@barbersync.com",
+      logo_url: "https://images.unsplash.com/photo-1583334837046-34ede1126010?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&h=200&q=80",
+      open_time: "08:00",
+      close_time: "20:00",
+      open_days: [1, 2, 3, 4, 5, 6],
+      description: "A melhor barbearia da cidade com atendimento de qualidade.",
+      instagram: "@barbersync",
+      facebook: "facebook.com/barbersync",
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+    
     // Add an admin user
     this.createUser({
       username: "admin",

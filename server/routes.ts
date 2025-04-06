@@ -7,7 +7,8 @@ import {
   insertAvailabilitySchema,
   insertAppointmentSchema,
   appointmentLookupSchema,
-  loyaltyLookupSchema
+  loyaltyLookupSchema,
+  insertBarbershopSettingsSchema
 } from "@shared/schema";
 import { parseISO, format, addMinutes, isAfter } from "date-fns";
 import { setupAuth } from "./auth";
@@ -327,12 +328,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the day of week (0 = Sunday, 1 = Monday, etc.)
       const dayOfWeek = date.getDay();
       
+      // Get barbershop settings
+      const barbershopSettings = await storage.getBarbershopSettings();
+      
+      // Check if the barbershop is open on this day
+      if (barbershopSettings && !barbershopSettings.open_days.includes(dayOfWeek)) {
+        return res.json({ 
+          available_slots: [],
+          message: "A barbearia está fechada neste dia" 
+        });
+      }
+      
       // Get professional's availability for this day
       const availabilityList = await storage.getAvailabilityByProfessionalId(professionalId);
       const dayAvailability = availabilityList.find(a => a.day_of_week === dayOfWeek && a.is_available);
       
       if (!dayAvailability) {
-        return res.json({ available_slots: [] });
+        return res.json({ 
+          available_slots: [],
+          message: "O profissional não está disponível neste dia" 
+        });
       }
       
       // Get all appointments for this professional on this date
@@ -343,8 +358,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate time slots
       const timeSlots = [];
-      const startTime = parseTime(dayAvailability.start_time);
-      const endTime = parseTime(dayAvailability.end_time);
+      
+      // Get professional's availability time
+      let startTime = parseTime(dayAvailability.start_time);
+      let endTime = parseTime(dayAvailability.end_time);
+      
+      // If barbershop settings exist, adjust the availability to be within the barbershop's hours
+      if (barbershopSettings) {
+        const barbershopOpenTime = parseTime(barbershopSettings.open_time);
+        const barbershopCloseTime = parseTime(barbershopSettings.close_time);
+        
+        // Ensure start time is not earlier than barbershop opening time
+        if (startTime.hours < barbershopOpenTime.hours || 
+            (startTime.hours === barbershopOpenTime.hours && startTime.minutes < barbershopOpenTime.minutes)) {
+          startTime = barbershopOpenTime;
+        }
+        
+        // Ensure end time is not later than barbershop closing time
+        if (endTime.hours > barbershopCloseTime.hours || 
+            (endTime.hours === barbershopCloseTime.hours && endTime.minutes > barbershopCloseTime.minutes)) {
+          endTime = barbershopCloseTime;
+        }
+      }
       
       let currentSlot = new Date(date);
       currentSlot.setHours(startTime.hours, startTime.minutes, 0, 0);
@@ -396,28 +431,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate service exists
       const service = await storage.getService(appointmentData.service_id);
       if (!service) {
-        return res.status(400).json({ message: "Invalid service" });
+        return res.status(400).json({ message: "Serviço inválido" });
       }
       
       // Validate professional exists
       const professional = await storage.getProfessional(appointmentData.professional_id);
       if (!professional) {
-        return res.status(400).json({ message: "Invalid professional" });
+        return res.status(400).json({ message: "Profissional inválido" });
       }
       
       // Check if professional offers this service
       if (!(professional.services_offered as number[]).includes(appointmentData.service_id)) {
-        return res.status(400).json({ message: "This professional does not offer the selected service" });
+        return res.status(400).json({ message: "Este profissional não oferece o serviço selecionado" });
       }
       
-      // Check if the appointment slot is available
+      // Get barbershop settings
+      const barbershopSettings = await storage.getBarbershopSettings();
+      
+      // Get day of week for the appointment
       const dayOfWeek = appointmentData.appointment_date.getDay();
       
+      // Check if the barbershop is open on this day
+      if (barbershopSettings && !barbershopSettings.open_days.includes(dayOfWeek)) {
+        return res.status(400).json({ message: "A barbearia está fechada neste dia" });
+      }
+      
+      // Get appointment time
+      const appointmentTime = {
+        hours: appointmentData.appointment_date.getHours(),
+        minutes: appointmentData.appointment_date.getMinutes()
+      };
+      
+      // Check if the appointment is within barbershop hours
+      if (barbershopSettings) {
+        const openTime = parseTime(barbershopSettings.open_time);
+        const closeTime = parseTime(barbershopSettings.close_time);
+        
+        // Check if appointment time is before opening time
+        if (appointmentTime.hours < openTime.hours || 
+            (appointmentTime.hours === openTime.hours && appointmentTime.minutes < openTime.minutes)) {
+          return res.status(400).json({ message: "O horário do agendamento é antes do horário de abertura da barbearia" });
+        }
+        
+        // Check if appointment time plus service duration exceeds closing time
+        const appointmentEndTime = new Date(appointmentData.appointment_date);
+        appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + service.duration);
+        
+        const endTime = {
+          hours: appointmentEndTime.getHours(),
+          minutes: appointmentEndTime.getMinutes()
+        };
+        
+        if (endTime.hours > closeTime.hours || 
+            (endTime.hours === closeTime.hours && endTime.minutes > closeTime.minutes)) {
+          return res.status(400).json({ message: "O horário do agendamento ultrapassa o horário de fechamento da barbearia" });
+        }
+      }
+      
+      // Check if the professional is available on this day
       const availabilityList = await storage.getAvailabilityByProfessionalId(appointmentData.professional_id);
       const dayAvailability = availabilityList.find(a => a.day_of_week === dayOfWeek);
       
       if (!dayAvailability || !dayAvailability.is_available) {
-        return res.status(400).json({ message: "The professional is not available on this day" });
+        return res.status(400).json({ message: "O profissional não está disponível neste dia" });
+      }
+      
+      // Check if the appointment is within the professional's availability hours
+      const profStartTime = parseTime(dayAvailability.start_time);
+      const profEndTime = parseTime(dayAvailability.end_time);
+      
+      // Check if appointment time is before professional's start time
+      if (appointmentTime.hours < profStartTime.hours || 
+          (appointmentTime.hours === profStartTime.hours && appointmentTime.minutes < profStartTime.minutes)) {
+        return res.status(400).json({ message: "O horário do agendamento é antes do horário de disponibilidade do profissional" });
+      }
+      
+      // Check if appointment time plus service duration exceeds professional's end time
+      const appointmentEndTime = new Date(appointmentData.appointment_date);
+      appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + service.duration);
+      
+      const endTime = {
+        hours: appointmentEndTime.getHours(),
+        minutes: appointmentEndTime.getMinutes()
+      };
+      
+      if (endTime.hours > profEndTime.hours || 
+          (endTime.hours === profEndTime.hours && endTime.minutes > profEndTime.minutes)) {
+        return res.status(400).json({ message: "O horário do agendamento ultrapassa o horário de disponibilidade do profissional" });
+      }
+      
+      // Check if the slot is already booked
+      const appointments = await storage.getAppointmentsByDate(appointmentData.appointment_date);
+      const conflictingAppointment = appointments.find(a => {
+        if (a.professional_id !== appointmentData.professional_id || a.status === "cancelled") {
+          return false;
+        }
+        
+        const existingStartTime = new Date(a.appointment_date);
+        const existingService = service; // Simplified, ideally would fetch the service
+        const existingEndTime = new Date(existingStartTime);
+        existingEndTime.setMinutes(existingEndTime.getMinutes() + (existingService?.duration || 30));
+        
+        const newStartTime = new Date(appointmentData.appointment_date);
+        const newEndTime = new Date(newStartTime);
+        newEndTime.setMinutes(newEndTime.getMinutes() + service.duration);
+        
+        return (
+          (newStartTime >= existingStartTime && newStartTime < existingEndTime) ||
+          (newEndTime > existingStartTime && newEndTime <= existingEndTime) ||
+          (newStartTime <= existingStartTime && newEndTime >= existingEndTime)
+        );
+      });
+      
+      if (conflictingAppointment) {
+        return res.status(400).json({ message: "Este horário já está reservado" });
       }
       
       // Create the appointment
@@ -784,6 +911,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch chart data" });
+    }
+  });
+  
+  // GET /api/barbershop-settings - Get barbershop settings
+  app.get("/api/barbershop-settings", async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getBarbershopSettings();
+      
+      if (!settings) {
+        return res.status(404).json({ message: "Barbershop settings not found" });
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch barbershop settings" });
+    }
+  });
+  
+  // POST /api/barbershop-settings - Create barbershop settings
+  app.post("/api/barbershop-settings", async (req: Request, res: Response) => {
+    try {
+      // Validate request body
+      const validationResult = insertBarbershopSettingsSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid barbershop settings data", 
+          errors: validationResult.error.errors 
+        });
+      }
+      
+      const settings = await storage.createBarbershopSettings(validationResult.data);
+      res.status(201).json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create barbershop settings" });
+    }
+  });
+  
+  // PUT /api/barbershop-settings - Update barbershop settings
+  app.put("/api/barbershop-settings", async (req: Request, res: Response) => {
+    try {
+      // Validate request body
+      const validationResult = insertBarbershopSettingsSchema.partial().safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid barbershop settings data", 
+          errors: validationResult.error.errors 
+        });
+      }
+      
+      const updatedSettings = await storage.updateBarbershopSettings(validationResult.data);
+      
+      if (!updatedSettings) {
+        return res.status(404).json({ message: "Barbershop settings not found" });
+      }
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update barbershop settings" });
     }
   });
 

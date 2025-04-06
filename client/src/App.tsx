@@ -22,6 +22,7 @@ import ServicesPage from "@/pages/admin/ServicesPage";
 import UsersPage from "@/pages/admin/UsersPage";
 import ProfessionalsPage from "@/pages/admin/ProfessionalsPage";
 import AvailabilityManagementPage from "@/pages/admin/AvailabilityManagementPage";
+import BarbershopSettingsPage from "@/pages/admin/BarbershopSettingsPage";
 
 function Router() {
   return (
@@ -42,6 +43,7 @@ function Router() {
       <ProtectedRoute path="/admin/professionals" component={ProfessionalsPage} />
       <ProtectedRoute path="/admin/professionals/:id/availability" component={AvailabilityManagementPage} />
       <ProtectedRoute path="/admin/users" component={UsersPage} />
+      <ProtectedRoute path="/admin/settings" component={BarbershopSettingsPage} />
       
       {/* Fallback Route */}
       <Route component={NotFound} />

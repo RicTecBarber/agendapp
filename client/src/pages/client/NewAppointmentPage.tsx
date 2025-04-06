@@ -106,6 +106,15 @@ const NewAppointmentPage = () => {
           const res = await fetch(`/api/availability/${selectedProfessional.id}/${formattedDate}`);
           const data = await res.json();
           setAvailableTimes(data.available_slots || []);
+          
+          // Se tiver uma mensagem de indisponibilidade, exibir para o usuário
+          if (data.message) {
+            toast({
+              title: "Horários Indisponíveis",
+              description: data.message,
+              variant: "destructive"
+            });
+          }
         } catch (error) {
           toast({
             title: "Erro ao buscar horários",
@@ -313,9 +322,13 @@ const NewAppointmentPage = () => {
                         Horários disponíveis - {format(selectedDate, "dd/MM/yyyy")}:
                       </p>
                       {availableTimes.length === 0 ? (
-                        <p className="text-neutral-dark text-center py-4">
-                          Não há horários disponíveis para esta data.
-                        </p>
+                        <div className="text-neutral-dark text-center py-4 bg-neutral-50 border border-neutral-200 rounded-md p-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto mb-2 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p>Não há horários disponíveis para esta data.</p>
+                          <p className="text-xs mt-1">Verifique outras datas ou entre em contato conosco.</p>
+                        </div>
                       ) : (
                         <div className="grid grid-cols-3 gap-3">
                           {availableTimes.map((time) => (

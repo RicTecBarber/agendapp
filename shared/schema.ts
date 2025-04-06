@@ -130,3 +130,27 @@ export const loginSchema = z.object({
 });
 
 export type LoginData = z.infer<typeof loginSchema>;
+
+// Barbershop Settings
+export const barbershopSettings = pgTable("barbershop_settings", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  address: text("address").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email").notNull(),
+  logo_url: text("logo_url"),
+  open_time: text("open_time").notNull().default("08:00"),
+  close_time: text("close_time").notNull().default("20:00"),
+  open_days: integer("open_days").array().notNull().default([1, 2, 3, 4, 5, 6]), // Days of the week: 0 = Sunday, 1 = Monday, etc.
+  description: text("description"),
+  instagram: text("instagram"),
+  facebook: text("facebook"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertBarbershopSettingsSchema = createInsertSchema(barbershopSettings).omit({ 
+  id: true, created_at: true, updated_at: true
+});
+export type InsertBarbershopSettings = z.infer<typeof insertBarbershopSettingsSchema>;
+export type BarbershopSettings = typeof barbershopSettings.$inferSelect;
