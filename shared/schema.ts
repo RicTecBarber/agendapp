@@ -110,7 +110,7 @@ export type ClientReward = typeof clientRewards.$inferSelect;
 
 // Form validation schema for appointment lookup
 export const appointmentLookupSchema = z.object({
-  client_name: z.string().min(1, "Nome é obrigatório"),
+  client_name: z.string().optional(),
   client_phone: z.string().min(1, "Telefone é obrigatório"),
 });
 

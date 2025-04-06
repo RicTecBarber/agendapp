@@ -875,16 +875,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/appointments/lookup - Lookup appointments by client name and phone
+  // GET /api/appointments/lookup - Lookup appointments by client phone (name is optional)
   app.post("/api/appointments/lookup", async (req: Request, res: Response) => {
     try {
       const lookupData = appointmentLookupSchema.parse(req.body);
       const appointments = await storage.getAppointmentsByClientPhone(lookupData.client_phone);
       
-      // Filter by client name (case insensitive)
-      const clientAppointments = appointments.filter(
-        a => a.client_name.toLowerCase() === lookupData.client_name.toLowerCase()
-      );
+      // Filter by client name (case insensitive) only if name is provided
+      let clientAppointments = appointments;
+      if (lookupData.client_name && lookupData.client_name.trim() !== '') {
+        clientAppointments = appointments.filter(
+          a => a.client_name.toLowerCase() === lookupData.client_name!.toLowerCase()
+        );
+      }
       
       // Enrich with service and professional details
       const services = await storage.getAllServices();

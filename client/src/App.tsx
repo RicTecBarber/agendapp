@@ -30,6 +30,7 @@ function Router() {
       {/* Client Routes */}
       <Route path="/" component={ClientHomePage} />
       <Route path="/new-appointment" component={NewAppointmentPage} />
+      <Route path="/client/consultar" component={CheckAppointmentPage} />
       <Route path="/check-appointment" component={CheckAppointmentPage} />
       <Route path="/loyalty" component={LoyaltyPage} />
       

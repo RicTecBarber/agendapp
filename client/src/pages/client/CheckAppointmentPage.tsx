@@ -109,10 +109,10 @@ const CheckAppointmentPage = () => {
   const handleLookup = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name || !phone) {
+    if (!phone) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Por favor, preencha seu nome e telefone.",
+        title: "Campo obrigatório",
+        description: "Por favor, preencha seu telefone para buscar os agendamentos.",
         variant: "destructive",
       });
       return;
@@ -147,7 +147,6 @@ const CheckAppointmentPage = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="mt-1"
-                    required
                   />
                 </div>
                 <div>
