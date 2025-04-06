@@ -87,35 +87,40 @@ const ClientsPage = () => {
     );
   });
   
-  // Fetch loyalty info for all clients
+  // Fetch loyalty info for clients with rewards
   useEffect(() => {
-    if (clients.length > 0 && !isLoadingAppointments) {
+    if (!isLoadingAppointments && clients.length > 0) {
       setIsLoadingRewards(true);
-      const fetchRewards = async () => {
-        const clientsWithRewardsArray = [];
-        
-        for (const client of clients) {
-          try {
-            const response = await fetch(`/api/loyalty/${client.client_phone}`);
-            if (response.ok) {
-              const loyaltyData = await response.json();
-              if (loyaltyData && loyaltyData.eligible_rewards > 0) {
-                clientsWithRewardsArray.push({
-                  ...client,
-                  ...loyaltyData
-                });
-              }
-            }
-          } catch (error) {
-            console.error(`Error fetching loyalty data for ${client.client_phone}:`, error);
+      
+      // Função para obter dados de fidelidade de um cliente específico
+      const fetchClientLoyalty = async (client: any) => {
+        try {
+          const response = await fetch(`/api/loyalty/${encodeURIComponent(client.client_phone)}`);
+          if (response.ok) {
+            const data = await response.json();
+            return { ...client, ...data };
           }
+        } catch (error) {
+          console.error("Error fetching client loyalty:", error);
         }
+        return null;
+      };
+
+      // Função para lidar com a busca de todos os clientes
+      const fetchAllClientsLoyalty = async () => {
+        // Buscar dados de fidelidade para todos os clientes (limitado a 20 para performance)
+        const loyaltyPromises = clients.slice(0, 20).map(client => fetchClientLoyalty(client));
+        const results = await Promise.all(loyaltyPromises);
         
-        setClientsWithRewards(clientsWithRewardsArray);
+        // Filtrar clientes com recompensas disponíveis
+        const clientsWithRewards = results
+          .filter(result => result && result.eligible_rewards && result.eligible_rewards > 0);
+        
+        setClientsWithRewards(clientsWithRewards);
         setIsLoadingRewards(false);
       };
       
-      fetchRewards();
+      fetchAllClientsLoyalty();
     }
   }, [clients, isLoadingAppointments]);
 
@@ -123,7 +128,7 @@ const ClientsPage = () => {
   const handleClientClick = async (client: any) => {
     try {
       // Fetch client loyalty data
-      const response = await fetch(`/api/loyalty/${client.client_phone}`);
+      const response = await fetch(`/api/loyalty/${encodeURIComponent(client.client_phone)}`);
       if (!response.ok) {
         throw new Error("Failed to fetch client data");
       }
