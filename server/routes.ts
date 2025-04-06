@@ -477,8 +477,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Como os dados no banco estão em UTC, usamos UTC para extrair horas
         // Isso garante que os dados sejam exibidos de forma consistente em qualquer fuso horário
-        const appointmentHour = appointmentDate.getUTCHours();
-        const appointmentMinute = appointmentDate.getUTCMinutes();
+        // Porém, no Brasil, queremos converter de UTC para Brasília (UTC-3)
+        
+        // Horário em UTC
+        const utcHour = appointmentDate.getUTCHours();
+        const utcMinute = appointmentDate.getUTCMinutes();
+        
+        // Convertendo para horário de Brasília (UTC-3)
+        const brasilOffset = -3;
+        let appointmentHour = utcHour + brasilOffset;
+        if (appointmentHour < 0) appointmentHour += 24;
+        const appointmentMinute = utcMinute;
         
         console.log(`Agendamento #${appointment.id}:`, {
           hora_original_ISO: appointmentDate.toISOString(),
