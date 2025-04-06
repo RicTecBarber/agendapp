@@ -86,7 +86,16 @@ const NewAppointmentPage = () => {
     onSuccess: (data) => {
       setAppointment(data);
       setCurrentStep("confirmation");
+      // Invalidar consultas para atualizar dados
       queryClient.invalidateQueries({ queryKey: ["/api/loyalty", clientPhone] });
+      
+      // Invalidar a consulta de disponibilidade para que os horários sejam atualizados
+      if (selectedDate && selectedProfessional) {
+        const formattedDate = format(selectedDate, "yyyy-MM-dd");
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/availability/${selectedProfessional.id}/${formattedDate}`] 
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -97,77 +106,70 @@ const NewAppointmentPage = () => {
     },
   });
   
-  // Fetch available time slots when date and professional are selected
+  // Query para buscar horários disponíveis
+  const { data: availabilityData, isLoading: isLoadingAvailability } = useQuery({
+    queryKey: selectedDate && selectedProfessional 
+      ? [`/api/availability/${selectedProfessional.id}/${format(selectedDate, "yyyy-MM-dd")}`]
+      : ['no-availability'],
+    enabled: !!(selectedDate && selectedProfessional),
+    staleTime: 0, // Não armazenar em cache para sempre garantir dados atualizados
+    refetchOnWindowFocus: true, // Recarregar quando o usuário volta para a janela
+  });
+  
+  // Processar dados de disponibilidade quando eles mudam
   useEffect(() => {
-    const fetchAvailableTimes = async () => {
-      if (selectedDate && selectedProfessional) {
-        try {
-          const formattedDate = format(selectedDate, "yyyy-MM-dd");
-          const res = await fetch(`/api/availability/${selectedProfessional.id}/${formattedDate}`);
-          const data = await res.json();
-          
-          // Limpar horários anteriores antes de atualizar
-          setAvailableTimes([]);
-          setSelectedTime(null);
-          
-          // Log detalhado de todas as informações recebidas do backend
-          console.log("Resposta completa de disponibilidade:", JSON.stringify(data, null, 2));
-          
-          // Certificar-se de que estamos recebendo um array válido de horários
-          if (data.available_slots && Array.isArray(data.available_slots)) {
-            console.log("Horários disponíveis recebidos:", data.available_slots);
-            
-            // Verificar se temos informações de debug para identificar problemas
-            if (data.debug_info && data.debug_info.slot_details) {
-              console.log("Detalhes dos slots:", data.debug_info.slot_details);
-              
-              // Mostre slots indisponíveis 
-              const unavailableSlots = data.debug_info.slot_details
-                .filter(slot => !slot.available && slot.conflicts)
-                .map(slot => ({
-                  time: slot.time,
-                  conflicts: slot.conflicts
-                }));
-                
-              if (unavailableSlots.length > 0) {
-                console.log("Slots com conflito:", unavailableSlots);
-              }
-            }
-            
-            // Só atualizar com os horários que realmente estão disponíveis
-            setAvailableTimes(data.available_slots);
-          } else {
-            console.error("Formato inválido de dados recebidos:", data);
-            toast({
-              title: "Erro ao carregar horários",
-              description: "Os dados de horários disponíveis estão em formato inválido.",
-              variant: "destructive",
-            });
-          }
-          
-          // Se tiver uma mensagem de indisponibilidade, exibir para o usuário
-          if (data.message) {
-            toast({
-              title: "Horários Indisponíveis",
-              description: data.message,
-              variant: "destructive"
-            });
-          }
-        } catch (error) {
-          toast({
-            title: "Erro ao buscar horários",
-            description: "Não foi possível carregar os horários disponíveis.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        // Limpar os horários se a data ou profissional não forem selecionados
-        setAvailableTimes([]);
-      }
-    };
+    // Limpar seleção ao mudar de dia ou profissional
+    setSelectedTime(null);
     
-    fetchAvailableTimes();
-  }, [selectedDate, selectedProfessional, toast]);
+    if (!availabilityData) {
+      setAvailableTimes([]);
+      return;
+    }
+    
+    // Log detalhado de todas as informações recebidas do backend
+    console.log("Resposta completa de disponibilidade:", JSON.stringify(availabilityData, null, 2));
+    
+    // Certificar-se de que estamos recebendo um array válido de horários
+    if (availabilityData.available_slots && Array.isArray(availabilityData.available_slots)) {
+      console.log("Horários disponíveis recebidos:", availabilityData.available_slots);
+      
+      // Verificar se temos informações de debug para identificar problemas
+      if (availabilityData.debug_info && availabilityData.debug_info.slot_details) {
+        console.log("Detalhes dos slots:", availabilityData.debug_info.slot_details);
+        
+        // Mostre slots indisponíveis
+        const unavailableSlots = availabilityData.debug_info.slot_details
+          .filter((slot: any) => !slot.available && slot.conflicts)
+          .map((slot: any) => ({
+            time: slot.time,
+            conflicts: slot.conflicts
+          }));
+          
+        if (unavailableSlots.length > 0) {
+          console.log("Slots com conflito:", unavailableSlots);
+        }
+      }
+      
+      // Só atualizar com os horários que realmente estão disponíveis
+      setAvailableTimes(availabilityData.available_slots);
+    } else {
+      console.error("Formato inválido de dados recebidos:", availabilityData);
+      toast({
+        title: "Erro ao carregar horários",
+        description: "Os dados de horários disponíveis estão em formato inválido.",
+        variant: "destructive",
+      });
+    }
+    
+    // Se tiver uma mensagem de indisponibilidade, exibir para o usuário
+    if (availabilityData.message) {
+      toast({
+        title: "Horários Indisponíveis",
+        description: availabilityData.message,
+        variant: "destructive"
+      });
+    }
+  }, [availabilityData, toast]);
   
   // Navigation functions
   const nextStep = () => {

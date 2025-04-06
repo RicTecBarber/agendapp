@@ -320,6 +320,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // GET /api/availability/:professionalId/:date - Get available time slots for a professional on a date
   app.get("/api/availability/:professionalId/:date", async (req: Request, res: Response) => {
+    // Adicionar cabeçalhos para prevenir cache no navegador
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    
     try {
       const professionalId = parseInt(req.params.professionalId);
       const dateParam = req.params.date; // Format: YYYY-MM-DD
