@@ -684,15 +684,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const [_, year, month, day, hours, minutes] = match;
           console.log(`[SOLUÇÃO FINAL] Data extraída manualmente: ano=${year}, mês=${month}, dia=${day}, hora=${hours}, minutos=${minutes}`);
           
-          // Criar data com os componentes extraídos (sem conversão de timezone)
-          appointmentDate = new Date(
+          // CORREÇÃO: Criar a data como UTC diretamente para preservar o horário exato
+          // Ao criar a data como UTC, o horário se mantém igual, independente do fuso horário
+          appointmentDate = new Date(Date.UTC(
             parseInt(year),
             parseInt(month) - 1, // mês em JS começa em 0
             parseInt(day),
             parseInt(hours),
             parseInt(minutes),
             0, 0
-          );
+          ));
+          
+          console.log(`[CORREÇÃO] Data UTC criada para: ${appointmentDate.toISOString()}`);
+          console.log(`[CORREÇÃO] Horário extraído original: ${hours}:${minutes}`);
+          console.log(`[CORREÇÃO] Horário na data criada: ${appointmentDate.getUTCHours()}:${appointmentDate.getUTCMinutes()}`);
           
           // Criar um novo objeto com os dados validados
           appointmentData = {
@@ -822,6 +827,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Já validamos o serviço no início da função
+      
+      // LOGS ADICIONAIS para debug do problema de timezone
+      console.log(`[DEBUG TIMEZONE] Hora na data ISO: ${appointmentDate.toISOString()}`);
+      console.log(`[DEBUG TIMEZONE] Hora local: ${appointmentDate.getHours()}:${appointmentDate.getMinutes()}`);
+      console.log(`[DEBUG TIMEZONE] Hora UTC: ${appointmentDate.getUTCHours()}:${appointmentDate.getUTCMinutes()}`);
       
       // Validate professional exists
       const professional = await storage.getProfessional(appointmentData.professional_id);

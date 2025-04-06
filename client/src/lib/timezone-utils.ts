@@ -104,26 +104,37 @@ export function formatDateForApi(date: Date): string {
 }
 
 /**
- * Cria uma data LOCAL com a hora especificada no fuso horário da barbearia
- * Não fazemos mais conversão para UTC, guardamos a data como está no fuso horário local
- * para evitar problemas de conversão
+ * Cria uma data com a hora especificada e a formata para salvar como UTC
+ * usando Date.UTC para garantir que os horários não sejam convertidos pelo fuso do servidor
  */
 export function createUtcDateFromLocalTime(date: Date, timeString: string): Date {
-  // Clone a data para não modificar a original
-  const localDate = new Date(date);
-  
   // Parse o timeString (formato "HH:mm")
   const [hours, minutes] = timeString.split(':').map(Number);
   
-  // Defina as horas e minutos na data local
-  localDate.setHours(hours, minutes, 0, 0);
+  // CORREÇÃO: Criar a data com UTC para garantir que o horário seja preservado exatamente como informado
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
   
-  // NOVA ABORDAGEM: Não fazemos mais a conversão para UTC
-  // Apenas retornamos a data local como recebemos
-  console.log(`[NOVA ABORDAGEM] Criando data com horário local: ${hours}:${minutes} (${localDate.toISOString()})`);
+  // Criar a data usando UTC para evitar conversões automáticas do fuso horário do servidor
+  const utcDate = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
   
-  // Usamos a data como está, sem conversão
-  return localDate;
+  console.log(`[CORREÇÃO] Criando data com UTC: ano=${year}, mês=${month+1}, dia=${day}, hora=${hours}:${minutes}`);
+  console.log(`[CORREÇÃO] Data resultante em ISO: ${utcDate.toISOString()}`);
+  console.log(`[CORREÇÃO] Horas extraídas (UTC): ${utcDate.getUTCHours()}:${utcDate.getUTCMinutes()}`);
+  
+  // Formato especial para o backend (marca que usamos nossa solução customizada)
+  const isoWithLocalMarker = `${utcDate.toISOString().slice(0, -1)}LOCAL`;
+  console.log(`[CORREÇÃO] Data com marcador LOCAL: ${isoWithLocalMarker}`);
+  
+  // Adicionar propriedade especial à data para o backend reconhecer
+  Object.defineProperty(utcDate, 'toJSON', {
+    value: function() {
+      return isoWithLocalMarker;
+    }
+  });
+  
+  return utcDate;
 }
 
 /**
