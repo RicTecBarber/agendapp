@@ -227,28 +227,39 @@ const AppointmentsPage = () => {
   useEffect(() => {
     if (availability) {
       console.log("Disponibilidade recebida:", availability);
+      // Limpar horários anteriores e seleção
+      setAvailableTimes([]);
+      setSelectedTime(null);
+      
       // Se a disponibilidade tem a propriedade available_slots
       if (availability.available_slots && Array.isArray(availability.available_slots)) {
         const times = availability.available_slots;
         console.log("Horários disponíveis:", times);
         setAvailableTimes(times);
-        // Reset selected time if not available anymore
-        if (selectedTime && !times.includes(selectedTime)) {
-          setSelectedTime(null);
-        }
       } else if (Array.isArray(availability)) {
         // Suporte para resposta que seja diretamente um array
         const times = availability.map((slot: any) => slot.time || slot);
         console.log("Horários disponíveis (formato alternativo):", times);
         setAvailableTimes(times);
-        // Reset selected time if not available anymore
-        if (selectedTime && !times.includes(selectedTime)) {
-          setSelectedTime(null);
-        }
       } else {
         console.log("Formato de disponibilidade não reconhecido:", availability);
-        setAvailableTimes([]);
-        setSelectedTime(null);
+      }
+      
+      // Se houver informações de debug, log detalhado
+      if (availability.debug_info && availability.debug_info.slot_details) {
+        console.log("Detalhes dos slots:", availability.debug_info.slot_details);
+        
+        // Mostre slots indisponíveis 
+        const unavailableSlots = availability.debug_info.slot_details
+          .filter((slot: any) => !slot.available && slot.conflicts)
+          .map((slot: any) => ({
+            time: slot.time,
+            conflicts: slot.conflicts
+          }));
+          
+        if (unavailableSlots.length > 0) {
+          console.log("Slots com conflito:", unavailableSlots);
+        }
       }
     } else {
       console.log("Nenhuma disponibilidade recebida");

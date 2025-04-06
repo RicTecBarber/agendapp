@@ -108,12 +108,13 @@ const NewAppointmentPage = () => {
           
           // Limpar horários anteriores antes de atualizar
           setAvailableTimes([]);
+          setSelectedTime(null);
           
           // Log detalhado de todas as informações recebidas do backend
           console.log("Resposta completa de disponibilidade:", JSON.stringify(data, null, 2));
           
           // Certificar-se de que estamos recebendo um array válido de horários
-          if (Array.isArray(data.available_slots)) {
+          if (data.available_slots && Array.isArray(data.available_slots)) {
             console.log("Horários disponíveis recebidos:", data.available_slots);
             
             // Verificar se temos informações de debug para identificar problemas
@@ -133,6 +134,7 @@ const NewAppointmentPage = () => {
               }
             }
             
+            // Só atualizar com os horários que realmente estão disponíveis
             setAvailableTimes(data.available_slots);
           } else {
             console.error("Formato inválido de dados recebidos:", data);
