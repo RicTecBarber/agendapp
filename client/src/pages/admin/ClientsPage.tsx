@@ -285,7 +285,11 @@ const ClientsPage = () => {
                                   <DropdownMenuItem onClick={() => handleClientClick(client)}>
                                     Ver detalhes
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    // Fechar o dropdown e abrir a página de agendamento
+                                    const url = `/admin/agendamentos/novo?cliente=${encodeURIComponent(client.client_name)}&telefone=${encodeURIComponent(client.client_phone)}`;
+                                    window.location.href = url;
+                                  }}>
                                     Agendar serviço
                                   </DropdownMenuItem>
                                   <DropdownMenuItem>
@@ -394,7 +398,11 @@ const ClientsPage = () => {
                                   <DropdownMenuItem onClick={() => handleClientClick(client)}>
                                     Ver detalhes
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    // Fechar o dropdown e abrir a página de agendamento
+                                    const url = `/admin/agendamentos/novo?cliente=${encodeURIComponent(client.client_name)}&telefone=${encodeURIComponent(client.client_phone)}`;
+                                    window.location.href = url;
+                                  }}>
                                     Agendar serviço
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -551,7 +559,16 @@ const ClientsPage = () => {
             <Button variant="outline" onClick={() => setIsClientInfoOpen(false)}>
               Fechar
             </Button>
-            <Button>
+            <Button onClick={() => {
+              // Fechar o diálogo
+              setIsClientInfoOpen(false);
+              
+              // Redirecionar para a página de novo agendamento com os dados do cliente
+              if (selectedClient) {
+                const url = `/admin/agendamentos/novo?cliente=${encodeURIComponent(selectedClient.client_name)}&telefone=${encodeURIComponent(selectedClient.client_phone)}`;
+                window.location.href = url;
+              }
+            }}>
               Agendar Serviço
             </Button>
           </DialogFooter>
