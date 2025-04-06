@@ -1,11 +1,15 @@
 import { format, parseISO } from 'date-fns';
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
+// Fuso horário padrão do Brasil (Brasília)
+export const BRAZIL_TIMEZONE = 'America/Sao_Paulo';
+
 /**
  * Obtém o fuso horário local do navegador
  */
 export function getLocalTimeZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Sempre retorna o fuso horário de Brasília para garantir consistência
+  return BRAZIL_TIMEZONE;
 }
 
 /**
@@ -21,7 +25,9 @@ export function utcToLocal(utcDateString: string): Date {
  * Converte uma data local para UTC
  */
 export function localToUtc(localDate: Date): Date {
-  const timeZone = getLocalTimeZone();
+  // O fuso horário de Brasília é UTC-3
+  const brazilOffsetHours = -3;
+  
   // Cria uma data em UTC baseada na data local
   const year = localDate.getFullYear();
   const month = localDate.getMonth();
@@ -30,12 +36,9 @@ export function localToUtc(localDate: Date): Date {
   const minutes = localDate.getMinutes();
   const seconds = localDate.getSeconds();
   
-  // Obtém offset do timezone em minutos
-  const timezoneOffset = localDate.getTimezoneOffset();
-  
-  // Cria uma data UTC ajustada pelo offset do timezone
-  const utcDate = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-  utcDate.setMinutes(utcDate.getMinutes() - timezoneOffset);
+  // Cria uma nova data UTC e ajusta com o offset do Brasil (UTC-3)
+  // Quando for 9:00 no Brasil, será 12:00 em UTC
+  const utcDate = new Date(Date.UTC(year, month, day, hours - brazilOffsetHours, minutes, seconds));
   
   return utcDate;
 }
@@ -69,8 +72,21 @@ export function createUtcDateFromLocalTime(date: Date, timeString: string): Date
   // Defina as horas e minutos na data local
   localDate.setHours(hours, minutes, 0, 0);
   
-  // Converta para UTC
-  return localToUtc(localDate);
+  // O fuso horário de Brasília é UTC-3
+  const brazilOffsetHours = -3;
+  
+  // Cria uma data UTC considerando o fuso de Brasília
+  const year = localDate.getFullYear();
+  const month = localDate.getMonth();
+  const day = localDate.getDate();
+  
+  console.log(`Horário local Brasil: ${hours}:${minutes}`);
+  console.log(`Ajustando para UTC: ${hours - brazilOffsetHours}:${minutes}`);
+  
+  // Quando for 9:00 no Brasil, será 12:00 em UTC
+  const utcDate = new Date(Date.UTC(year, month, day, hours - brazilOffsetHours, minutes, 0, 0));
+  
+  return utcDate;
 }
 
 /**
