@@ -67,13 +67,10 @@ const DIAS_SEMANA = [
   { value: "6", label: "Sábado" }
 ];
 
-// Gerar horários disponíveis em intervalos de 30 minutos
+// Gerar horários disponíveis em intervalos de 30 minutos (24 horas)
 const HORARIOS = Array.from({ length: 24 }, (_, hour) => {
   return [`${hour.toString().padStart(2, '0')}:00`, `${hour.toString().padStart(2, '0')}:30`];
-}).flat().filter(time => {
-  const hour = parseInt(time.split(':')[0]);
-  return hour >= 8 && hour < 20; // Horário comercial: 8h às 20h
-});
+}).flat();
 
 const AvailabilityManagementPage = () => {
   const { toast } = useToast();

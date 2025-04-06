@@ -475,17 +475,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const barbershopOpenTime = parseTime(barbershopSettings.open_time);
       const barbershopCloseTime = parseTime(barbershopSettings.close_time);
       
+      // Log dos horários para debug
+      console.log(`Comparando horários - Disponibilidade profissional: ${startTime.hours}:${startTime.minutes} até ${endTime.hours}:${endTime.minutes}`);
+      console.log(`Horário barbearia: ${barbershopOpenTime.hours}:${barbershopOpenTime.minutes} até ${barbershopCloseTime.hours}:${barbershopCloseTime.minutes}`);
+      
       // Ensure start time is not earlier than barbershop opening time
       if (startTime.hours < barbershopOpenTime.hours || 
           (startTime.hours === barbershopOpenTime.hours && startTime.minutes < barbershopOpenTime.minutes)) {
+        console.log(`Ajustando horário inicial: ${startTime.hours}:${startTime.minutes} -> ${barbershopOpenTime.hours}:${barbershopOpenTime.minutes}`);
         startTime = barbershopOpenTime;
       }
       
-      // Ensure end time is not later than barbershop closing time
-      if (endTime.hours > barbershopCloseTime.hours || 
-          (endTime.hours === barbershopCloseTime.hours && endTime.minutes > barbershopCloseTime.minutes)) {
-        endTime = barbershopCloseTime;
-      }
+      // O horário de fim do profissional pode ser qualquer um, incluindo após o fechamento da barbearia.
+      // Não vamos mais limitar isso aqui, pois queremos que o profissional possa definir até que horas ele trabalha,
+      // mesmo que isso vá além do horário regular da barbearia
+      console.log(`Horário final do profissional: ${endTime.hours}:${endTime.minutes}`);
+      console.log(`Horário de fechamento da barbearia: ${barbershopCloseTime.hours}:${barbershopCloseTime.minutes}`);
       
       // Prepare a map of occupied time slots
       const occupiedSlots = new Map<string, number[]>();
