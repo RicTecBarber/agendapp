@@ -663,15 +663,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
-      // ABORDAGEM SIMPLIFICADA: Trabalhar diretamente com os horários fornecidos
-      const appointmentDate = appointmentData.appointment_date;
+      // SOLUÇÃO DEFINITIVA: Extrair horas e minutos diretamente da string ISO
+      const dateString = appointmentData.appointment_date;
+      console.log(`[SOLUÇÃO DEFINITIVA] String de data recebida: ${dateString}`);
       
-      // Extrair as horas e minutos para facilitar comparações
-      const appointmentHour = appointmentDate.getHours();
-      const appointmentMinute = appointmentDate.getMinutes();
+      // Extrair as horas e minutos diretamente da string ISO (formato: 2025-04-07T18:30:00.000Z)
+      // Isso preserva o horário exatamente como foi enviado pelo cliente
+      const timeMatch = dateString.match(/T(\d{2}):(\d{2})/);
+      
+      if (!timeMatch) {
+        return res.status(400).json({ message: "Formato de data inválido" });
+      }
+      
+      const appointmentHour = parseInt(timeMatch[1]);
+      const appointmentMinute = parseInt(timeMatch[2]);
       const timeStr = `${appointmentHour.toString().padStart(2, '0')}:${appointmentMinute.toString().padStart(2, '0')}`;
       
-      console.log(`[ABORDAGEM SIMPLIFICADA] VERIFICANDO AGENDAMENTO: Horário: ${timeStr}, Data: ${appointmentDate.toISOString()}`);
+      // Criar uma nova data usando apenas a parte da data
+      const datePart = dateString.split('T')[0];
+      const appointmentDate = new Date(`${datePart}T${timeStr}:00.000Z`);
+      
+      console.log(`[SOLUÇÃO DEFINITIVA] Horário extraído diretamente: ${timeStr}`);
+      console.log(`[SOLUÇÃO DEFINITIVA] Nova data criada: ${appointmentDate.toISOString()}`);
       
       // Obter configurações da barbearia para verificar horário de funcionamento
       const barbershopSettings = await storage.getBarbershopSettings();
@@ -928,7 +941,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Log para diagnóstico
-      console.log(`Data original recebida: ${appointmentData.appointment_date.toISOString()}`);
+      console.log(`Data original recebida: ${dateString}`);
       console.log(`Data ajustada para salvamento: ${fixedAppointmentData.appointment_date.toISOString()}`);
       
       // Create the appointment
