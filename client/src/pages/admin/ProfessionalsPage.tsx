@@ -30,6 +30,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { 
@@ -60,8 +70,11 @@ import {
   X, 
   Loader2, 
   Scissors, 
-  Briefcase 
+  Briefcase,
+  Calendar,
+  ArrowUpRight
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { InsertProfessional } from "@shared/schema";
 
 // Form validation schema
@@ -76,7 +89,11 @@ type ProfessionalFormValues = z.infer<typeof professionalSchema>;
 
 const ProfessionalsPage = () => {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedProfessional, setSelectedProfessional] = useState<any>(null);
 
   // Fetch professionals
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery({
@@ -112,8 +129,58 @@ const ProfessionalsPage = () => {
       });
     },
   });
+  
+  // Update professional mutation
+  const updateProfessionalMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("PUT", `/api/professionals/${data.id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Profissional atualizado",
+        description: "O profissional foi atualizado com sucesso.",
+        variant: "default",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/professionals"] });
+      setIsEditDialogOpen(false);
+      setSelectedProfessional(null);
+      editForm.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar profissional",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Delete professional mutation
+  const deleteProfessionalMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/professionals/${id}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Profissional excluído",
+        description: "O profissional foi excluído com sucesso.",
+        variant: "default",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/professionals"] });
+      setIsDeleteDialogOpen(false);
+      setSelectedProfessional(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir profissional",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
-  // Set up form
+  // Set up create form
   const form = useForm<ProfessionalFormValues>({
     resolver: zodResolver(professionalSchema),
     defaultValues: {
@@ -124,9 +191,63 @@ const ProfessionalsPage = () => {
     },
   });
 
-  // Submit handler
+  // Set up edit form
+  const editForm = useForm<ProfessionalFormValues>({
+    resolver: zodResolver(professionalSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      services_offered: [],
+      avatar_url: "",
+    },
+  });
+
+  // Submit handler for create form
   const onSubmit = (data: ProfessionalFormValues) => {
     createProfessionalMutation.mutate(data);
+  };
+  
+  // Submit handler for edit form
+  const onSubmitEdit = (data: ProfessionalFormValues) => {
+    if (!selectedProfessional) return;
+    
+    updateProfessionalMutation.mutate({
+      id: selectedProfessional.id,
+      ...data
+    });
+  };
+  
+  // Handler for opening edit dialog
+  const handleEdit = (professional: any) => {
+    setSelectedProfessional(professional);
+    
+    // Reset and set form values
+    editForm.reset({
+      name: professional.name,
+      description: professional.description,
+      services_offered: professional.services_offered,
+      avatar_url: professional.avatar_url || "",
+    });
+    
+    setIsEditDialogOpen(true);
+  };
+  
+  // Handler for opening delete dialog
+  const handleDelete = (professional: any) => {
+    setSelectedProfessional(professional);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  // Handler for confirming delete
+  const confirmDelete = () => {
+    if (selectedProfessional) {
+      deleteProfessionalMutation.mutate(selectedProfessional.id);
+    }
+  };
+  
+  // Handler for opening availability management
+  const handleManageAvailability = (professional: any) => {
+    navigate(`/admin/professionals/${professional.id}/availability`);
   };
 
   return (
@@ -206,11 +327,29 @@ const ProfessionalsPage = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
-                            <Button size="icon" variant="ghost">
+                            <Button 
+                              size="icon" 
+                              variant="ghost"
+                              onClick={() => handleEdit(professional)}
+                            >
                               <Pencil className="h-4 w-4" />
                               <span className="sr-only">Editar</span>
                             </Button>
-                            <Button size="icon" variant="ghost" className="text-destructive">
+                            <Button 
+                              size="icon" 
+                              variant="ghost"
+                              onClick={() => handleManageAvailability(professional)}
+                              title="Gerenciar Disponibilidade"
+                            >
+                              <Calendar className="h-4 w-4" />
+                              <span className="sr-only">Disponibilidade</span>
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="text-destructive"
+                              onClick={() => handleDelete(professional)}
+                            >
                               <Trash2 className="h-4 w-4" />
                               <span className="sr-only">Excluir</span>
                             </Button>
@@ -376,6 +515,206 @@ const ProfessionalsPage = () => {
           </Form>
         </DialogContent>
       </Dialog>
+      
+      {/* Edit Professional Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>Editar Profissional</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do profissional conforme necessário.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onSubmitEdit)} className="space-y-6">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome do Profissional</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: João Silva" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição / Especialidade</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Ex: Especialista em cortes modernos com 5 anos de experiência" 
+                        {...field} 
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="avatar_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL da Foto (opcional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="https://exemplo.com/foto.jpg" 
+                        {...field} 
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="services_offered"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel>Serviços Oferecidos</FormLabel>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {isLoadingServices ? (
+                        <div className="col-span-2 flex justify-center py-4">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      ) : (
+                        services?.map((service: any) => (
+                          <FormField
+                            key={service.id}
+                            control={editForm.control}
+                            name="services_offered"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={service.id}
+                                  className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(service.id)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...field.value, service.id])
+                                          : field.onChange(
+                                              field.value?.filter(
+                                                (value) => value !== service.id
+                                              )
+                                            )
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <div className="space-y-1 leading-none">
+                                    <FormLabel className="font-medium">
+                                      {service.name}
+                                    </FormLabel>
+                                    <p className="text-sm text-muted-foreground">
+                                      {service.duration} min - R$ {service.price.toFixed(2)}
+                                    </p>
+                                  </div>
+                                </FormItem>
+                              )
+                            }}
+                          />
+                        ))
+                      )}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit"
+                  disabled={updateProfessionalMutation.isPending}
+                >
+                  {updateProfessionalMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Atualizando...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Atualizar Profissional
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Professional Confirmation */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este profissional? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {selectedProfessional && (
+            <div className="my-4 p-4 border rounded-md">
+              <div className="flex items-center gap-3 mb-2">
+                <Avatar>
+                  <AvatarImage src={selectedProfessional.avatar_url || ""} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {selectedProfessional.name.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium">{selectedProfessional.name}</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">{selectedProfessional.description}</p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={deleteProfessionalMutation.isPending}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteProfessionalMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteProfessionalMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 };

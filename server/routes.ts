@@ -246,6 +246,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/availability/professional/:professionalId - Get all availability for a professional
+  app.get("/api/availability/professional/:professionalId", async (req: Request, res: Response) => {
+    try {
+      const professionalId = parseInt(req.params.professionalId);
+      const availabilityList = await storage.getAvailabilityByProfessionalId(professionalId);
+      res.json(availabilityList);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch availability" });
+    }
+  });
+
+  // POST /api/availability - Create new availability (admin only)
+  app.post("/api/availability", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const availabilityData = insertAvailabilitySchema.parse(req.body);
+      const availability = await storage.createAvailability(availabilityData);
+      res.status(201).json(availability);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid availability data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create availability" });
+      }
+    }
+  });
+
+  // PUT /api/availability/:id - Update availability (admin only)
+  app.put("/api/availability/:id", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const availabilityId = parseInt(req.params.id);
+      const availabilityData = req.body;
+      const updated = await storage.updateAvailability(availabilityId, availabilityData);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Availability not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update availability" });
+    }
+  });
+
+  // DELETE /api/availability/:id - Delete availability (admin only)
+  app.delete("/api/availability/:id", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const availabilityId = parseInt(req.params.id);
+      const deleted = await storage.deleteAvailability(availabilityId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Availability not found" });
+      }
+      
+      res.status(200).json({ message: "Availability deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete availability" });
+    }
+  });
+
   // GET /api/availability/:professionalId/:date - Get available time slots for a professional on a date
   app.get("/api/availability/:professionalId/:date", async (req: Request, res: Response) => {
     try {
@@ -258,9 +329,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get professional's availability for this day
       const availabilityList = await storage.getAvailabilityByProfessionalId(professionalId);
-      const dayAvailability = availabilityList.find(a => a.day_of_week === dayOfWeek);
+      const dayAvailability = availabilityList.find(a => a.day_of_week === dayOfWeek && a.is_available);
       
-      if (!dayAvailability || !dayAvailability.is_available) {
+      if (!dayAvailability) {
         return res.json({ available_slots: [] });
       }
       
