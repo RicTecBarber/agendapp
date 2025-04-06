@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -55,6 +55,8 @@ const ClientsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isClientInfoOpen, setIsClientInfoOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientsWithRewards, setClientsWithRewards] = useState<any[]>([]);
+  const [isLoadingRewards, setIsLoadingRewards] = useState(false);
 
   // Get all appointments to extract clients
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery({
@@ -84,6 +86,38 @@ const ClientsPage = () => {
       client.client_phone.includes(searchTerm)
     );
   });
+  
+  // Fetch loyalty info for all clients
+  useEffect(() => {
+    if (clients.length > 0 && !isLoadingAppointments) {
+      setIsLoadingRewards(true);
+      const fetchRewards = async () => {
+        const clientsWithRewardsArray = [];
+        
+        for (const client of clients) {
+          try {
+            const response = await fetch(`/api/loyalty/${client.client_phone}`);
+            if (response.ok) {
+              const loyaltyData = await response.json();
+              if (loyaltyData && loyaltyData.eligible_rewards > 0) {
+                clientsWithRewardsArray.push({
+                  ...client,
+                  ...loyaltyData
+                });
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching loyalty data for ${client.client_phone}:`, error);
+          }
+        }
+        
+        setClientsWithRewards(clientsWithRewardsArray);
+        setIsLoadingRewards(false);
+      };
+      
+      fetchRewards();
+    }
+  }, [clients, isLoadingAppointments]);
 
   // Handle client click to view details
   const handleClientClick = async (client: any) => {
@@ -246,10 +280,113 @@ const ClientsPage = () => {
         
         <TabsContent value="rewards" className="mt-6">
           <Card>
-            <CardContent className="p-6">
-              <div className="text-center py-8">
-                <p>Filtragem por recompensas em desenvolvimento</p>
-              </div>
+            <CardHeader className="pb-2">
+              <CardTitle>Clientes com Recompensas</CardTitle>
+              <CardDescription>
+                Clientes com brindes disponíveis para resgate
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoadingAppointments ? (
+                <div className="flex justify-center items-center py-16">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-neutral-dark">Cliente</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-neutral-dark">Telefone</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-neutral-dark">Brindes Disponíveis</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-neutral-dark">Último Atendimento</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-neutral-dark">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isLoadingRewards ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-12">
+                            <Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-2" />
+                            <p className="text-neutral-dark">Carregando informações de recompensas...</p>
+                          </td>
+                        </tr>
+                      ) : clientsWithRewards.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-12 text-neutral-dark">
+                            <p className="mb-2">Nenhum cliente com brindes disponíveis</p>
+                            <p className="text-sm">Quando um cliente acumular 10 atendimentos, ele aparecerá aqui</p>
+                          </td>
+                        </tr>
+                      ) : clientsWithRewards.map((client: any, index: number) => {
+                        // Find last appointment for this client
+                        const clientAppointments = appointments.filter(
+                          (a: any) => a.client_phone === client.client_phone
+                        );
+                        const lastAppointment = clientAppointments.length > 0
+                          ? clientAppointments.sort((a: any, b: any) => 
+                              new Date(b.appointment_date).getTime() - new Date(a.appointment_date).getTime()
+                            )[0]
+                          : null;
+
+                        return (
+                          <tr 
+                            key={index} 
+                            className="border-b border-neutral hover:bg-muted/30 cursor-pointer"
+                            onClick={() => handleClientClick(client)}
+                          >
+                            <td className="py-3 px-4">
+                              <div className="flex items-center">
+                                <div className="bg-primary-light/30 w-8 h-8 rounded-full flex items-center justify-center mr-2">
+                                  <span className="text-primary text-xs font-bold">
+                                    {client.client_name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                                  </span>
+                                </div>
+                                <p className="font-medium">{client.client_name}</p>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">{client.client_phone}</td>
+                            <td className="py-3 px-4">
+                              <Badge variant="secondary" className="bg-green-100 text-green-700 border-0">
+                                {client.eligible_rewards || '?'} brindes disponíveis
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4">
+                              {lastAppointment ? (
+                                <div>
+                                  <p>{new Date(lastAppointment.appointment_date).toLocaleDateString('pt-BR')}</p>
+                                  <p className="text-xs text-neutral-dark">{lastAppointment.service_name}</p>
+                                </div>
+                              ) : (
+                                <span className="text-neutral-dark">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreHorizontal className="h-5 w-5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleClientClick(client)}>
+                                    Ver detalhes
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem>
+                                    Agendar serviço
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
