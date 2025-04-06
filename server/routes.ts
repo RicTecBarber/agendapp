@@ -351,9 +351,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get all appointments for this professional on this date
+      // Para garantir que estamos filtrando a data corretamente, precisamos adicionar logs e verificar o formato
+      console.log(`Buscando agendamentos para a data: ${date.toISOString()}`);
       const appointments = await storage.getAppointmentsByDate(date);
+      
+      // Vamos logar os agendamentos encontrados para diagnóstico
+      console.log(`Agendamentos encontrados (${appointments.length}):`, 
+        appointments.map(a => ({
+          id: a.id,
+          date: new Date(a.appointment_date).toISOString(),
+          professional: a.professional_id,
+          status: a.status
+        }))
+      );
+      
       const professionalAppointments = appointments.filter(
-        a => a.professional_id === professionalId && a.status !== "cancelled"
+        a => {
+          const isForProfessional = a.professional_id === professionalId;
+          const isActive = a.status !== "cancelled";
+          const appointmentDate = new Date(a.appointment_date);
+          
+          // Logar todos os agendamentos do profissional para diagnóstico
+          if (isForProfessional) {
+            console.log(`Agendamento #${a.id} para o profissional ${a.professional_id}:`, {
+              data: appointmentDate.toISOString(),
+              status: a.status,
+              será_incluído: isForProfessional && isActive
+            });
+          }
+          
+          return isForProfessional && isActive;
+        }
       );
       
       // Generate time slots

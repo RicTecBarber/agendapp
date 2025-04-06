@@ -243,10 +243,28 @@ export class MemStorage implements IStorage {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
     
-    return Array.from(this.appointments.values()).filter(appointment => {
+    console.log(`Filtrando agendamentos por data - início: ${startOfDay.toISOString()}, fim: ${endOfDay.toISOString()}`);
+    
+    const filteredAppointments = Array.from(this.appointments.values()).filter(appointment => {
       const appointmentDate = new Date(appointment.appointment_date);
-      return appointmentDate >= startOfDay && appointmentDate <= endOfDay;
+      
+      // Verificar se a data do agendamento está no mesmo dia
+      const isSameDay = (
+        appointmentDate.getFullYear() === startOfDay.getFullYear() &&
+        appointmentDate.getMonth() === startOfDay.getMonth() &&
+        appointmentDate.getDate() === startOfDay.getDate()
+      );
+      
+      if (isSameDay) {
+        console.log(`Agendamento ${appointment.id} está no mesmo dia: ${appointmentDate.toISOString()}`);
+      }
+      
+      return isSameDay;
     });
+    
+    console.log(`Encontrados ${filteredAppointments.length} agendamentos para ${startOfDay.toISOString().split('T')[0]}`);
+    
+    return filteredAppointments;
   }
   
   async getAppointmentsByProfessionalId(professionalId: number): Promise<Appointment[]> {
