@@ -239,26 +239,38 @@ const NewAppointmentPage = () => {
       return;
     }
     
-    // ABORDAGEM DIRETA: Criar diretamente uma nova data com o horário selecionado
-    // sem qualquer conversão de fuso horário
+    // SOLUÇÃO FINAL: Enviar uma string no formato fake-ISO com o horário exato
     const [hours, minutes] = selectedTime.split(":").map(Number);
     
-    // Clonamos a data selecionada para não alterar o estado original
+    // Formatamos a data manualmente para mantê-la no horário local sem conversão
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const hoursString = String(hours).padStart(2, '0');
+    const minutesString = String(minutes).padStart(2, '0');
+    
+    // Criamos uma data local para debugar no console
     const appointmentDateTime = new Date(selectedDate);
-    // Definimos a hora e minutos exatamente como foram selecionados
     appointmentDateTime.setHours(hours, minutes, 0, 0);
     
-    console.log(`ABORDAGEM DIRETA: Data local selecionada: ${selectedDate.toLocaleString()}`);
-    console.log(`ABORDAGEM DIRETA: Horário selecionado: ${selectedTime}`);
-    console.log(`ABORDAGEM DIRETA: Data e hora para envio: ${appointmentDateTime.toLocaleString()}`);
-    console.log(`ABORDAGEM DIRETA: ISO String para envio: ${appointmentDateTime.toISOString()}`);
+    // Formatamos a data como uma string ISO, mas mantendo o horário original
+    // Isso é importante: adicionamos 'LOCAL' para informar o servidor que essa não é uma data UTC
+    const fakeISOString = `${year}-${month}-${day}T${hoursString}:${minutesString}:00.000LOCAL`;
+    
+    console.log(`SOLUÇÃO FINAL: Data local selecionada: ${selectedDate.toLocaleString()}`);
+    console.log(`SOLUÇÃO FINAL: Horário selecionado exato: ${hours}:${minutes}`);
+    console.log(`SOLUÇÃO FINAL: String para envio: ${fakeISOString}`);
+    
+    // Log para confirmar o problema (horário convertido para UTC)
+    console.log(`Problema anterior (conversão para UTC): ${appointmentDateTime.toISOString()}`);
     
     const appointmentData = {
       client_name: clientName,
       client_phone: clientPhone,
       service_id: selectedService.id,
       professional_id: selectedProfessional.id,
-      appointment_date: appointmentDateTime.toISOString(),
+      // Enviar a string formatada com o horário exato
+      appointment_date: fakeISOString,
       notify_whatsapp: notifyWhatsapp,
       is_loyalty_reward: isRewardRedemption
     };

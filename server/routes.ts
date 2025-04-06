@@ -8,7 +8,8 @@ import {
   insertAppointmentSchema,
   appointmentLookupSchema,
   loyaltyLookupSchema,
-  insertBarbershopSettingsSchema
+  insertBarbershopSettingsSchema,
+  InsertAppointment
 } from "@shared/schema";
 import { parseISO, format, addMinutes, isAfter } from "date-fns";
 import { setupAuth } from "./auth";
@@ -661,15 +662,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/appointments - Create a new appointment
   app.post("/api/appointments", async (req: Request, res: Response) => {
     try {
-      const appointmentData = insertAppointmentSchema.parse(req.body);
+      // Verificar se a data possui a marca LOCAL (nossa solução personalizada)
+      // SOLUÇÃO FINAL: O front-end agora envia uma string com formato especial que preserva o horário exato
+      let appointmentDate: Date;
+      let appointmentData: InsertAppointment;
       
-      // SOLUÇÃO FINAL: Trabalhar diretamente com o objeto Date recebido
-      const receivedDate = appointmentData.appointment_date;
-      console.log(`[SOLUÇÃO FINAL] Data recebida (tipo): ${typeof receivedDate}`);
-      console.log(`[SOLUÇÃO FINAL] Data recebida (valor): ${receivedDate}`);
+      if (typeof req.body.appointment_date === 'string' && req.body.appointment_date.includes('LOCAL')) {
+        // O front-end está usando nosso formato personalizado
+        // Vamos extrair o horário diretamente da string no formato '2025-04-07T18:30:00.000LOCAL'
+        const dateString = req.body.appointment_date.replace('LOCAL', '');
+        
+        // Extrair os componentes da data
+        const match = dateString.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):/);
+        
+        if (match) {
+          const [_, year, month, day, hours, minutes] = match;
+          console.log(`[SOLUÇÃO FINAL] Data extraída manualmente: ano=${year}, mês=${month}, dia=${day}, hora=${hours}, minutos=${minutes}`);
+          
+          // Criar data com os componentes extraídos (sem conversão de timezone)
+          appointmentDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1, // mês em JS começa em 0
+            parseInt(day),
+            parseInt(hours),
+            parseInt(minutes),
+            0, 0
+          );
+          
+          // Criar um novo objeto com os dados validados
+          appointmentData = {
+            client_name: req.body.client_name,
+            client_phone: req.body.client_phone,
+            service_id: req.body.service_id,
+            professional_id: req.body.professional_id,
+            appointment_date: appointmentDate,
+            notify_whatsapp: req.body.notify_whatsapp,
+            is_loyalty_reward: req.body.is_loyalty_reward,
+            status: "scheduled"
+          };
+        } else {
+          // Fallback se o parsing falhar
+          return res.status(400).json({ message: "Formato de data inválido" });
+        }
+      } else {
+        // Usar o esquema normal de validação (isso não deve mais acontecer)
+        appointmentData = insertAppointmentSchema.parse(req.body);
+        appointmentDate = new Date(appointmentData.appointment_date);
+      }
       
-      // Usar a data diretamente como foi enviada
-      const appointmentDate = receivedDate;
+      console.log(`[SOLUÇÃO FINAL] Data recebida (tipo): ${typeof req.body.appointment_date}`);
+      console.log(`[SOLUÇÃO FINAL] Data recebida (valor): ${req.body.appointment_date}`);
       
       // Extrair horas e minutos para verificações
       const appointmentHour = appointmentDate.getHours();
@@ -938,7 +980,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Log para diagnóstico
-      console.log(`Data original recebida: ${receivedDate}`);
+      console.log(`Data original recebida: ${req.body.appointment_date}`);
       console.log(`Data ajustada para salvamento: ${fixedAppointmentData.appointment_date.toISOString()}`);
       
       // Create the appointment
