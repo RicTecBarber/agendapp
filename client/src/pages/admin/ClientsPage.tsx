@@ -87,42 +87,64 @@ const ClientsPage = () => {
     );
   });
   
-  // Fetch loyalty info for clients with rewards
+  // Fetch loyalty info for clients with rewards - usando um fluxo otimizado
   useEffect(() => {
-    if (!isLoadingAppointments && clients.length > 0) {
+    const tabsElement = document.querySelector('[role="tablist"]');
+    const rewardsTabActive = tabsElement?.querySelector('[data-state="active"][value="rewards"]');
+    
+    // Só busca recompensas se estivermos na aba de recompensas ou se é a primeira carga
+    const shouldFetchRewards = rewardsTabActive || clientsWithRewards.length === 0;
+    
+    if (!isLoadingAppointments && clients.length > 0 && shouldFetchRewards) {
       setIsLoadingRewards(true);
       
-      // Função para obter dados de fidelidade de um cliente específico
+      // Busca dados de um único cliente de forma segura
       const fetchClientLoyalty = async (client: any) => {
         try {
-          const response = await fetch(`/api/loyalty/${encodeURIComponent(client.client_phone)}`);
+          const phoneEncoded = encodeURIComponent(client.client_phone);
+          const response = await fetch(`/api/loyalty/${phoneEncoded}`);
           if (response.ok) {
             const data = await response.json();
-            return { ...client, ...data };
+            if (data && data.eligible_rewards && data.eligible_rewards > 0) {
+              return { ...client, ...data };
+            }
           }
         } catch (error) {
-          console.error("Error fetching client loyalty:", error);
+          console.error(`Erro ao buscar fidelidade para ${client.client_name}:`, error);
         }
         return null;
       };
-
-      // Função para lidar com a busca de todos os clientes
-      const fetchAllClientsLoyalty = async () => {
-        // Buscar dados de fidelidade para todos os clientes (limitado a 20 para performance)
-        const loyaltyPromises = clients.slice(0, 20).map(client => fetchClientLoyalty(client));
-        const results = await Promise.all(loyaltyPromises);
+      
+      // Função que busca dados de fidelidade para alguns clientes de cada vez
+      const fetchClientsInBatches = async () => {
+        // Limitamos a 10 clientes para evitar sobrecarga
+        const clientBatch = clients.slice(0, 10);
         
-        // Filtrar clientes com recompensas disponíveis
-        const clientsWithRewards = results
-          .filter(result => result && result.eligible_rewards && result.eligible_rewards > 0);
-        
-        setClientsWithRewards(clientsWithRewards);
-        setIsLoadingRewards(false);
+        try {
+          // Processar em paralelo com limite para não sobrecarregar
+          const loyaltyPromises = clientBatch.map(client => fetchClientLoyalty(client));
+          const results = await Promise.all(loyaltyPromises);
+          
+          // Filtrar clientes com recompensas disponíveis (remove null e undefined)
+          const validResults = results.filter(Boolean) as any[];
+          
+          setClientsWithRewards(validResults);
+        } catch (error) {
+          console.error("Erro ao processar dados de fidelidade:", error);
+        } finally {
+          setIsLoadingRewards(false);
+        }
       };
       
-      fetchAllClientsLoyalty();
+      // Executar a busca com um pequeno atraso para evitar muitas requisições
+      const timeoutId = setTimeout(() => {
+        fetchClientsInBatches();
+      }, 300);
+      
+      // Limpar timeout se o componente for desmontado
+      return () => clearTimeout(timeoutId);
     }
-  }, [clients, isLoadingAppointments]);
+  }, [clients, isLoadingAppointments, clientsWithRewards.length]);
 
   // Handle client click to view details
   const handleClientClick = async (client: any) => {
@@ -292,7 +314,7 @@ const ClientsPage = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              {isLoadingAppointments ? (
+              {isLoadingAppointments || isLoadingRewards ? (
                 <div className="flex justify-center items-center py-16">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
                 </div>
@@ -309,14 +331,7 @@ const ClientsPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {isLoadingRewards ? (
-                        <tr>
-                          <td colSpan={5} className="text-center py-12">
-                            <Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-2" />
-                            <p className="text-neutral-dark">Carregando informações de recompensas...</p>
-                          </td>
-                        </tr>
-                      ) : clientsWithRewards.length === 0 ? (
+                      {clientsWithRewards.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="text-center py-12 text-neutral-dark">
                             <p className="mb-2">Nenhum cliente com brindes disponíveis</p>
@@ -325,9 +340,9 @@ const ClientsPage = () => {
                         </tr>
                       ) : clientsWithRewards.map((client: any, index: number) => {
                         // Find last appointment for this client
-                        const clientAppointments = appointments.filter(
+                        const clientAppointments = Array.isArray(appointments) ? appointments.filter(
                           (a: any) => a.client_phone === client.client_phone
-                        );
+                        ) : [];
                         const lastAppointment = clientAppointments.length > 0
                           ? clientAppointments.sort((a: any, b: any) => 
                               new Date(b.appointment_date).getTime() - new Date(a.appointment_date).getTime()
