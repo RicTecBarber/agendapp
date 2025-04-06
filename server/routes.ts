@@ -754,13 +754,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const openTime = parseTime(barbershopSettings.open_time);
       const closeTime = parseTime(barbershopSettings.close_time);
       
-      // Check if appointment time is before opening time
-      if (appointmentTime.hours < openTime.hours || 
-          (appointmentTime.hours === openTime.hours && appointmentTime.minutes < openTime.minutes)) {
+      // Obter o fuso horário configurado
+      const timezoneOffset = getTimezoneOffset(barbershopSettings.timezone || 'America/Sao_Paulo');
+      console.log(`Verificando com fuso horário: ${barbershopSettings.timezone}, offset: ${timezoneOffset}`);
+      
+      // Converter o horário de agendamento UTC para hora local da barbearia
+      const localAppointmentHours = (appointmentTime.hours + timezoneOffset + 24) % 24;
+      const localAppointmentMinutes = appointmentTime.minutes;
+      
+      console.log(`DEBUG: Horário agendamento UTC: ${appointmentTime.hours}:${appointmentTime.minutes}, Local (offset ${timezoneOffset}): ${localAppointmentHours}:${localAppointmentMinutes}`);
+      console.log(`DEBUG: Horário de abertura da barbearia: ${openTime.hours}:${openTime.minutes}`);
+      
+      // Check if appointment time is before opening time (comparando em horário local)
+      if (localAppointmentHours < openTime.hours || 
+          (localAppointmentHours === openTime.hours && localAppointmentMinutes < openTime.minutes)) {
         return res.status(400).json({ 
-          message: `O horário de agendamento (${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')}) é anterior ao horário de abertura da barbearia (${openTime.hours}:${String(openTime.minutes).padStart(2, '0')}).`,
+          message: `O horário de agendamento (${localAppointmentHours}:${String(localAppointmentMinutes).padStart(2, '0')}) é anterior ao horário de abertura da barbearia (${openTime.hours}:${String(openTime.minutes).padStart(2, '0')}).`,
           debug: {
-            appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
+            appointment_time: `${localAppointmentHours}:${localAppointmentMinutes}`,
             barbershop_open_time: `${openTime.hours}:${openTime.minutes}`
           }
         });
@@ -771,18 +782,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shopEndCheckDate = new Date(appointmentData.appointment_date);
       shopEndCheckDate.setUTCMinutes(shopEndCheckDate.getUTCMinutes() + service.duration);
       
-      // Obter o fuso horário configurado
-      const timezoneOffset = getTimezoneOffset(barbershopSettings.timezone || 'America/Sao_Paulo');
-      console.log(`Verificando com fuso horário: ${barbershopSettings.timezone}, offset: ${timezoneOffset}`);
-      
-      // Não converter as horas para comparar corretamente com o horário de fechamento
-      const shopEndHours = shopEndCheckDate.getUTCHours();
-      const shopEndMinutes = shopEndCheckDate.getUTCMinutes();
+      // CORREÇÃO: Ajustar o horário UTC para o fuso horário local da barbearia
+      // Se o offset for -3 (São Paulo), precisamos subtrair 3 horas do horário UTC
+      // para comparar com os horários configurados da barbearia (que estão em local time)
+      const localEndHours = (shopEndCheckDate.getUTCHours() + timezoneOffset + 24) % 24;
+      const localEndMinutes = shopEndCheckDate.getUTCMinutes();
       
       const shopEndTimeObj = {
-        hours: shopEndHours,
-        minutes: shopEndMinutes
+        hours: localEndHours,
+        minutes: localEndMinutes
       };
+      
+      // Também ajustamos o horário de início para o log
+      const localStartHours = (appointmentData.appointment_date.getUTCHours() + timezoneOffset + 24) % 24;
+      const localStartMinutes = appointmentData.appointment_date.getUTCMinutes();
       
       console.log(`Debugging: Service duration: ${service.duration} min`);
       console.log(`Debugging: Appointment time: ${appointmentTime.hours}:${appointmentTime.minutes}`);
@@ -792,9 +805,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (shopEndTimeObj.hours > closeTime.hours || 
           (shopEndTimeObj.hours === closeTime.hours && shopEndTimeObj.minutes > closeTime.minutes)) {
         return res.status(400).json({ 
-          message: `O serviço de ${service.duration} minutos agendado para ${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')} terminaria às ${shopEndTimeObj.hours}:${String(shopEndTimeObj.minutes).padStart(2, '0')}, após o horário de fechamento da barbearia (${closeTime.hours}:${String(closeTime.minutes).padStart(2, '0')}).`,
+          message: `O serviço de ${service.duration} minutos agendado para ${localStartHours}:${String(localStartMinutes).padStart(2, '0')} terminaria às ${shopEndTimeObj.hours}:${String(shopEndTimeObj.minutes).padStart(2, '0')}, após o horário de fechamento da barbearia (${closeTime.hours}:${String(closeTime.minutes).padStart(2, '0')}).`,
           debug: {
-            appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
+            appointment_time: `${localStartHours}:${localStartMinutes}`,
             service_duration: service.duration,
             calculated_end_time: `${shopEndTimeObj.hours}:${shopEndTimeObj.minutes}`,
             barbershop_close_time: `${closeTime.hours}:${closeTime.minutes}`
