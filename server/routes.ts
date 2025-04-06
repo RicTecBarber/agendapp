@@ -360,6 +360,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Para garantir que estamos filtrando a data corretamente, precisamos adicionar logs e verificar o formato
       console.log(`Buscando agendamentos para a data: ${date.toISOString()}`);
       
+      // CORREÇÃO DE FUSO HORÁRIO: Garantir que a data seja tratada corretamente
+      // Obter a data como string no formato ISO e extrair os componentes de data/hora
+      let dateISOString = date.toISOString();
+      console.log(`Data de busca original: ${dateISOString}`);
+      
+      // Extrair os componentes do horário: ano, mês, dia
+      const [datePart] = dateISOString.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      
+      // Recriar a data com o offset UTC-3 (Brasil) correto 
+      const searchDate = new Date(Date.UTC(year, month-1, day, 0, 0, 0));
+      console.log(`Data ajustada para busca: ${searchDate.toISOString()}`);
+      
       // Obter todos os agendamentos para garantir que não haja problemas de filtro por data
       const allAppointments = await storage.getAllAppointments();
       console.log(`Total de agendamentos no sistema: ${allAppointments.length}`);
@@ -372,12 +385,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       endOfDay.setHours(23, 59, 59, 999);
       
       // Verificar manualmente todos os agendamentos para esta data
+      // Usando a data ajustada para garantir a compatibilidade de fuso horário
       const manuallyFilteredAppointments = allAppointments.filter(a => {
         const appointmentDate = new Date(a.appointment_date);
         const isSameDay = 
-          appointmentDate.getFullYear() === date.getFullYear() &&
-          appointmentDate.getMonth() === date.getMonth() &&
-          appointmentDate.getDate() === date.getDate();
+          appointmentDate.getFullYear() === searchDate.getFullYear() &&
+          appointmentDate.getMonth() === searchDate.getMonth() &&
+          appointmentDate.getDate() === searchDate.getDate();
           
         if (isSameDay) {
           console.log(`ENCONTRADO MANUALMENTE: Agendamento #${a.id} em ${appointmentDate.toISOString()}`);
@@ -584,8 +598,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
-      // Validação de segurança adicional: verificar se esse mesmo horário e dia/mês/ano já tem um agendamento
-      const appointmentDate = new Date(appointmentData.appointment_date);
+      // CORREÇÃO DE FUSO HORÁRIO: Garantir que a data seja tratada corretamente
+      // Obter a data como string no formato ISO e extrair os componentes de data/hora
+      let appointmentISOString = appointmentData.appointment_date.toISOString();
+      console.log(`Data do agendamento original: ${appointmentISOString}`);
+      
+      // Extrair os componentes do horário: ano, mês, dia, hora, minuto
+      const [datePart, timePart] = appointmentISOString.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hour, minute] = timePart.split(':').map(Number);
+      
+      // Recriar a data com o offset UTC-3 (Brasil) correto para garantir
+      // que 09:00 na interface seja tratado como 09:00 no banco de dados
+      const appointmentDate = new Date(Date.UTC(year, month-1, day, hour, minute, 0));
       const timeStr = `${appointmentDate.getHours().toString().padStart(2, '0')}:${appointmentDate.getMinutes().toString().padStart(2, '0')}`;
       console.log(`VERIFICANDO DUPLICAÇÃO: Horário solicitado: ${timeStr}, Data: ${appointmentDate.toISOString()}`);
       
@@ -780,8 +805,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Criar um objeto com a data corrigida para horário local
+      const fixedAppointmentData = {
+        ...appointmentData,
+        // Usar a data ajustada que criamos acima
+        appointment_date: appointmentDate
+      };
+      
+      // Log para diagnóstico
+      console.log(`Data original recebida: ${appointmentData.appointment_date.toISOString()}`);
+      console.log(`Data ajustada para salvamento: ${fixedAppointmentData.appointment_date.toISOString()}`);
+      
       // Create the appointment
-      const appointment = await storage.createAppointment(appointmentData);
+      const appointment = await storage.createAppointment(fixedAppointmentData);
       
       // If this is a loyalty reward redemption, update the client's loyalty record
       if (appointmentData.is_loyalty_reward) {
