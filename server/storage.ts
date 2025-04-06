@@ -63,7 +63,7 @@ export interface IStorage {
   updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings | undefined>;
   
   // SessionStore for auth
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 }
 
 // In-memory storage implementation
@@ -76,7 +76,7 @@ export class MemStorage implements IStorage {
   private clientRewards: Map<number, ClientReward>;
   private barbershopSettings: BarbershopSettings | undefined;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any;
   
   private userIdCounter: number;
   private serviceIdCounter: number;

@@ -470,7 +470,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if appointment time is before opening time
         if (appointmentTime.hours < openTime.hours || 
             (appointmentTime.hours === openTime.hours && appointmentTime.minutes < openTime.minutes)) {
-          return res.status(400).json({ message: "O horário do agendamento é antes do horário de abertura da barbearia" });
+          return res.status(400).json({ 
+            message: `O horário de agendamento (${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')}) é anterior ao horário de abertura da barbearia (${openTime.hours}:${String(openTime.minutes).padStart(2, '0')}).`,
+            debug: {
+              appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
+              barbershop_open_time: `${openTime.hours}:${openTime.minutes}`
+            }
+          });
         }
         
         // Check if appointment time plus service duration exceeds closing time
@@ -482,9 +488,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           minutes: appointmentEndTime.getMinutes()
         };
         
+        console.log(`Debugging: Service duration: ${service.duration} min`);
+        console.log(`Debugging: Appointment time: ${appointmentTime.hours}:${appointmentTime.minutes}`);
+        console.log(`Debugging: End time calculated: ${endTime.hours}:${endTime.minutes}`);
+        console.log(`Debugging: Barbershop closing time: ${closeTime.hours}:${closeTime.minutes}`);
+        
         if (endTime.hours > closeTime.hours || 
             (endTime.hours === closeTime.hours && endTime.minutes > closeTime.minutes)) {
-          return res.status(400).json({ message: "O horário do agendamento ultrapassa o horário de fechamento da barbearia" });
+          return res.status(400).json({ 
+            message: `O serviço de ${service.duration} minutos agendado para ${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')} terminaria às ${endTime.hours}:${String(endTime.minutes).padStart(2, '0')}, após o horário de fechamento da barbearia (${closeTime.hours}:${String(closeTime.minutes).padStart(2, '0')}).`,
+            debug: {
+              appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
+              service_duration: service.duration,
+              calculated_end_time: `${endTime.hours}:${endTime.minutes}`,
+              barbershop_close_time: `${closeTime.hours}:${closeTime.minutes}`
+            }
+          });
         }
       }
       
@@ -493,7 +512,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dayAvailability = availabilityList.find(a => a.day_of_week === dayOfWeek);
       
       if (!dayAvailability || !dayAvailability.is_available) {
-        return res.status(400).json({ message: "O profissional não está disponível neste dia" });
+        const diasSemana = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+        const diaSemana = diasSemana[dayOfWeek];
+        
+        return res.status(400).json({ 
+          message: `O profissional não está disponível às ${diaSemana}s. Por favor escolha outro dia ou outro profissional.`,
+          debug: {
+            professional_id: appointmentData.professional_id,
+            day_of_week: dayOfWeek,
+            day_name: diaSemana
+          }
+        });
       }
       
       // Check if the appointment is within the professional's availability hours
@@ -503,7 +532,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if appointment time is before professional's start time
       if (appointmentTime.hours < profStartTime.hours || 
           (appointmentTime.hours === profStartTime.hours && appointmentTime.minutes < profStartTime.minutes)) {
-        return res.status(400).json({ message: "O horário do agendamento é antes do horário de disponibilidade do profissional" });
+        return res.status(400).json({ 
+          message: "O horário de agendamento é anterior ao horário de disponibilidade do profissional."
+        });
       }
       
       // Check if appointment time plus service duration exceeds professional's end time
@@ -517,7 +548,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (endTime.hours > profEndTime.hours || 
           (endTime.hours === profEndTime.hours && endTime.minutes > profEndTime.minutes)) {
-        return res.status(400).json({ message: "O horário do agendamento ultrapassa o horário de disponibilidade do profissional" });
+        return res.status(400).json({ 
+          message: "O serviço agendado terminaria após o horário de disponibilidade do profissional."
+        });
       }
       
       // Check if the slot is already booked
@@ -544,7 +577,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       if (conflictingAppointment) {
-        return res.status(400).json({ message: "Este horário já está reservado" });
+        return res.status(400).json({ 
+          message: "Este horário já está reservado para outro cliente. Escolha um horário diferente."
+        });
       }
       
       // Create the appointment
