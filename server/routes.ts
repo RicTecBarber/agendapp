@@ -449,18 +449,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Adjust the availability to be within the barbershop's hours
       const barbershopOpenTime = parseTime(barbershopSettings.open_time);
       const barbershopCloseTime = parseTime(barbershopSettings.close_time);
-        
-        // Ensure start time is not earlier than barbershop opening time
-        if (startTime.hours < barbershopOpenTime.hours || 
-            (startTime.hours === barbershopOpenTime.hours && startTime.minutes < barbershopOpenTime.minutes)) {
-          startTime = barbershopOpenTime;
-        }
-        
-        // Ensure end time is not later than barbershop closing time
-        if (endTime.hours > barbershopCloseTime.hours || 
-            (endTime.hours === barbershopCloseTime.hours && endTime.minutes > barbershopCloseTime.minutes)) {
-          endTime = barbershopCloseTime;
-        }
+      
+      // Ensure start time is not earlier than barbershop opening time
+      if (startTime.hours < barbershopOpenTime.hours || 
+          (startTime.hours === barbershopOpenTime.hours && startTime.minutes < barbershopOpenTime.minutes)) {
+        startTime = barbershopOpenTime;
+      }
+      
+      // Ensure end time is not later than barbershop closing time
+      if (endTime.hours > barbershopCloseTime.hours || 
+          (endTime.hours === barbershopCloseTime.hours && endTime.minutes > barbershopCloseTime.minutes)) {
+        endTime = barbershopCloseTime;
       }
       
       // Prepare a map of occupied time slots
@@ -668,48 +667,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Check if the appointment is within barbershop hours
-      if (barbershopSettings) {
-        const openTime = parseTime(barbershopSettings.open_time);
-        const closeTime = parseTime(barbershopSettings.close_time);
-        
-        // Check if appointment time is before opening time
-        if (appointmentTime.hours < openTime.hours || 
-            (appointmentTime.hours === openTime.hours && appointmentTime.minutes < openTime.minutes)) {
-          return res.status(400).json({ 
-            message: `O horário de agendamento (${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')}) é anterior ao horário de abertura da barbearia (${openTime.hours}:${String(openTime.minutes).padStart(2, '0')}).`,
-            debug: {
-              appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
-              barbershop_open_time: `${openTime.hours}:${openTime.minutes}`
-            }
-          });
-        }
-        
-        // Check if appointment time plus service duration exceeds closing time
-        const appointmentEndTime = new Date(appointmentData.appointment_date);
-        appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + service.duration);
-        
-        const endTime = {
-          hours: appointmentEndTime.getHours(),
-          minutes: appointmentEndTime.getMinutes()
-        };
-        
-        console.log(`Debugging: Service duration: ${service.duration} min`);
-        console.log(`Debugging: Appointment time: ${appointmentTime.hours}:${appointmentTime.minutes}`);
-        console.log(`Debugging: End time calculated: ${endTime.hours}:${endTime.minutes}`);
-        console.log(`Debugging: Barbershop closing time: ${closeTime.hours}:${closeTime.minutes}`);
-        
-        if (endTime.hours > closeTime.hours || 
-            (endTime.hours === closeTime.hours && endTime.minutes > closeTime.minutes)) {
-          return res.status(400).json({ 
-            message: `O serviço de ${service.duration} minutos agendado para ${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')} terminaria às ${endTime.hours}:${String(endTime.minutes).padStart(2, '0')}, após o horário de fechamento da barbearia (${closeTime.hours}:${String(closeTime.minutes).padStart(2, '0')}).`,
-            debug: {
-              appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
-              service_duration: service.duration,
-              calculated_end_time: `${endTime.hours}:${endTime.minutes}`,
-              barbershop_close_time: `${closeTime.hours}:${closeTime.minutes}`
-            }
-          });
-        }
+      const openTime = parseTime(barbershopSettings.open_time);
+      const closeTime = parseTime(barbershopSettings.close_time);
+      
+      // Check if appointment time is before opening time
+      if (appointmentTime.hours < openTime.hours || 
+          (appointmentTime.hours === openTime.hours && appointmentTime.minutes < openTime.minutes)) {
+        return res.status(400).json({ 
+          message: `O horário de agendamento (${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')}) é anterior ao horário de abertura da barbearia (${openTime.hours}:${String(openTime.minutes).padStart(2, '0')}).`,
+          debug: {
+            appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
+            barbershop_open_time: `${openTime.hours}:${openTime.minutes}`
+          }
+        });
+      }
+      
+      // Check if appointment time plus service duration exceeds closing time
+      const shopEndCheckDate = new Date(appointmentData.appointment_date);
+      shopEndCheckDate.setMinutes(shopEndCheckDate.getMinutes() + service.duration);
+      
+      const shopEndTimeObj = {
+        hours: shopEndCheckDate.getHours(),
+        minutes: shopEndCheckDate.getMinutes()
+      };
+      
+      console.log(`Debugging: Service duration: ${service.duration} min`);
+      console.log(`Debugging: Appointment time: ${appointmentTime.hours}:${appointmentTime.minutes}`);
+      console.log(`Debugging: End time calculated: ${shopEndTimeObj.hours}:${shopEndTimeObj.minutes}`);
+      console.log(`Debugging: Barbershop closing time: ${closeTime.hours}:${closeTime.minutes}`);
+      
+      if (shopEndTimeObj.hours > closeTime.hours || 
+          (shopEndTimeObj.hours === closeTime.hours && shopEndTimeObj.minutes > closeTime.minutes)) {
+        return res.status(400).json({ 
+          message: `O serviço de ${service.duration} minutos agendado para ${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')} terminaria às ${shopEndTimeObj.hours}:${String(shopEndTimeObj.minutes).padStart(2, '0')}, após o horário de fechamento da barbearia (${closeTime.hours}:${String(closeTime.minutes).padStart(2, '0')}).`,
+          debug: {
+            appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
+            service_duration: service.duration,
+            calculated_end_time: `${shopEndTimeObj.hours}:${shopEndTimeObj.minutes}`,
+            barbershop_close_time: `${closeTime.hours}:${closeTime.minutes}`
+          }
+        });
       }
       
       // Check if the professional is available on this day
@@ -743,16 +740,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if appointment time plus service duration exceeds professional's end time
-      const appointmentEndTime = new Date(appointmentData.appointment_date);
-      appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + service.duration);
+      const profEndCheckDate = new Date(appointmentData.appointment_date);
+      profEndCheckDate.setMinutes(profEndCheckDate.getMinutes() + service.duration);
       
-      const endTime = {
-        hours: appointmentEndTime.getHours(),
-        minutes: appointmentEndTime.getMinutes()
+      const profAvailEndTimeObj = {
+        hours: profEndCheckDate.getHours(),
+        minutes: profEndCheckDate.getMinutes()
       };
       
-      if (endTime.hours > profEndTime.hours || 
-          (endTime.hours === profEndTime.hours && endTime.minutes > profEndTime.minutes)) {
+      if (profAvailEndTimeObj.hours > profEndTime.hours || 
+          (profAvailEndTimeObj.hours === profEndTime.hours && profAvailEndTimeObj.minutes > profEndTime.minutes)) {
         return res.status(400).json({ 
           message: "O serviço agendado terminaria após o horário de disponibilidade do profissional."
         });
