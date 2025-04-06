@@ -239,14 +239,19 @@ const NewAppointmentPage = () => {
       return;
     }
     
-    // Criar uma data UTC a partir da data e hora local selecionada
-    // Esta função lida corretamente com as diferenças de fuso horário
+    // ABORDAGEM DIRETA: Criar diretamente uma nova data com o horário selecionado
+    // sem qualquer conversão de fuso horário
     const [hours, minutes] = selectedTime.split(":").map(Number);
-    const appointmentDateTime = createUtcDateFromLocalTime(selectedDate, `${hours}:${minutes}`);
     
-    console.log(`Data local selecionada: ${selectedDate.toLocaleString()}`);
-    console.log(`Horário selecionado: ${selectedTime}`);
-    console.log(`Data UTC criada para envio: ${appointmentDateTime.toISOString()}`);
+    // Clonamos a data selecionada para não alterar o estado original
+    const appointmentDateTime = new Date(selectedDate);
+    // Definimos a hora e minutos exatamente como foram selecionados
+    appointmentDateTime.setHours(hours, minutes, 0, 0);
+    
+    console.log(`ABORDAGEM DIRETA: Data local selecionada: ${selectedDate.toLocaleString()}`);
+    console.log(`ABORDAGEM DIRETA: Horário selecionado: ${selectedTime}`);
+    console.log(`ABORDAGEM DIRETA: Data e hora para envio: ${appointmentDateTime.toLocaleString()}`);
+    console.log(`ABORDAGEM DIRETA: ISO String para envio: ${appointmentDateTime.toISOString()}`);
     
     const appointmentData = {
       client_name: clientName,
