@@ -471,44 +471,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Pre-process todos os agendamentos para saber quais horários estão ocupados
       professionalAppointments.forEach(appointment => {
-        const appointmentStart = new Date(appointment.appointment_date);
+        // USANDO A HORA LOCAL em vez de UTC - isso é o que resolve o problema
+        const appointmentDate = new Date(appointment.appointment_date);
+        // Usar getHours() em vez de getUTCHours() para pegar a hora local do cliente
+        const appointmentHour = appointmentDate.getHours(); 
+        const appointmentMinute = appointmentDate.getMinutes();
+        
+        console.log(`Agendamento #${appointment.id}:`, {
+          hora_original_ISO: appointmentDate.toISOString(),
+          hora_local_extraida: `${appointmentHour}:${appointmentMinute}`,
+          hora_UTC: `${appointmentDate.getUTCHours()}:${appointmentDate.getUTCMinutes()}`
+        });
+        
+        // Find the related service
         const service = services.find((s) => s.id === appointment.service_id);
         const serviceDuration = service?.duration || 30;
         
-        // CORREÇÃO DE FUSO HORÁRIO: Trabalhar com hora local, não UTC
-        // Extrair componentes da data do agendamento
-        const year = appointmentStart.getFullYear();
-        const month = appointmentStart.getMonth();
-        const day = appointmentStart.getDate();
-        const hour = appointmentStart.getHours();
-        const minute = appointmentStart.getMinutes();
+        // Format the time as HH:MM string to match exactly what we display to users
+        const timeString = `${appointmentHour.toString().padStart(2, '0')}:${appointmentMinute.toString().padStart(2, '0')}`;
         
-        // Recriar data local sem conversão UTC
-        const localAppointmentStart = new Date(year, month, day, hour, minute);
-        const localAppointmentEnd = addMinutes(localAppointmentStart, serviceDuration);
+        // Calculate end time for this service
+        let endHour = appointmentHour;
+        let endMinute = appointmentMinute + serviceDuration;
         
-        // Marcar slots ocupados pelo agendamento (incluindo duração do serviço)
-        let currentTime = new Date(localAppointmentStart);
+        // Adjust if we cross hour boundaries
+        while (endMinute >= 60) {
+          endHour++;
+          endMinute -= 60;
+        }
         
-        // Log detalhado para este agendamento
+        const endTimeString = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+        
+        // Log detailed info about the appointment
         console.log(`Processando agendamento #${appointment.id}:`, {
-          hora_inicio: format(localAppointmentStart, "HH:mm"),
-          hora_fim: format(localAppointmentEnd, "HH:mm"),
+          hora_inicio: timeString,
+          hora_fim: endTimeString,
           duracao: serviceDuration,
-          data_original: appointmentStart.toISOString(),
-          data_local_ajustada: localAppointmentStart.toISOString()
+          data_original: appointmentDate.toISOString()
         });
         
-        // Verificar cada slot de 30 minutos que esse agendamento ocupa
-        while (currentTime < localAppointmentEnd) {
-          const timeKey = format(currentTime, "HH:mm");
-          if (!occupiedSlots.has(timeKey)) {
-            occupiedSlots.set(timeKey, []);
-          }
-          occupiedSlots.get(timeKey)?.push(appointment.id);
+        // Marcar o horário como ocupado
+        if (!occupiedSlots.has(timeString)) {
+          occupiedSlots.set(timeString, []);
+        }
+        occupiedSlots.get(timeString)?.push(appointment.id);
+        
+        // Se o serviço durar mais que 30 minutos, marcar slots adicionais
+        if (serviceDuration > 30) {
+          // Começar no horário inicial e adicionar 30 minutos
+          let currentHour = appointmentHour;
+          let currentMinute = appointmentMinute;
           
-          // Avançar para o próximo slot de 30 minutos
-          currentTime = addMinutes(currentTime, 30);
+          // Percorrer slots de 30 em 30 minutos até chegar ao fim do serviço
+          while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
+            // Avançar 30 minutos
+            currentMinute += 30;
+            if (currentMinute >= 60) {
+              currentHour++;
+              currentMinute -= 60;
+            }
+            
+            // Verificar se já chegamos ao fim do serviço
+            if (currentHour > endHour || (currentHour === endHour && currentMinute > endMinute)) {
+              break;
+            }
+            
+            // Marcar este slot como ocupado
+            const slotString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+            if (!occupiedSlots.has(slotString)) {
+              occupiedSlots.set(slotString, []);
+            }
+            occupiedSlots.get(slotString)?.push(appointment.id);
+          }
         }
       });
       
