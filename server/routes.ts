@@ -371,6 +371,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }))
       );
       
+      // Logs explícitos para cada agendamento
+      appointments.forEach(a => {
+        console.log(`DETALHES DE AGENDAMENTO: ID=${a.id}, Data=${new Date(a.appointment_date).toISOString()}, Profissional=${a.professional_id}, Status=${a.status}`);
+      });
+      
       const professionalAppointments = appointments.filter(
         a => {
           const isForProfessional = a.professional_id === professionalId;
