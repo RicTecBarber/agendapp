@@ -117,6 +117,16 @@ const AppointmentsPage = () => {
   const { data: availability, isLoading: isLoadingAvailability } = useQuery({
     queryKey: ["/api/availability", selectedProfessional, format(selectedDate, "yyyy-MM-dd")],
     enabled: !!selectedProfessional && !!selectedDate, // Only run query when both are selected
+    queryFn: async () => {
+      if (!selectedProfessional || !selectedDate) return [];
+      const formattedDate = format(selectedDate, "yyyy-MM-dd");
+      const res = await fetch(`/api/availability/${selectedProfessional}/${formattedDate}`);
+      console.log("Buscando disponibilidade para:", selectedProfessional, formattedDate);
+      if (!res.ok) throw new Error("Erro ao buscar disponibilidade");
+      const data = await res.json();
+      console.log("Disponibilidade retornada:", data);
+      return data;
+    }
   });
   
   // Get toast
@@ -215,14 +225,33 @@ const AppointmentsPage = () => {
   
   // Effect to update available times when availability data changes
   useEffect(() => {
-    if (availability && Array.isArray(availability)) {
-      const times = availability.map((slot: any) => slot.time);
-      setAvailableTimes(times);
-      // Reset selected time if not available anymore
-      if (selectedTime && !times.includes(selectedTime)) {
+    if (availability) {
+      console.log("Disponibilidade recebida:", availability);
+      // Se a disponibilidade tem a propriedade available_slots
+      if (availability.available_slots && Array.isArray(availability.available_slots)) {
+        const times = availability.available_slots;
+        console.log("Horários disponíveis:", times);
+        setAvailableTimes(times);
+        // Reset selected time if not available anymore
+        if (selectedTime && !times.includes(selectedTime)) {
+          setSelectedTime(null);
+        }
+      } else if (Array.isArray(availability)) {
+        // Suporte para resposta que seja diretamente um array
+        const times = availability.map((slot: any) => slot.time || slot);
+        console.log("Horários disponíveis (formato alternativo):", times);
+        setAvailableTimes(times);
+        // Reset selected time if not available anymore
+        if (selectedTime && !times.includes(selectedTime)) {
+          setSelectedTime(null);
+        }
+      } else {
+        console.log("Formato de disponibilidade não reconhecido:", availability);
+        setAvailableTimes([]);
         setSelectedTime(null);
       }
     } else {
+      console.log("Nenhuma disponibilidade recebida");
       setAvailableTimes([]);
       setSelectedTime(null);
     }
