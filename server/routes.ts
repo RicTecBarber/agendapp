@@ -475,19 +475,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const service = services.find((s) => s.id === appointment.service_id);
         const serviceDuration = service?.duration || 30;
         
+        // CORREÇÃO DE FUSO HORÁRIO: Trabalhar com hora local, não UTC
+        // Extrair componentes da data do agendamento
+        const year = appointmentStart.getFullYear();
+        const month = appointmentStart.getMonth();
+        const day = appointmentStart.getDate();
+        const hour = appointmentStart.getHours();
+        const minute = appointmentStart.getMinutes();
+        
+        // Recriar data local sem conversão UTC
+        const localAppointmentStart = new Date(year, month, day, hour, minute);
+        const localAppointmentEnd = addMinutes(localAppointmentStart, serviceDuration);
+        
         // Marcar slots ocupados pelo agendamento (incluindo duração do serviço)
-        let currentTime = new Date(appointmentStart);
-        const appointmentEnd = addMinutes(appointmentStart, serviceDuration);
+        let currentTime = new Date(localAppointmentStart);
         
         // Log detalhado para este agendamento
         console.log(`Processando agendamento #${appointment.id}:`, {
-          hora_inicio: format(appointmentStart, "HH:mm"),
-          hora_fim: format(appointmentEnd, "HH:mm"),
-          duracao: serviceDuration
+          hora_inicio: format(localAppointmentStart, "HH:mm"),
+          hora_fim: format(localAppointmentEnd, "HH:mm"),
+          duracao: serviceDuration,
+          data_original: appointmentStart.toISOString(),
+          data_local_ajustada: localAppointmentStart.toISOString()
         });
         
         // Verificar cada slot de 30 minutos que esse agendamento ocupa
-        while (currentTime < appointmentEnd) {
+        while (currentTime < localAppointmentEnd) {
           const timeKey = format(currentTime, "HH:mm");
           if (!occupiedSlots.has(timeKey)) {
             occupiedSlots.set(timeKey, []);

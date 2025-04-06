@@ -671,21 +671,21 @@ export class MemStorage implements IStorage {
     });
     
     // Add professionals
-    const joaoCosta = this.createProfessional({
+    this.createProfessional({
       name: "João Costa",
       description: "Mestre em todos os serviços",
       services_offered: [1, 2, 3, 4], // All services
       avatar_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&h=100&q=80"
     });
     
-    const matheusOliveira = this.createProfessional({
+    this.createProfessional({
       name: "Matheus Oliveira",
       description: "Especialista em barbas",
       services_offered: [2, 4], // Barba and Sobrancelha
       avatar_url: "https://images.unsplash.com/photo-1541533848490-bc8115cd6522?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&h=100&q=80"
     });
     
-    const rafaelSilva = this.createProfessional({
+    this.createProfessional({
       name: "Rafael Silva",
       description: "Especialista em cortes modernos",
       services_offered: [1, 2], // Corte and Barba
@@ -724,72 +724,8 @@ export class MemStorage implements IStorage {
       });
     }
     
-    // Add some sample appointments
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    // Appointment 1 - Completed yesterday
-    const appt1 = {
-      client_name: "Marcos Ribeiro",
-      client_phone: "11987654321",
-      service_id: 1, // Corte
-      professional_id: 1, // João
-      appointment_date: new Date(yesterday.setHours(10, 30, 0, 0)),
-      status: "completed",
-      created_at: new Date(yesterday.setHours(9, 0, 0, 0)),
-      notify_whatsapp: true,
-      is_loyalty_reward: false,
-      id: this.appointmentIdCounter++
-    };
-    this.appointments.set(appt1.id, appt1);
-    
-    // Appointment 2 - Scheduled for today
-    const appt2 = {
-      client_name: "Carlos Almeida",
-      client_phone: "11976543210",
-      service_id: 2, // Barba
-      professional_id: 2, // Matheus
-      appointment_date: new Date(today.setHours(11, 0, 0, 0)),
-      status: "scheduled",
-      created_at: new Date(yesterday.setHours(14, 0, 0, 0)),
-      notify_whatsapp: false,
-      is_loyalty_reward: false,
-      id: this.appointmentIdCounter++
-    };
-    this.appointments.set(appt2.id, appt2);
-    
-    // Appointment 3 - Scheduled for today
-    const appt3 = {
-      client_name: "Felipe Santos",
-      client_phone: "11965432109",
-      service_id: 3, // Combo
-      professional_id: 1, // João
-      appointment_date: new Date(today.setHours(14, 0, 0, 0)),
-      status: "scheduled",
-      created_at: new Date(yesterday.setHours(16, 0, 0, 0)),
-      notify_whatsapp: true,
-      is_loyalty_reward: false,
-      id: this.appointmentIdCounter++
-    };
-    this.appointments.set(appt3.id, appt3);
-    
-    // Appointment 4 - Cancelled for today
-    const appt4 = {
-      client_name: "Thiago Martins",
-      client_phone: "11954321098",
-      service_id: 4, // Sobrancelha
-      professional_id: 2, // Matheus
-      appointment_date: new Date(today.setHours(15, 30, 0, 0)),
-      status: "cancelled",
-      created_at: new Date(yesterday.setHours(10, 0, 0, 0)),
-      notify_whatsapp: true,
-      is_loyalty_reward: false,
-      id: this.appointmentIdCounter++
-    };
-    this.appointments.set(appt4.id, appt4);
+    // ATENÇÃO: Todos os agendamentos foram removidos para resolver o problema de fuso horário.
+    // Novos agendamentos serão criados pelos usuários e todas as horas serão mantidas corretamente.
     
     // Add some client rewards
     // Client 1 - 3 attendances
@@ -824,7 +760,7 @@ export class MemStorage implements IStorage {
       total_attendances: 12,
       free_services_used: 1,
       updated_at: new Date(),
-      last_reward_at: new Date(yesterday.setHours(9, 0, 0, 0))
+      last_reward_at: new Date(new Date().setHours(9, 0, 0, 0))
     };
     this.clientRewards.set(reward3.id, reward3);
   }
