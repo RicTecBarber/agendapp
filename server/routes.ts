@@ -722,10 +722,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "A barbearia está fechada neste dia" });
       }
       
-      // Get appointment time
+      // Get appointment time - Usando horas UTC já que a data está em UTC
       const appointmentTime = {
-        hours: appointmentData.appointment_date.getHours(),
-        minutes: appointmentData.appointment_date.getMinutes()
+        hours: appointmentData.appointment_date.getUTCHours(),
+        minutes: appointmentData.appointment_date.getUTCMinutes()
       };
       
       // Check if the appointment is within barbershop hours
@@ -746,11 +746,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if appointment time plus service duration exceeds closing time
       const shopEndCheckDate = new Date(appointmentData.appointment_date);
-      shopEndCheckDate.setMinutes(shopEndCheckDate.getMinutes() + service.duration);
+      shopEndCheckDate.setUTCMinutes(shopEndCheckDate.getUTCMinutes() + service.duration);
       
       const shopEndTimeObj = {
-        hours: shopEndCheckDate.getHours(),
-        minutes: shopEndCheckDate.getMinutes()
+        hours: shopEndCheckDate.getUTCHours(),
+        minutes: shopEndCheckDate.getUTCMinutes()
       };
       
       console.log(`Debugging: Service duration: ${service.duration} min`);
@@ -803,11 +803,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if appointment time plus service duration exceeds professional's end time
       const profEndCheckDate = new Date(appointmentData.appointment_date);
-      profEndCheckDate.setMinutes(profEndCheckDate.getMinutes() + service.duration);
+      profEndCheckDate.setUTCMinutes(profEndCheckDate.getUTCMinutes() + service.duration);
       
       const profAvailEndTimeObj = {
-        hours: profEndCheckDate.getHours(),
-        minutes: profEndCheckDate.getMinutes()
+        hours: profEndCheckDate.getUTCHours(),
+        minutes: profEndCheckDate.getUTCMinutes()
       };
       
       if (profAvailEndTimeObj.hours > profEndTime.hours || 
@@ -827,11 +827,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const existingStartTime = new Date(a.appointment_date);
         const existingService = service; // Simplified, ideally would fetch the service
         const existingEndTime = new Date(existingStartTime);
-        existingEndTime.setMinutes(existingEndTime.getMinutes() + (existingService?.duration || 30));
+        existingEndTime.setUTCMinutes(existingEndTime.getUTCMinutes() + (existingService?.duration || 30));
         
         const newStartTime = new Date(appointmentData.appointment_date);
         const newEndTime = new Date(newStartTime);
-        newEndTime.setMinutes(newEndTime.getMinutes() + service.duration);
+        newEndTime.setUTCMinutes(newEndTime.getUTCMinutes() + service.duration);
         
         return (
           (newStartTime >= existingStartTime && newStartTime < existingEndTime) ||
