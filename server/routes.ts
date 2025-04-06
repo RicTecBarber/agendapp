@@ -386,10 +386,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate time slots
       const timeSlots = [];
+      const slotDetails = []; // Array para detalhes dos slots
       
       // Get professional's availability time
       let startTime = parseTime(dayAvailability.start_time);
       let endTime = parseTime(dayAvailability.end_time);
+      
+      // Log de agendamentos do profissional para debug
+      console.log(`Agendamentos do profissional ${professionalId} para o dia ${date.toISOString().split('T')[0]}:`, 
+        professionalAppointments.map(a => ({
+          id: a.id,
+          horario: new Date(a.appointment_date).toISOString()
+        }))
+      );
       
       // If barbershop settings exist, adjust the availability to be within the barbershop's hours
       if (barbershopSettings) {
@@ -429,23 +438,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const service = services.find(s => s.id === appointment.service_id);
           const appointmentEnd = addMinutes(appointmentStart, service?.duration || 30);
           
-          return (
+          const hasConflict = (
             (currentSlot >= appointmentStart && currentSlot < appointmentEnd) ||
             (slotEnd > appointmentStart && slotEnd <= appointmentEnd) ||
             (currentSlot <= appointmentStart && slotEnd >= appointmentEnd)
           );
+
+          // Log de depuração para horário especifico
+          const currentSlotTime = format(currentSlot, "HH:mm");
+          if (currentSlotTime === "09:00") {
+            console.log(`Verificando horário 09:00 para agendamento existente #${appointment.id}:`);
+            console.log(`  Slot atual: ${currentSlot.toISOString()}`);
+            console.log(`  Slot fim: ${slotEnd.toISOString()}`);
+            console.log(`  Início agendamento: ${appointmentStart.toISOString()}`);
+            console.log(`  Fim agendamento: ${appointmentEnd.toISOString()}`);
+            console.log(`  Há conflito: ${hasConflict}`);
+            console.log(`  Condição 1: ${currentSlot >= appointmentStart && currentSlot < appointmentEnd}`);
+            console.log(`  Condição 2: ${slotEnd > appointmentStart && slotEnd <= appointmentEnd}`);
+            console.log(`  Condição 3: ${currentSlot <= appointmentStart && slotEnd >= appointmentEnd}`);
+          }
+          
+          return hasConflict;
         });
         
-        // Only add if the slot is still in the future
+        // Coleta detalhes sobre o slot (tanto disponíveis quanto ocupados)
+        const slotTime = format(currentSlot, "HH:mm");
+        
+        // Verifica conflitos específicos para este slot
+        const conflicts = professionalAppointments
+          .filter(appointment => {
+            const appointmentStart = new Date(appointment.appointment_date);
+            const service = services.find(s => s.id === appointment.service_id);
+            const appointmentEnd = addMinutes(appointmentStart, service?.duration || 30);
+            
+            return (
+              (currentSlot >= appointmentStart && currentSlot < appointmentEnd) ||
+              (slotEnd > appointmentStart && slotEnd <= appointmentEnd) ||
+              (currentSlot <= appointmentStart && slotEnd >= appointmentEnd)
+            );
+          })
+          .map(a => a.id);
+          
+        // Adiciona ao array de slots disponíveis
         if (isAvailable && isAfter(currentSlot, new Date())) {
-          timeSlots.push(format(currentSlot, "HH:mm"));
+          timeSlots.push(slotTime);
         }
+        
+        // Informações detalhadas sobre este horário (para debug)
+        slotDetails.push({
+          time: slotTime,
+          available: isAvailable && isAfter(currentSlot, new Date()),
+          conflicts: conflicts.length > 0 ? conflicts : null
+        });
         
         // Move to next 30-minute slot
         currentSlot.setMinutes(currentSlot.getMinutes() + 30);
       }
       
-      res.json({ available_slots: timeSlots });
+      // Retorna tanto os slots disponíveis quanto informações detalhadas para debug
+      res.json({ 
+        available_slots: timeSlots,
+        debug_info: {
+          date: date.toISOString().split('T')[0],
+          professional_id: professionalId,
+          slot_details: slotDetails
+        }
+      });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch availability" });
     }
