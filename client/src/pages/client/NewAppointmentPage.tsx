@@ -6,6 +6,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { createUtcDateFromLocalTime } from "@/lib/timezone-utils";
 import { 
   Card, 
   CardContent 
@@ -238,10 +239,14 @@ const NewAppointmentPage = () => {
       return;
     }
     
-    // Create appointment datetime
-    const appointmentDateTime = new Date(selectedDate);
+    // Criar uma data UTC a partir da data e hora local selecionada
+    // Esta função lida corretamente com as diferenças de fuso horário
     const [hours, minutes] = selectedTime.split(":").map(Number);
-    appointmentDateTime.setHours(hours, minutes, 0, 0);
+    const appointmentDateTime = createUtcDateFromLocalTime(selectedDate, `${hours}:${minutes}`);
+    
+    console.log(`Data local selecionada: ${selectedDate.toLocaleString()}`);
+    console.log(`Horário selecionado: ${selectedTime}`);
+    console.log(`Data UTC criada para envio: ${appointmentDateTime.toISOString()}`);
     
     const appointmentData = {
       client_name: clientName,
@@ -517,6 +522,7 @@ const NewAppointmentPage = () => {
                 <p className="text-neutral-dark">Horário:</p>
                 <p className="font-bold text-primary">
                   {format(new Date(appointment.appointment_date), "HH:mm")}
+                  <span className="text-xs text-gray-500 ml-1">(horário local)</span>
                 </p>
               </div>
               <div className="flex justify-between">

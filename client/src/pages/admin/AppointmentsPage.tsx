@@ -6,6 +6,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, isToday, isTomorrow, isThisWeek, isThisMonth, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { createUtcDateFromLocalTime } from "@/lib/timezone-utils";
 import {
   Card,
   CardContent,
@@ -279,10 +280,13 @@ const AppointmentsPage = () => {
       return;
     }
     
-    // Prepare date with time
+    // Prepare date with time using timezone utility
     const [hours, minutes] = selectedTime.split(':').map(Number);
-    const appointmentDate = new Date(selectedDate);
-    appointmentDate.setHours(hours, minutes, 0, 0);
+    // Usar a função que lida corretamente com timezone
+    const appointmentDate = createUtcDateFromLocalTime(selectedDate, `${hours}:${minutes}`);
+    console.log(`Data local selecionada: ${selectedDate.toLocaleString()}`);
+    console.log(`Horário selecionado: ${selectedTime}`);
+    console.log(`Data UTC criada para envio: ${appointmentDate.toISOString()}`);
     
     // Create appointment data
     const appointmentData = {
@@ -494,6 +498,7 @@ const AppointmentsPage = () => {
                           </td>
                           <td className="py-3 px-4">
                             {format(parseISO(appointment.appointment_date), "HH:mm")}
+                            <span className="text-xs text-gray-500 ml-1 block">(horário local)</span>
                           </td>
                           <td className="py-3 px-4">
                             {appointment.is_loyalty_reward 
@@ -600,6 +605,7 @@ const AppointmentsPage = () => {
                   <p className="text-sm text-neutral-dark">Horário:</p>
                   <p className="font-medium">
                     {format(parseISO(statusDialog.appointment.appointment_date), "HH:mm")}
+                    <span className="text-xs text-gray-500 ml-1 block">(horário local)</span>
                   </p>
                 </div>
               </div>

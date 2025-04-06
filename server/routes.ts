@@ -471,16 +471,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Pre-process todos os agendamentos para saber quais horários estão ocupados
       professionalAppointments.forEach(appointment => {
-        // USANDO A HORA LOCAL em vez de UTC - isso é o que resolve o problema
+        // MUITO IMPORTANTE: Os dados estão em UTC no banco, mas exibimos no fuso horário do servidor
+        // Isso é crucial para garantir que o front-end possa converter para o fuso horário do cliente
         const appointmentDate = new Date(appointment.appointment_date);
-        // Usar getHours() em vez de getUTCHours() para pegar a hora local do cliente
-        const appointmentHour = appointmentDate.getHours(); 
-        const appointmentMinute = appointmentDate.getMinutes();
+        
+        // Como os dados no banco estão em UTC, usamos UTC para extrair horas
+        // Isso garante que os dados sejam exibidos de forma consistente em qualquer fuso horário
+        const appointmentHour = appointmentDate.getUTCHours();
+        const appointmentMinute = appointmentDate.getUTCMinutes();
         
         console.log(`Agendamento #${appointment.id}:`, {
           hora_original_ISO: appointmentDate.toISOString(),
-          hora_local_extraida: `${appointmentHour}:${appointmentMinute}`,
-          hora_UTC: `${appointmentDate.getUTCHours()}:${appointmentDate.getUTCMinutes()}`
+          hora_UTC_extraida: `${appointmentHour}:${appointmentMinute}`,
+          hora_local_server: `${appointmentDate.getHours()}:${appointmentDate.getMinutes()}`
         });
         
         // Find the related service
@@ -628,25 +631,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
-      // CORREÇÃO DE FUSO HORÁRIO: Garantir que a data seja tratada corretamente  
-      console.log(`Data do agendamento original: ${appointmentData.appointment_date}`);
+      // TRATAMENTO DE FUSO HORÁRIO: 
+      // A data vem do cliente em UTC (pois o cliente converteu de local para UTC antes de enviar)
+      // Aqui usamos diretamente a data recebida sem modificação
+      console.log(`Data do agendamento recebida (UTC): ${appointmentData.appointment_date.toISOString()}`);
       
-      // Extrair os componentes da data mantendo a hora local exata (sem conversão UTC)
-      const year = appointmentData.appointment_date.getFullYear();
-      const month = appointmentData.appointment_date.getMonth(); // Já é 0-11, sem +1
-      const day = appointmentData.appointment_date.getDate();
-      const hour = appointmentData.appointment_date.getHours();
-      const minute = appointmentData.appointment_date.getMinutes();
+      // Já que a data está em UTC, usamos ela diretamente
+      const appointmentDate = appointmentData.appointment_date;
       
-      // Recriar a data preservando a hora local exata - sem usar Date.UTC
-      // Importante: Isto resolverá o problema onde 9:00 aparecia como 12:00
-      const appointmentDate = new Date(year, month, day, hour, minute, 0);
-      const timeStr = `${appointmentDate.getHours().toString().padStart(2, '0')}:${appointmentDate.getMinutes().toString().padStart(2, '0')}`;
-      console.log(`VERIFICANDO DUPLICAÇÃO: Horário solicitado: ${timeStr}, Data: ${appointmentDate.toISOString()}`);
+      // Extraímos a representação da hora para logs usando getUTCHours já que a data está em UTC
+      const timeStr = `${appointmentDate.getUTCHours().toString().padStart(2, '0')}:${appointmentDate.getUTCMinutes().toString().padStart(2, '0')}`;
+      console.log(`VERIFICANDO AGENDAMENTO: Horário UTC: ${timeStr}, Data completa: ${appointmentDate.toISOString()}`);
       
       // Buscar apenas os agendamentos para o mesmo dia
-      const sameDate = new Date(appointmentDate);
-      sameDate.setHours(0, 0, 0, 0);
+      // Criamos uma data em UTC para o início do dia
+      const sameDate = new Date(Date.UTC(
+        appointmentDate.getUTCFullYear(),
+        appointmentDate.getUTCMonth(),
+        appointmentDate.getUTCDate(),
+        0, 0, 0, 0
+      ));
       
       // Buscar agendamentos do dia e filtrar pelo horário e profissional
       const dayAppointments = await storage.getAppointmentsByDate(sameDate);
@@ -654,9 +658,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar agendamentos no mesmo horário
       const conflictingAppointments = dayAppointments.filter(a => {
         const existingDate = new Date(a.appointment_date);
+        // IMPORTANTE: Comparar em UTC para assegurar que a comparação funciona em qualquer fuso horário
         const isSameTime = 
-          existingDate.getHours() === appointmentDate.getHours() &&
-          existingDate.getMinutes() === appointmentDate.getMinutes();
+          existingDate.getUTCHours() === appointmentDate.getUTCHours() &&
+          existingDate.getUTCMinutes() === appointmentDate.getUTCMinutes();
           
         const isSameProfessional = a.professional_id === appointmentData.professional_id;
         const isActive = a.status !== "cancelled";
