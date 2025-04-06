@@ -217,7 +217,6 @@ const CheckAppointmentPage = () => {
                           <p className="text-neutral-dark">
                             {/* SOLUÇÃO RADICAL - Extrair o horário diretamente da string */}
                             {appointment.appointment_date.substring(11, 16)}
-                            <span className="text-xs text-green-600 font-medium ml-1">(exato)</span>
                           </p>
                           <p className="text-secondary font-bold mt-1">
                             {appointment.is_loyalty_reward 
@@ -280,7 +279,6 @@ const CheckAppointmentPage = () => {
                   <span className="font-medium">
                     {/* SOLUÇÃO RADICAL - Extrair o horário diretamente da string */}
                     {appointmentToCancel.appointment_date.substring(11, 16)}
-                    <span className="text-xs text-green-600 font-medium ml-1">(exato)</span>
                   </span>
                 </div>
               </div>
