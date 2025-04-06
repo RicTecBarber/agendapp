@@ -340,6 +340,8 @@ export class MemStorage implements IStorage {
       const appointmentDate = new Date(appointment.appointment_date);
       
       // Verificar se a data do agendamento está no mesmo dia
+    // Usar getDate/getMonth/getFullYear para trabalhar com a data local (sem UTC)
+    // Isto resolve o problema onde agendamentos às 9:00 aparecem como 12:00
       const isSameDay = (
         appointmentDate.getFullYear() === startOfDay.getFullYear() &&
         appointmentDate.getMonth() === startOfDay.getMonth() &&
@@ -353,7 +355,10 @@ export class MemStorage implements IStorage {
       return isSameDay;
     });
     
-    // Armazenar no cache para futuras consultas
+    // Limpar o cache e recarregar para corrigir problemas de fuso horário
+    this._appointmentsByDateCache.delete(dateKey);
+    
+    // Agora sim armazenar no cache para futuras consultas
     this._appointmentsByDateCache.set(dateKey, filteredAppointments);
     
     console.log(`Encontrados ${filteredAppointments.length} agendamentos para ${dateKey}`);

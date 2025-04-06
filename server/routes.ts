@@ -368,8 +368,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const month = date.getMonth() + 1; // getMonth retorna 0-11
       const day = date.getDate();
       
-      // Recriar a data com o offset UTC-3 (Brasil) correto 
-      const searchDate = new Date(Date.UTC(year, month-1, day, 0, 0, 0));
+      // Recriar a data preservando a hora local sem conversão para UTC
+      // Corrigindo o problema onde 09:00 aparecia como 12:00
+      const searchDate = new Date(year, month-1, day, 0, 0, 0);
       console.log(`Data ajustada para busca: ${searchDate.toISOString()}`);
       
       // Obter apenas os agendamentos para a data específica
@@ -583,16 +584,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // CORREÇÃO DE FUSO HORÁRIO: Garantir que a data seja tratada corretamente  
       console.log(`Data do agendamento original: ${appointmentData.appointment_date}`);
       
-      // Extrair os componentes da data diretamente
+      // Extrair os componentes da data mantendo a hora local exata (sem conversão UTC)
       const year = appointmentData.appointment_date.getFullYear();
-      const month = appointmentData.appointment_date.getMonth() + 1; // getMonth retorna 0-11
+      const month = appointmentData.appointment_date.getMonth(); // Já é 0-11, sem +1
       const day = appointmentData.appointment_date.getDate();
       const hour = appointmentData.appointment_date.getHours();
       const minute = appointmentData.appointment_date.getMinutes();
       
-      // Recriar a data com o offset UTC-3 (Brasil) correto para garantir
-      // que 09:00 na interface seja tratado como 09:00 no banco de dados
-      const appointmentDate = new Date(Date.UTC(year, month-1, day, hour, minute, 0));
+      // Recriar a data preservando a hora local exata - sem usar Date.UTC
+      // Importante: Isto resolverá o problema onde 9:00 aparecia como 12:00
+      const appointmentDate = new Date(year, month, day, hour, minute, 0);
       const timeStr = `${appointmentDate.getHours().toString().padStart(2, '0')}:${appointmentDate.getMinutes().toString().padStart(2, '0')}`;
       console.log(`VERIFICANDO DUPLICAÇÃO: Horário solicitado: ${timeStr}, Data: ${appointmentDate.toISOString()}`);
       
