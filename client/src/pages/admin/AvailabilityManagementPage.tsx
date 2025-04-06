@@ -67,10 +67,8 @@ const DIAS_SEMANA = [
   { value: "6", label: "Sábado" }
 ];
 
-// Gerar horários disponíveis em intervalos de 30 minutos (24 horas)
-const HORARIOS = Array.from({ length: 24 }, (_, hour) => {
-  return [`${hour.toString().padStart(2, '0')}:00`, `${hour.toString().padStart(2, '0')}:30`];
-}).flat();
+// A lista de horários será gerada dinamicamente com base nas configurações da barbearia
+const HORARIOS: string[] = [];
 
 const AvailabilityManagementPage = () => {
   const { toast } = useToast();
@@ -83,6 +81,9 @@ const AvailabilityManagementPage = () => {
   const [selectedAvailability, setSelectedAvailability] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  // Carrega horários disponíveis
+  const [timeOptions, setTimeOptions] = useState<string[]>([]);
 
   // Formulário de disponibilidade
   const [selectedDay, setSelectedDay] = useState<string>("");
@@ -108,6 +109,11 @@ const AvailabilityManagementPage = () => {
   const { data: availabilities, isLoading: isLoadingAvailabilities } = useQuery({
     queryKey: [`/api/availability/professional/${professionalId}`],
     enabled: !!professionalId,
+  });
+  
+  // Buscar configurações da barbearia para obter horário de funcionamento
+  const { data: barbershopSettings } = useQuery({
+    queryKey: ['/api/barbershop-settings'],
   });
 
   // Mutation para criar disponibilidade
@@ -254,6 +260,64 @@ const AvailabilityManagementPage = () => {
       deleteAvailabilityMutation.mutate(selectedAvailability.id);
     }
   };
+
+  // Gerar opções de horário com base nas configurações da barbearia
+  useEffect(() => {
+    if (barbershopSettings) {
+      // Parse dos horários de abertura e fechamento da barbearia
+      const parseTime = (timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return { hours, minutes };
+      };
+      
+      const openTime = parseTime(barbershopSettings.open_time);
+      const closeTime = parseTime(barbershopSettings.close_time);
+      
+      console.log(`Gerando horários de ${openTime.hours}:${openTime.minutes} até ${closeTime.hours}:${closeTime.minutes}`);
+      
+      const timeList: string[] = [];
+      
+      // Começamos do horário de abertura da barbearia
+      let currentHour = openTime.hours;
+      let currentMinute = openTime.minutes;
+      
+      // Arredondar para o intervalo de 30 minutos mais próximo
+      if (currentMinute > 0 && currentMinute < 30) {
+        currentMinute = 30;
+      } else if (currentMinute > 30) {
+        currentHour++;
+        currentMinute = 0;
+      }
+      
+      // Gerar horários até o fechamento
+      while (
+        currentHour < closeTime.hours || 
+        (currentHour === closeTime.hours && currentMinute <= closeTime.minutes)
+      ) {
+        timeList.push(
+          `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`
+        );
+        
+        // Avançar 30 minutos
+        currentMinute += 30;
+        if (currentMinute >= 60) {
+          currentHour++;
+          currentMinute = 0;
+        }
+      }
+      
+      // Adicionar explicitamente o horário de fechamento se ele não estiver na lista
+      // e não for múltiplo de 30 minutos
+      if (closeTime.minutes % 30 !== 0) {
+        timeList.push(
+          `${closeTime.hours.toString().padStart(2, '0')}:${closeTime.minutes.toString().padStart(2, '0')}`
+        );
+      }
+      
+      console.log("Horários gerados:", timeList);
+      setTimeOptions(timeList);
+    }
+  }, [barbershopSettings]);
 
   // Obter nome do dia da semana
   const getDayName = (dayNumber: number) => {
@@ -438,7 +502,7 @@ const AvailabilityManagementPage = () => {
                       <SelectValue placeholder="Hora início" />
                     </SelectTrigger>
                     <SelectContent>
-                      {HORARIOS.map((hora) => (
+                      {timeOptions.map((hora) => (
                         <SelectItem key={`start-${hora}`} value={hora}>
                           {hora}
                         </SelectItem>
@@ -457,7 +521,7 @@ const AvailabilityManagementPage = () => {
                       <SelectValue placeholder="Hora fim" />
                     </SelectTrigger>
                     <SelectContent>
-                      {HORARIOS.map((hora) => (
+                      {timeOptions.map((hora) => (
                         <SelectItem key={`end-${hora}`} value={hora}>
                           {hora}
                         </SelectItem>
@@ -550,7 +614,7 @@ const AvailabilityManagementPage = () => {
                       <SelectValue placeholder="Hora início" />
                     </SelectTrigger>
                     <SelectContent>
-                      {HORARIOS.map((hora) => (
+                      {timeOptions.map((hora) => (
                         <SelectItem key={`edit-start-${hora}`} value={hora}>
                           {hora}
                         </SelectItem>
@@ -569,7 +633,7 @@ const AvailabilityManagementPage = () => {
                       <SelectValue placeholder="Hora fim" />
                     </SelectTrigger>
                     <SelectContent>
-                      {HORARIOS.map((hora) => (
+                      {timeOptions.map((hora) => (
                         <SelectItem key={`edit-end-${hora}`} value={hora}>
                           {hora}
                         </SelectItem>
