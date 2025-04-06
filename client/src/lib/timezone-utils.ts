@@ -39,12 +39,14 @@ export function getLocalTimeZone(): string {
 }
 
 /**
- * Converte uma string de data UTC para o fuso horário local
+ * NOVA ABORDAGEM: Não convertemos mais de UTC para local
+ * Simplesmente parseamos a string da data e a retornamos como está
  */
 export function utcToLocal(utcDateString: string): Date {
-  const utcDate = parseISO(utcDateString);
-  const timeZone = getLocalTimeZone();
-  return toZonedTime(utcDate, timeZone);
+  // Simplesmente parseamos a string para objeto Date sem converter fusos
+  const date = parseISO(utcDateString);
+  console.log(`[NOVA ABORDAGEM] utcToLocal - Data original: ${utcDateString}, Retornando: ${date.toISOString()}`);
+  return date;
 }
 
 /**
@@ -73,34 +75,24 @@ export function getTimezoneOffset(): number {
 }
 
 /**
- * Converte uma data local para UTC
+ * NOVA ABORDAGEM: Não convertemos mais para UTC
+ * Retornamos a data local como está para trabalhar apenas com horários locais
  */
 export function localToUtc(localDate: Date): Date {
-  // Obtém o offset configurado
-  const timezoneOffset = getTimezoneOffset();
+  // Clone a data para não modificar a original
+  const clonedDate = new Date(localDate);
   
-  // Cria uma data em UTC baseada na data local
-  const year = localDate.getFullYear();
-  const month = localDate.getMonth();
-  const day = localDate.getDate();
-  const hours = localDate.getHours();
-  const minutes = localDate.getMinutes();
-  const seconds = localDate.getSeconds();
-  
-  // Cria uma nova data UTC ajustando com o offset configurado
-  // Por exemplo: Quando for 9:00 em UTC-3, será 12:00 em UTC
-  const utcDate = new Date(Date.UTC(year, month, day, hours - timezoneOffset, minutes, seconds));
-  
-  console.log(`Conversão para UTC: Local (${hours}:${minutes}) => UTC (${utcDate.getUTCHours()}:${utcDate.getUTCMinutes()})`);
-  return utcDate;
+  console.log(`[NOVA ABORDAGEM] localToUtc - Não convertendo mais: ${clonedDate.toISOString()}`);
+  return clonedDate;
 }
 
 /**
- * Formata uma data UTC para exibição no fuso horário local
+ * NOVA ABORDAGEM: Formata uma data para exibição sem fazer conversões de fuso
  */
-export function formatLocalTime(utcDateString: string, formatStr: string = 'HH:mm'): string {
-  const timeZone = getLocalTimeZone();
-  return formatInTimeZone(parseISO(utcDateString), timeZone, formatStr);
+export function formatLocalTime(dateString: string, formatStr: string = 'HH:mm'): string {
+  // Simplesmente parse a data e formata-a diretamente, sem conversões de fuso
+  const date = parseISO(dateString);
+  return format(date, formatStr);
 }
 
 /**
@@ -111,8 +103,9 @@ export function formatDateForApi(date: Date): string {
 }
 
 /**
- * Cria uma data com a hora especificada no fuso horário local
- * e retorna o equivalente UTC para enviar ao servidor
+ * Cria uma data LOCAL com a hora especificada no fuso horário da barbearia
+ * Não fazemos mais conversão para UTC, guardamos a data como está no fuso horário local
+ * para evitar problemas de conversão
  */
 export function createUtcDateFromLocalTime(date: Date, timeString: string): Date {
   // Clone a data para não modificar a original
@@ -124,21 +117,12 @@ export function createUtcDateFromLocalTime(date: Date, timeString: string): Date
   // Defina as horas e minutos na data local
   localDate.setHours(hours, minutes, 0, 0);
   
-  // Obtém o offset configurado baseado no fuso horário selecionado
-  const timezoneOffset = getTimezoneOffset();
+  // NOVA ABORDAGEM: Não fazemos mais a conversão para UTC
+  // Apenas retornamos a data local como recebemos
+  console.log(`[NOVA ABORDAGEM] Criando data com horário local: ${hours}:${minutes} (${localDate.toISOString()})`);
   
-  // Cria uma data UTC considerando o fuso horário configurado
-  const year = localDate.getFullYear();
-  const month = localDate.getMonth();
-  const day = localDate.getDate();
-  
-  console.log(`Horário local: ${hours}:${minutes} (fuso: ${getLocalTimeZone()}, offset: ${timezoneOffset})`);
-  console.log(`Ajustando para UTC: ${hours - timezoneOffset}:${minutes}`);
-  
-  // Quando for 9:00 em fuso com offset -3, será 12:00 em UTC
-  const utcDate = new Date(Date.UTC(year, month, day, hours - timezoneOffset, minutes, 0, 0));
-  
-  return utcDate;
+  // Usamos a data como está, sem conversão
+  return localDate;
 }
 
 /**

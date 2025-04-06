@@ -1,0 +1,248 @@
+  app.get("/api/availability/:professionalId/:date", async (req: Request, res: Response) => {
+    // Adicionar cabeçalhos para prevenir cache no navegador
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store'); 
+
+    try {
+      const professionalId = parseInt(req.params.professionalId);
+      const dateParam = req.params.date; // Format: YYYY-MM-DD
+      
+      // NOVA ABORDAGEM: Criar um objeto Date a partir da string no formato YYYY-MM-DD
+      // Trabalharemos com horários locais em todo o processo, sem conversões para UTC
+      const date = new Date(dateParam);
+      
+      // Log para debug
+      console.log(`Buscando disponibilidade para profissional #${professionalId} na data ${dateParam}`);
+      
+      // Make sure the date is valid
+      if (isNaN(date.getTime())) {
+        return res.status(400).json({ message: "Data inválida" });
+      }
+      
+      // Get day of week (0-6, where 0 is Sunday)
+      const dayOfWeek = date.getDay();
+      
+      // Get barbershop settings
+      const barbershopSettings = await storage.getBarbershopSettings();
+      
+      // Check if the barbershop is open on this day
+      if (!barbershopSettings.open_days.includes(dayOfWeek)) {
+        return res.json({ 
+          available_slots: [],
+          message: "A barbearia está fechada neste dia" 
+        });
+      }
+      
+      // Get professional's availability for this day
+      const availabilityList = await storage.getAvailabilityByProfessionalId(professionalId);
+      const dayAvailability = availabilityList.find(a => a.day_of_week === dayOfWeek && a.is_available);
+      
+      if (!dayAvailability) {
+        return res.json({ 
+          available_slots: [],
+          message: "O profissional não está disponível neste dia" 
+        });
+      }
+      
+      // Buscar agendamentos para o dia específico
+      console.log(`[NOVA ABORDAGEM] Buscando agendamentos para a data ${dateParam}`);
+      const appointments = await storage.getAppointmentsByDate(date);
+      console.log(`[NOVA ABORDAGEM] Encontrados ${appointments.length} agendamentos para ${dateParam}`);
+      
+      // Filtrar apenas os agendamentos para o profissional específico que não foram cancelados
+      const professionalAppointments = appointments.filter(
+        a => a.professional_id === professionalId && a.status !== "cancelled"
+      );
+      
+      console.log(`[NOVA ABORDAGEM] Agendamentos do profissional ${professionalId} para o dia ${dateParam}: ${professionalAppointments.length}`);
+      
+      // Mapa para armazenar os horários ocupados
+      const occupiedSlots = new Map<string, number[]>();
+      
+      // Processar cada agendamento para determinar os horários ocupados
+      professionalAppointments.forEach(appointment => {
+        // NOVA ABORDAGEM: Trabalhar com horários locais
+        const appointmentDate = new Date(appointment.appointment_date);
+        
+        // Use getHours() e getMinutes() para obter horário local
+        const appointmentHour = appointmentDate.getHours();
+        const appointmentMinute = appointmentDate.getMinutes();
+        
+        // Find the related service
+        const service = services.find((s) => s.id === appointment.service_id);
+        const serviceDuration = service?.duration || 30;
+        
+        // Format the time as HH:MM string to match exactly what we display to users
+        const timeString = `${appointmentHour.toString().padStart(2, '0')}:${appointmentMinute.toString().padStart(2, '0')}`;
+        
+        // Calculate end time for this service
+        let endHour = appointmentHour;
+        let endMinute = appointmentMinute + serviceDuration;
+        
+        // Adjust if we cross hour boundaries
+        while (endMinute >= 60) {
+          endHour++;
+          endMinute -= 60;
+        }
+        
+        const endTimeString = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+        
+        // Log detailed info about the appointment
+        console.log(`[NOVA ABORDAGEM] Processando agendamento #${appointment.id}:`, {
+          hora_inicio: timeString,
+          hora_fim: endTimeString,
+          duracao: serviceDuration,
+          data_original: appointmentDate.toISOString()
+        });
+        
+        // Marcar o horário como ocupado
+        if (!occupiedSlots.has(timeString)) {
+          occupiedSlots.set(timeString, []);
+        }
+        occupiedSlots.get(timeString)?.push(appointment.id);
+        
+        // Se o serviço durar mais que 30 minutos, marcar slots adicionais
+        if (serviceDuration > 30) {
+          // Começar no horário inicial e adicionar 30 minutos
+          let currentHour = appointmentHour;
+          let currentMinute = appointmentMinute;
+          
+          // Percorrer slots de 30 em 30 minutos até chegar ao fim do serviço
+          while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
+            // Avançar 30 minutos
+            currentMinute += 30;
+            if (currentMinute >= 60) {
+              currentHour++;
+              currentMinute -= 60;
+            }
+            
+            // Verificar se já chegamos ao fim do serviço
+            if (currentHour > endHour || (currentHour === endHour && currentMinute > endMinute)) {
+              break;
+            }
+            
+            // Marcar este slot como ocupado
+            const slotTimeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+            if (!occupiedSlots.has(slotTimeString)) {
+              occupiedSlots.set(slotTimeString, []);
+            }
+            occupiedSlots.get(slotTimeString)?.push(appointment.id);
+          }
+        }
+      });
+      
+      console.log(`[NOVA ABORDAGEM] Mapa de horários ocupados:`, Object.fromEntries(occupiedSlots));
+      
+      // Generate time slots based on availability
+      const availability = {
+        start_time: parseTime(dayAvailability.start_time),
+        end_time: parseTime(dayAvailability.end_time)
+      };
+      
+      // Ensure the slots are within the barbershop opening hours
+      const barbershopHours = {
+        start_time: parseTime(barbershopSettings.open_time),
+        end_time: parseTime(barbershopSettings.close_time)
+      };
+      
+      // Use the most restrictive hours (latest opening, earliest closing)
+      let startHour = Math.max(availability.start_time.hours, barbershopHours.start_time.hours);
+      let startMinute = 0;
+      
+      if (availability.start_time.hours === barbershopHours.start_time.hours) {
+        startMinute = Math.max(availability.start_time.minutes, barbershopHours.start_time.minutes);
+        // Round up to the nearest half hour
+        if (startMinute % 30 !== 0) {
+          startMinute = Math.ceil(startMinute / 30) * 30;
+          if (startMinute === 60) {
+            startHour++;
+            startMinute = 0;
+          }
+        }
+      }
+      
+      let endHour = Math.min(availability.end_time.hours, barbershopHours.end_time.hours);
+      let endMinute = 0;
+      
+      if (availability.end_time.hours === barbershopHours.end_time.hours) {
+        endMinute = Math.min(availability.end_time.minutes, barbershopHours.end_time.minutes);
+        // Round down to the nearest half hour
+        endMinute = Math.floor(endMinute / 30) * 30;
+      }
+      
+      // Generate slots in 30-minute intervals
+      const currentDate = new Date();
+      let currentHour = startHour;
+      let currentMinute = startMinute;
+      
+      // Arrays para armazenar informações sobre os slots
+      const timeSlots: string[] = [];
+      interface SlotDetail {
+        time: string;
+        available: boolean;
+        is_past: boolean;
+        conflicts: number[] | null;
+      }
+      const slotDetails: SlotDetail[] = [];
+      
+      while (currentHour < endHour || (currentHour === endHour && currentMinute <= endMinute)) {
+        const timeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+        
+        // Add slot to array if it's in the future (for today only)
+        const slotDate = new Date(date);
+        slotDate.setHours(currentHour, currentMinute, 0, 0);
+        
+        // Check if the slot is in the past
+        const isPastSlot = slotDate < currentDate;
+        
+        // Check if slot is occupied
+        const conflicts = occupiedSlots.has(timeString) ? occupiedSlots.get(timeString)! : null;
+        
+        // Add slot details
+        const isAvailable = !conflicts && !isPastSlot;
+        
+        // Log detailed analysis for a few sample slots
+        if (timeString === "09:00" || timeString === "15:00" || timeString === "19:00") {
+          console.log(`[NOVA ABORDAGEM] Análise do horário ${timeString}:`);
+          console.log(`  É horário passado? ${isPastSlot}`);
+          console.log(`  Tem conflitos? ${!!conflicts}`);
+          console.log(`  Conflitos com agendamentos: ${conflicts ? conflicts.join(', ') : 'Nenhum'}`);
+          console.log(`  Disponível? ${isAvailable}`);
+        }
+        
+        // Add to arrays
+        timeSlots.push(timeString);
+        slotDetails.push({
+          time: timeString,
+          available: isAvailable,
+          is_past: isPastSlot,
+          conflicts: conflicts
+        });
+        
+        // Move to next slot
+        currentMinute += 30;
+        if (currentMinute >= 60) {
+          currentHour++;
+          currentMinute = 0;
+        }
+      }
+      
+      // Remove conflict information from the final response for clients
+      const availableSlots = timeSlots.filter((_, index) => slotDetails[index].available);
+      
+      // Log slots for debugging
+      console.log(`[NOVA ABORDAGEM] Slots disponíveis finais:`, availableSlots);
+      
+      res.json({
+        available_slots: availableSlots,
+        date: dateParam,
+        professional_id: professionalId,
+        slot_details: slotDetails
+      });
+    } catch (error) {
+      console.error("Erro ao buscar disponibilidade:", error);
+      res.status(500).json({ message: "Falha ao buscar disponibilidade" });
+    }
+  });

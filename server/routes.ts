@@ -504,12 +504,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const utcMinute = appointmentDate.getUTCMinutes();
         
         // Obtendo configurações da barbearia para o offset correto
-        const timezoneOffset = getTimezoneOffset(settings?.timezone || 'America/Sao_Paulo');
+        // NOVA ABORDAGEM: Não usamos mais timezoneOffset aqui pois estamos trabalhando em horário local
         
-        // Convertendo para o fuso horário configurado
-        let appointmentHour = utcHour + timezoneOffset;
-        if (appointmentHour < 0) appointmentHour += 24;
-        const appointmentMinute = utcMinute;
+        // NOVA ABORDAGEM: Usar horário local diretamente em vez de conversões UTC
+        let appointmentHour = appointmentDate.getHours();
+        const appointmentMinute = appointmentDate.getMinutes();
         
         console.log(`Agendamento #${appointment.id}:`, {
           hora_original_ISO: appointmentDate.toISOString(),
@@ -662,26 +661,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
-      // TRATAMENTO DE FUSO HORÁRIO: 
-      // A data vem do cliente em UTC (pois o cliente converteu de local para UTC antes de enviar)
-      // Aqui usamos diretamente a data recebida sem modificação
-      console.log(`Data do agendamento recebida (UTC): ${appointmentData.appointment_date.toISOString()}`);
+      // NOVA ABORDAGEM: Trabalhar com horários locais em todo o fluxo
+      // A data vem do cliente já no formato local (conforme nova abordagem no timezone-utils.ts)
+      console.log(`Data do agendamento recebida: ${appointmentData.appointment_date.toISOString()}`);
       
-      // Já que a data está em UTC, usamos ela diretamente
+      // Usamos a data como está, sem conversões para UTC
       const appointmentDate = appointmentData.appointment_date;
       
-      // Extraímos a representação da hora para logs usando getUTCHours já que a data está em UTC
-      const timeStr = `${appointmentDate.getUTCHours().toString().padStart(2, '0')}:${appointmentDate.getUTCMinutes().toString().padStart(2, '0')}`;
-      console.log(`VERIFICANDO AGENDAMENTO: Horário UTC: ${timeStr}, Data completa: ${appointmentDate.toISOString()}`);
+      // Extraímos a representação da hora para logs usando getHours para horário local
+      const timeStr = `${appointmentDate.getHours().toString().padStart(2, '0')}:${appointmentDate.getMinutes().toString().padStart(2, '0')}`;
+      console.log(`[NOVA ABORDAGEM] VERIFICANDO AGENDAMENTO: Horário local: ${timeStr}, Data: ${appointmentDate.toISOString()}`);
       
       // Buscar apenas os agendamentos para o mesmo dia
-      // Criamos uma data em UTC para o início do dia
-      const sameDate = new Date(Date.UTC(
-        appointmentDate.getUTCFullYear(),
-        appointmentDate.getUTCMonth(),
-        appointmentDate.getUTCDate(),
+      // Criamos uma data para o início do dia (usando horário local)
+      const sameDate = new Date(
+        appointmentDate.getFullYear(),
+        appointmentDate.getMonth(),
+        appointmentDate.getDate(),
         0, 0, 0, 0
-      ));
+      );
       
       // Buscar agendamentos do dia e filtrar pelo horário e profissional
       const dayAppointments = await storage.getAppointmentsByDate(sameDate);
@@ -689,16 +687,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar agendamentos no mesmo horário
       const conflictingAppointments = dayAppointments.filter(a => {
         const existingDate = new Date(a.appointment_date);
-        // IMPORTANTE: Comparar em UTC para assegurar que a comparação funciona em qualquer fuso horário
+        // Comparar usando horários locais
         const isSameTime = 
-          existingDate.getUTCHours() === appointmentDate.getUTCHours() &&
-          existingDate.getUTCMinutes() === appointmentDate.getUTCMinutes();
+          existingDate.getHours() === appointmentDate.getHours() &&
+          existingDate.getMinutes() === appointmentDate.getMinutes();
           
         const isSameProfessional = a.professional_id === appointmentData.professional_id;
         const isActive = a.status !== "cancelled";
         
         if (isSameTime && isSameProfessional && isActive) {
-          console.log(`CONFLITO ENCONTRADO: Agendamento #${a.id} às ${existingDate.toISOString()}`);
+          console.log(`[NOVA ABORDAGEM] CONFLITO ENCONTRADO: Agendamento #${a.id} às ${existingDate.toISOString()}`);
         }
         
         return isSameTime && isSameProfessional && isActive;
@@ -744,70 +742,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "A barbearia está fechada neste dia" });
       }
       
-      // Get appointment time - Usando horas UTC já que a data está em UTC
+      // NOVA ABORDAGEM: Usar horários locais diretamente
       const appointmentTime = {
-        hours: appointmentData.appointment_date.getUTCHours(),
-        minutes: appointmentData.appointment_date.getUTCMinutes()
+        hours: appointmentDate.getHours(),
+        minutes: appointmentDate.getMinutes()
       };
       
       // Check if the appointment is within barbershop hours
       const openTime = parseTime(barbershopSettings.open_time);
       const closeTime = parseTime(barbershopSettings.close_time);
       
-      // Obter o fuso horário configurado
-      const timezoneOffset = getTimezoneOffset(barbershopSettings.timezone || 'America/Sao_Paulo');
-      console.log(`Verificando com fuso horário: ${barbershopSettings.timezone}, offset: ${timezoneOffset}`);
+      console.log(`[NOVA ABORDAGEM] Verificando horários - Agendamento: ${appointmentTime.hours}:${appointmentTime.minutes}, Barbearia abre: ${openTime.hours}:${openTime.minutes}, fecha: ${closeTime.hours}:${closeTime.minutes}`);
       
-      // Converter o horário de agendamento UTC para hora local da barbearia
-      const localAppointmentHours = (appointmentTime.hours + timezoneOffset + 24) % 24;
-      const localAppointmentMinutes = appointmentTime.minutes;
-      
-      console.log(`DEBUG: Horário agendamento UTC: ${appointmentTime.hours}:${appointmentTime.minutes}, Local (offset ${timezoneOffset}): ${localAppointmentHours}:${localAppointmentMinutes}`);
-      console.log(`DEBUG: Horário de abertura da barbearia: ${openTime.hours}:${openTime.minutes}`);
-      
-      // Check if appointment time is before opening time (comparando em horário local)
-      if (localAppointmentHours < openTime.hours || 
-          (localAppointmentHours === openTime.hours && localAppointmentMinutes < openTime.minutes)) {
+      // Check if appointment time is before opening time
+      if (appointmentTime.hours < openTime.hours || 
+          (appointmentTime.hours === openTime.hours && appointmentTime.minutes < openTime.minutes)) {
         return res.status(400).json({ 
-          message: `O horário de agendamento (${localAppointmentHours}:${String(localAppointmentMinutes).padStart(2, '0')}) é anterior ao horário de abertura da barbearia (${openTime.hours}:${String(openTime.minutes).padStart(2, '0')}).`,
+          message: `O horário de agendamento (${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')}) é anterior ao horário de abertura da barbearia (${openTime.hours}:${String(openTime.minutes).padStart(2, '0')}).`,
           debug: {
-            appointment_time: `${localAppointmentHours}:${localAppointmentMinutes}`,
+            appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
             barbershop_open_time: `${openTime.hours}:${openTime.minutes}`
           }
         });
       }
       
-      // Check if appointment time plus service duration exceeds closing time
-      // Usando o fuso horário configurado pela barbearia
-      const shopEndCheckDate = new Date(appointmentData.appointment_date);
-      shopEndCheckDate.setUTCMinutes(shopEndCheckDate.getUTCMinutes() + service.duration);
-      
-      // CORREÇÃO: Ajustar o horário UTC para o fuso horário local da barbearia
-      // Se o offset for -3 (São Paulo), precisamos subtrair 3 horas do horário UTC
-      // para comparar com os horários configurados da barbearia (que estão em local time)
-      const localEndHours = (shopEndCheckDate.getUTCHours() + timezoneOffset + 24) % 24;
-      const localEndMinutes = shopEndCheckDate.getUTCMinutes();
+      // NOVA ABORDAGEM: Calculando fim do serviço usando horários locais
+      // Verificar se o horário de término (hora início + duração) está após o fechamento
+      const shopEndCheckDate = new Date(appointmentDate);
+      shopEndCheckDate.setMinutes(shopEndCheckDate.getMinutes() + service.duration);
       
       const shopEndTimeObj = {
-        hours: localEndHours,
-        minutes: localEndMinutes
+        hours: shopEndCheckDate.getHours(),
+        minutes: shopEndCheckDate.getMinutes()
       };
       
-      // Também ajustamos o horário de início para o log
-      const localStartHours = (appointmentData.appointment_date.getUTCHours() + timezoneOffset + 24) % 24;
-      const localStartMinutes = appointmentData.appointment_date.getUTCMinutes();
-      
-      console.log(`Debugging: Service duration: ${service.duration} min`);
-      console.log(`Debugging: Appointment time: ${appointmentTime.hours}:${appointmentTime.minutes}`);
-      console.log(`Debugging: End time calculated: ${shopEndTimeObj.hours}:${shopEndTimeObj.minutes}`);
-      console.log(`Debugging: Barbershop closing time: ${closeTime.hours}:${closeTime.minutes}`);
+      console.log(`[NOVA ABORDAGEM] Verificando horário de término - Serviço: ${service.duration} min`);
+      console.log(`[NOVA ABORDAGEM] Horário início: ${appointmentTime.hours}:${appointmentTime.minutes}`);
+      console.log(`[NOVA ABORDAGEM] Horário término calculado: ${shopEndTimeObj.hours}:${shopEndTimeObj.minutes}`);
+      console.log(`[NOVA ABORDAGEM] Horário fechamento da barbearia: ${closeTime.hours}:${closeTime.minutes}`);
       
       if (shopEndTimeObj.hours > closeTime.hours || 
           (shopEndTimeObj.hours === closeTime.hours && shopEndTimeObj.minutes > closeTime.minutes)) {
         return res.status(400).json({ 
-          message: `O serviço de ${service.duration} minutos agendado para ${localStartHours}:${String(localStartMinutes).padStart(2, '0')} terminaria às ${shopEndTimeObj.hours}:${String(shopEndTimeObj.minutes).padStart(2, '0')}, após o horário de fechamento da barbearia (${closeTime.hours}:${String(closeTime.minutes).padStart(2, '0')}).`,
+          message: `O serviço de ${service.duration} minutos agendado para ${appointmentTime.hours}:${String(appointmentTime.minutes).padStart(2, '0')} terminaria às ${shopEndTimeObj.hours}:${String(shopEndTimeObj.minutes).padStart(2, '0')}, após o horário de fechamento da barbearia (${closeTime.hours}:${String(closeTime.minutes).padStart(2, '0')}).`,
           debug: {
-            appointment_time: `${localStartHours}:${localStartMinutes}`,
+            appointment_time: `${appointmentTime.hours}:${appointmentTime.minutes}`,
             service_duration: service.duration,
             calculated_end_time: `${shopEndTimeObj.hours}:${shopEndTimeObj.minutes}`,
             barbershop_close_time: `${closeTime.hours}:${closeTime.minutes}`
@@ -845,18 +824,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Check if appointment time plus service duration exceeds professional's end time
-      const profEndCheckDate = new Date(appointmentData.appointment_date);
-      profEndCheckDate.setUTCMinutes(profEndCheckDate.getUTCMinutes() + service.duration);
-      
-      // Usar o mesmo fuso horário que foi configurado anteriormente
-      const profEndHours = profEndCheckDate.getUTCHours();
-      const profEndMinutes = profEndCheckDate.getUTCMinutes();
+      // NOVA ABORDAGEM: Verificar se o fim do serviço excede o horário do profissional
+      // usando cálculos com horário local
+      const profEndCheckDate = new Date(appointmentDate);
+      profEndCheckDate.setMinutes(profEndCheckDate.getMinutes() + service.duration);
       
       const profAvailEndTimeObj = {
-        hours: profEndHours,
-        minutes: profEndMinutes
+        hours: profEndCheckDate.getHours(),
+        minutes: profEndCheckDate.getMinutes()
       };
+      
+      console.log(`[NOVA ABORDAGEM] Verificando disponibilidade do profissional:`);
+      console.log(`[NOVA ABORDAGEM] Horário fim calculado: ${profAvailEndTimeObj.hours}:${profAvailEndTimeObj.minutes}`);
+      console.log(`[NOVA ABORDAGEM] Horário fim disponibilidade prof: ${profEndTime.hours}:${profEndTime.minutes}`);
       
       if (profAvailEndTimeObj.hours > profEndTime.hours || 
           (profAvailEndTimeObj.hours === profEndTime.hours && profAvailEndTimeObj.minutes > profEndTime.minutes)) {
@@ -865,22 +845,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Check if the slot is already booked
-      const appointments = await storage.getAppointmentsByDate(appointmentData.appointment_date);
+      // NOVA ABORDAGEM: Verifique conflitos usando horários locais
+      const appointments = await storage.getAppointmentsByDate(sameDate);
       const conflictingAppointment = appointments.find(a => {
         if (a.professional_id !== appointmentData.professional_id || a.status === "cancelled") {
           return false;
         }
         
+        // Trabalhar com datas em horário local
         const existingStartTime = new Date(a.appointment_date);
-        const existingService = service; // Simplified, ideally would fetch the service
+        const existingService = service; // Simplificado, o ideal seria buscar o serviço real
         const existingEndTime = new Date(existingStartTime);
-        existingEndTime.setUTCMinutes(existingEndTime.getUTCMinutes() + (existingService?.duration || 30));
+        existingEndTime.setMinutes(existingEndTime.getMinutes() + (existingService?.duration || 30));
         
-        const newStartTime = new Date(appointmentData.appointment_date);
+        // O horário do novo agendamento
+        const newStartTime = new Date(appointmentDate);
         const newEndTime = new Date(newStartTime);
-        newEndTime.setUTCMinutes(newEndTime.getUTCMinutes() + service.duration);
+        newEndTime.setMinutes(newEndTime.getMinutes() + service.duration);
         
+        console.log(`[NOVA ABORDAGEM] Verificando conflito com agendamento #${a.id}:`);
+        console.log(`[NOVA ABORDAGEM] Existente: ${existingStartTime.toLocaleTimeString()} até ${existingEndTime.toLocaleTimeString()}`);
+        console.log(`[NOVA ABORDAGEM] Novo: ${newStartTime.toLocaleTimeString()} até ${newEndTime.toLocaleTimeString()}`);
+        
+        // Verificar sobreposição de horários
         return (
           (newStartTime >= existingStartTime && newStartTime < existingEndTime) ||
           (newEndTime > existingStartTime && newEndTime <= existingEndTime) ||
