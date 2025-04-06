@@ -79,10 +79,10 @@ const baseAppointmentSchema = createInsertSchema(appointments).omit({
 
 // Modify to allow string for appointment_date and transform it to Date
 export const insertAppointmentSchema = baseAppointmentSchema.extend({
-  appointment_date: z.preprocess(
-    (arg) => (typeof arg === 'string' ? new Date(arg) : arg),
+  appointment_date: z.union([
+    z.string().transform(str => new Date(str)),
     z.date()
-  ),
+  ]),
 });
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type Appointment = typeof appointments.$inferSelect;

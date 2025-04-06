@@ -338,7 +338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const barbershopSettings = await storage.getBarbershopSettings();
       
       // Check if the barbershop is open on this day
-      if (barbershopSettings && !barbershopSettings.open_days.includes(dayOfWeek)) {
+      if (!barbershopSettings.open_days.includes(dayOfWeek)) {
         return res.json({ 
           available_slots: [],
           message: "A barbearia está fechada neste dia" 
@@ -361,49 +361,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Buscando agendamentos para a data: ${date.toISOString()}`);
       
       // CORREÇÃO DE FUSO HORÁRIO: Garantir que a data seja tratada corretamente
-      // Obter a data como string no formato ISO e extrair os componentes de data/hora
-      let dateISOString = date.toISOString();
-      console.log(`Data de busca original: ${dateISOString}`);
+      console.log(`Data de busca original: ${date}`);
       
-      // Extrair os componentes do horário: ano, mês, dia
-      const [datePart] = dateISOString.split('T');
-      const [year, month, day] = datePart.split('-').map(Number);
+      // Extrair os componentes da data diretamente
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // getMonth retorna 0-11
+      const day = date.getDate();
       
       // Recriar a data com o offset UTC-3 (Brasil) correto 
       const searchDate = new Date(Date.UTC(year, month-1, day, 0, 0, 0));
       console.log(`Data ajustada para busca: ${searchDate.toISOString()}`);
       
-      // Obter todos os agendamentos para garantir que não haja problemas de filtro por data
-      const allAppointments = await storage.getAllAppointments();
-      console.log(`Total de agendamentos no sistema: ${allAppointments.length}`);
-      
-      // Filtragem manual para garantir que todos os agendamentos corretos sejam considerados
+      // Obter apenas os agendamentos para a data específica
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
       
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
       
-      // Verificar manualmente todos os agendamentos para esta data
-      // Usando a data ajustada para garantir a compatibilidade de fuso horário
-      const manuallyFilteredAppointments = allAppointments.filter(a => {
-        const appointmentDate = new Date(a.appointment_date);
-        const isSameDay = 
-          appointmentDate.getFullYear() === searchDate.getFullYear() &&
-          appointmentDate.getMonth() === searchDate.getMonth() &&
-          appointmentDate.getDate() === searchDate.getDate();
-          
-        if (isSameDay) {
-          console.log(`ENCONTRADO MANUALMENTE: Agendamento #${a.id} em ${appointmentDate.toISOString()}`);
-        }
-        
-        return isSameDay;
+      console.log(`Buscando agendamentos entre ${startOfDay.toISOString()} e ${endOfDay.toISOString()}`);
+      
+      const appointments = await storage.getAppointmentsByDate(date);
+      console.log(`Agendamentos encontrados: ${appointments.length}`);
+      
+      // Fazendo log dos agendamentos para depuração
+      appointments.forEach(a => {
+        console.log(`Agendamento #${a.id} em ${new Date(a.appointment_date).toISOString()}`);
       });
-      
-      console.log(`Agendamentos encontrados manualmente: ${manuallyFilteredAppointments.length}`);
-      
-      // Use os agendamentos filtrados manualmente em vez dos filtrados pelo método da classe
-      const appointments = manuallyFilteredAppointments;
       
       // Vamos logar os agendamentos encontrados para diagnóstico
       console.log(`Agendamentos encontrados (${appointments.length}):`, 
@@ -462,10 +446,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }))
       );
       
-      // If barbershop settings exist, adjust the availability to be within the barbershop's hours
-      if (barbershopSettings) {
-        const barbershopOpenTime = parseTime(barbershopSettings.open_time);
-        const barbershopCloseTime = parseTime(barbershopSettings.close_time);
+      // Adjust the availability to be within the barbershop's hours
+      const barbershopOpenTime = parseTime(barbershopSettings.open_time);
+      const barbershopCloseTime = parseTime(barbershopSettings.close_time);
         
         // Ensure start time is not earlier than barbershop opening time
         if (startTime.hours < barbershopOpenTime.hours || 
@@ -598,15 +581,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
-      // CORREÇÃO DE FUSO HORÁRIO: Garantir que a data seja tratada corretamente
-      // Obter a data como string no formato ISO e extrair os componentes de data/hora
-      let appointmentISOString = appointmentData.appointment_date.toISOString();
-      console.log(`Data do agendamento original: ${appointmentISOString}`);
+      // CORREÇÃO DE FUSO HORÁRIO: Garantir que a data seja tratada corretamente  
+      console.log(`Data do agendamento original: ${appointmentData.appointment_date}`);
       
-      // Extrair os componentes do horário: ano, mês, dia, hora, minuto
-      const [datePart, timePart] = appointmentISOString.split('T');
-      const [year, month, day] = datePart.split('-').map(Number);
-      const [hour, minute] = timePart.split(':').map(Number);
+      // Extrair os componentes da data diretamente
+      const year = appointmentData.appointment_date.getFullYear();
+      const month = appointmentData.appointment_date.getMonth() + 1; // getMonth retorna 0-11
+      const day = appointmentData.appointment_date.getDate();
+      const hour = appointmentData.appointment_date.getHours();
+      const minute = appointmentData.appointment_date.getMinutes();
       
       // Recriar a data com o offset UTC-3 (Brasil) correto para garantir
       // que 09:00 na interface seja tratado como 09:00 no banco de dados
@@ -614,17 +597,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timeStr = `${appointmentDate.getHours().toString().padStart(2, '0')}:${appointmentDate.getMinutes().toString().padStart(2, '0')}`;
       console.log(`VERIFICANDO DUPLICAÇÃO: Horário solicitado: ${timeStr}, Data: ${appointmentDate.toISOString()}`);
       
-      // Buscar todos os agendamentos para verificar manualmente
-      const allAppointments = await storage.getAllAppointments();
+      // Buscar apenas os agendamentos para o mesmo dia
+      const sameDate = new Date(appointmentDate);
+      sameDate.setHours(0, 0, 0, 0);
       
-      // Verificar agendamentos no mesmo dia e horário
-      const conflictingAppointments = allAppointments.filter(a => {
+      // Buscar agendamentos do dia e filtrar pelo horário e profissional
+      const dayAppointments = await storage.getAppointmentsByDate(sameDate);
+      
+      // Verificar agendamentos no mesmo horário
+      const conflictingAppointments = dayAppointments.filter(a => {
         const existingDate = new Date(a.appointment_date);
-        const isSameDay = 
-          existingDate.getFullYear() === appointmentDate.getFullYear() &&
-          existingDate.getMonth() === appointmentDate.getMonth() &&
-          existingDate.getDate() === appointmentDate.getDate();
-          
         const isSameTime = 
           existingDate.getHours() === appointmentDate.getHours() &&
           existingDate.getMinutes() === appointmentDate.getMinutes();
@@ -632,11 +614,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isSameProfessional = a.professional_id === appointmentData.professional_id;
         const isActive = a.status !== "cancelled";
         
-        if (isSameDay && isSameTime && isSameProfessional && isActive) {
+        if (isSameTime && isSameProfessional && isActive) {
           console.log(`CONFLITO ENCONTRADO: Agendamento #${a.id} às ${existingDate.toISOString()}`);
         }
         
-        return isSameDay && isSameTime && isSameProfessional && isActive;
+        return isSameTime && isSameProfessional && isActive;
       });
       
       if (conflictingAppointments.length > 0) {
@@ -675,7 +657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dayOfWeek = appointmentData.appointment_date.getDay();
       
       // Check if the barbershop is open on this day
-      if (barbershopSettings && !barbershopSettings.open_days.includes(dayOfWeek)) {
+      if (!barbershopSettings.open_days.includes(dayOfWeek)) {
         return res.status(400).json({ message: "A barbearia está fechada neste dia" });
       }
       
@@ -1187,11 +1169,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/barbershop-settings", async (req: Request, res: Response) => {
     try {
       const settings = await storage.getBarbershopSettings();
-      
-      if (!settings) {
-        return res.status(404).json({ message: "Barbershop settings not found" });
-      }
-      
       res.json(settings);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch barbershop settings" });
@@ -1230,11 +1207,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedSettings = await storage.updateBarbershopSettings(validationResult.data);
-      
-      if (!updatedSettings) {
-        return res.status(404).json({ message: "Barbershop settings not found" });
-      }
-      
       res.json(updatedSettings);
     } catch (error) {
       res.status(500).json({ message: "Failed to update barbershop settings" });

@@ -58,9 +58,9 @@ export interface IStorage {
   useReward(clientPhone: string): Promise<ClientReward | undefined>;
   
   // Barbershop Settings operations
-  getBarbershopSettings(): Promise<BarbershopSettings | undefined>;
+  getBarbershopSettings(): Promise<BarbershopSettings>;
   createBarbershopSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings>;
-  updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings | undefined>;
+  updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings>;
   
   // SessionStore for auth
   sessionStore: session.Store;
@@ -75,6 +75,10 @@ export class MemStorage implements IStorage {
   private appointments: Map<number, Appointment>;
   private clientRewards: Map<number, ClientReward>;
   private barbershopSettings: BarbershopSettings | undefined;
+  
+  // Cache para melhorar desempenho
+  private _appointmentsByDateCache: Map<string, Appointment[]>;
+  private _professionalAvailabilityCache: Map<number, Availability[]>;
   
   sessionStore: session.Store;
   
@@ -92,6 +96,10 @@ export class MemStorage implements IStorage {
     this.availability = new Map();
     this.appointments = new Map();
     this.clientRewards = new Map();
+    
+    // Inicializar caches
+    this._appointmentsByDateCache = new Map();
+    this._professionalAvailabilityCache = new Map();
     
     this.userIdCounter = 1;
     this.serviceIdCounter = 1;
@@ -125,7 +133,11 @@ export class MemStorage implements IStorage {
 
   async createUser(userData: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
-    const user: User = { ...userData, id };
+    const user: User = { 
+      ...userData, 
+      id,
+      role: userData.role || 'user' // Definir 'user' como role padrão se não for especificado
+    };
     this.users.set(id, user);
     return user;
   }
@@ -182,7 +194,20 @@ export class MemStorage implements IStorage {
   
   async createProfessional(professionalData: InsertProfessional): Promise<Professional> {
     const id = this.professionalIdCounter++;
-    const professional: Professional = { ...professionalData, id };
+    
+    // Garantir que services_offered seja um array de números
+    let services_offered: number[] = [];
+    if (Array.isArray(professionalData.services_offered)) {
+      services_offered = professionalData.services_offered.map(Number);
+    }
+    
+    const professional: Professional = { 
+      ...professionalData, 
+      id, 
+      services_offered,
+      avatar_url: professionalData.avatar_url || null
+    };
+    
     this.professionals.set(id, professional);
     return professional;
   }
@@ -193,7 +218,24 @@ export class MemStorage implements IStorage {
       return undefined;
     }
     
-    const updatedProfessional = { ...existingProfessional, ...professionalData };
+    // Tratar services_offered corretamente se for fornecido
+    let updatedData = { ...professionalData };
+    
+    if (updatedData.services_offered) {
+      // Garantir que services_offered seja um array de números
+      if (Array.isArray(updatedData.services_offered)) {
+        updatedData.services_offered = updatedData.services_offered.map(Number);
+      } else {
+        // Se não for um array, mantenha o array existente
+        updatedData.services_offered = existingProfessional.services_offered;
+      }
+    }
+    
+    const updatedProfessional = { 
+      ...existingProfessional, 
+      ...updatedData 
+    };
+    
     this.professionals.set(id, updatedProfessional);
     return updatedProfessional;
   }
@@ -204,15 +246,37 @@ export class MemStorage implements IStorage {
   
   // Availability operations
   async getAvailabilityByProfessionalId(professionalId: number): Promise<Availability[]> {
-    return Array.from(this.availability.values()).filter(
+    // Verificar se temos esses dados em cache
+    if (this._professionalAvailabilityCache.has(professionalId)) {
+      const cachedResults = this._professionalAvailabilityCache.get(professionalId) || [];
+      console.log(`CACHE HIT: Disponibilidade do profissional #${professionalId} encontrada em cache`);
+      return cachedResults;
+    }
+    
+    console.log(`CACHE MISS: Buscando disponibilidade do profissional #${professionalId}`);
+    
+    const results = Array.from(this.availability.values()).filter(
       availability => availability.professional_id === professionalId
     );
+    
+    // Armazenar no cache para futuras consultas
+    this._professionalAvailabilityCache.set(professionalId, results);
+    
+    return results;
   }
   
   async createAvailability(availabilityData: InsertAvailability): Promise<Availability> {
     const id = this.availabilityIdCounter++;
-    const availabilityItem: Availability = { ...availabilityData, id };
+    const availabilityItem: Availability = { 
+      ...availabilityData, 
+      id,
+      is_available: availabilityData.is_available === undefined ? true : availabilityData.is_available
+    };
     this.availability.set(id, availabilityItem);
+    
+    // Invalidar cache para este profissional
+    this._professionalAvailabilityCache.delete(availabilityItem.professional_id);
+    
     return availabilityItem;
   }
   
@@ -224,10 +288,24 @@ export class MemStorage implements IStorage {
     
     const updatedAvailability = { ...existingAvailability, ...availabilityData };
     this.availability.set(id, updatedAvailability);
+    
+    // Invalidar cache para este profissional
+    this._professionalAvailabilityCache.delete(existingAvailability.professional_id);
+    console.log(`Cache de disponibilidade invalidado para profissional #${existingAvailability.professional_id} após atualização`);
+    
     return updatedAvailability;
   }
   
   async deleteAvailability(id: number): Promise<boolean> {
+    const existingAvailability = this.availability.get(id);
+    if (!existingAvailability) {
+      return false;
+    }
+    
+    // Invalidar cache para este profissional
+    this._professionalAvailabilityCache.delete(existingAvailability.professional_id);
+    console.log(`Cache de disponibilidade invalidado para profissional #${existingAvailability.professional_id} após exclusão`);
+    
     return this.availability.delete(id);
   }
   
@@ -243,8 +321,21 @@ export class MemStorage implements IStorage {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
     
-    console.log(`Filtrando agendamentos por data - início: ${startOfDay.toISOString()}, fim: ${endOfDay.toISOString()}`);
+    // Chave para o cache (usar apenas a data sem a hora)
+    const dateKey = startOfDay.toISOString().split('T')[0];
     
+    console.log(`Buscando agendamentos para a data ${dateKey}`);
+    
+    // Verificar se temos esses dados em cache
+    if (this._appointmentsByDateCache.has(dateKey)) {
+      const cachedResults = this._appointmentsByDateCache.get(dateKey) || [];
+      console.log(`CACHE HIT: Encontrados ${cachedResults.length} agendamentos em cache para ${dateKey}`);
+      return cachedResults;
+    }
+    
+    console.log(`CACHE MISS: Buscando agendamentos para ${dateKey} no banco de dados`);
+    
+    // Filtragem otimizada - evita iteração completa quando possível
     const filteredAppointments = Array.from(this.appointments.values()).filter(appointment => {
       const appointmentDate = new Date(appointment.appointment_date);
       
@@ -256,13 +347,16 @@ export class MemStorage implements IStorage {
       );
       
       if (isSameDay) {
-        console.log(`Agendamento ${appointment.id} está no mesmo dia: ${appointmentDate.toISOString()}`);
+        console.log(`Agendamento #${appointment.id} encontrado para ${dateKey}`);
       }
       
       return isSameDay;
     });
     
-    console.log(`Encontrados ${filteredAppointments.length} agendamentos para ${startOfDay.toISOString().split('T')[0]}`);
+    // Armazenar no cache para futuras consultas
+    this._appointmentsByDateCache.set(dateKey, filteredAppointments);
+    
+    console.log(`Encontrados ${filteredAppointments.length} agendamentos para ${dateKey}`);
     
     return filteredAppointments;
   }
@@ -290,10 +384,18 @@ export class MemStorage implements IStorage {
       ...appointmentData, 
       id, 
       created_at: now,
-      status: "scheduled" 
+      status: "scheduled",
+      notify_whatsapp: appointmentData.notify_whatsapp || null,
+      is_loyalty_reward: appointmentData.is_loyalty_reward || null
     };
     
     this.appointments.set(id, appointment);
+    
+    // Limpar o cache de agendamentos para este dia
+    const appointmentDate = new Date(appointment.appointment_date);
+    const dateKey = appointmentDate.toISOString().split('T')[0];
+    this._appointmentsByDateCache.delete(dateKey);
+    console.log(`Cache invalidado para data ${dateKey} após criação de novo agendamento`);
     
     // Update client loyalty if not a reward redemption
     if (!appointment.is_loyalty_reward) {
@@ -311,6 +413,13 @@ export class MemStorage implements IStorage {
     
     const updatedAppointment = { ...existingAppointment, status };
     this.appointments.set(id, updatedAppointment);
+    
+    // Invalidar cache para esta data
+    const appointmentDate = new Date(existingAppointment.appointment_date);
+    const dateKey = appointmentDate.toISOString().split('T')[0];
+    this._appointmentsByDateCache.delete(dateKey);
+    console.log(`Cache invalidado para data ${dateKey} após atualização de status de agendamento #${id}`);
+    
     return updatedAppointment;
   }
   
@@ -329,7 +438,8 @@ export class MemStorage implements IStorage {
       id, 
       total_attendances: 0,
       free_services_used: 0,
-      updated_at: now 
+      updated_at: now,
+      last_reward_at: null
     };
     
     this.clientRewards.set(id, clientReward);
@@ -359,7 +469,8 @@ export class MemStorage implements IStorage {
     const updatedReward = { 
       ...clientReward, 
       total_attendances: clientReward.total_attendances + 1,
-      updated_at: new Date() 
+      updated_at: new Date(),
+      last_reward_at: clientReward.last_reward_at 
     };
     
     this.clientRewards.set(clientReward.id, updatedReward);
@@ -392,22 +503,55 @@ export class MemStorage implements IStorage {
   }
   
   // Barbershop Settings operations
-  async getBarbershopSettings(): Promise<BarbershopSettings | undefined> {
+  async getBarbershopSettings(): Promise<BarbershopSettings> {
+    if (!this.barbershopSettings) {
+      // Inicializar configurações com valores padrão se ainda não existirem
+      return this.createBarbershopSettings({
+        name: "BarberSync",
+        address: "Rua Exemplo, 123",
+        phone: "(11) 99999-9999",
+        email: "contato@barbersync.com",
+        open_time: "08:00",
+        close_time: "20:00",
+        open_days: [1, 2, 3, 4, 5, 6],
+        description: "A melhor barbearia da cidade"
+      });
+    }
     return this.barbershopSettings;
   }
   
   async createBarbershopSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings> {
     const now = new Date();
-    this.barbershopSettings = {
+    
+    // Verificar se todos os campos obrigatórios estão presentes
+    if (!settings.name || !settings.address || !settings.phone || !settings.email || 
+        !settings.open_time || !settings.close_time || !settings.open_days) {
+      throw new Error("Campos obrigatórios estão faltando");
+    }
+    
+    // Garante que valores opcionais sejam null quando não fornecidos
+    const barbershopSettings: BarbershopSettings = {
       id: 1,
-      ...settings,
+      name: settings.name,
+      address: settings.address,
+      phone: settings.phone,
+      email: settings.email,
+      open_time: settings.open_time,
+      close_time: settings.close_time,
+      open_days: settings.open_days,
+      description: settings.description || null,
+      logo_url: settings.logo_url || null,
+      instagram: settings.instagram || null,
+      facebook: settings.facebook || null,
       created_at: now,
       updated_at: now
     };
-    return this.barbershopSettings;
+    
+    this.barbershopSettings = barbershopSettings;
+    return barbershopSettings;
   }
   
-  async updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings | undefined> {
+  async updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings> {
     if (!this.barbershopSettings) {
       // Se as configurações não existirem, crie-as com valores padrão
       return this.createBarbershopSettings({
@@ -423,11 +567,24 @@ export class MemStorage implements IStorage {
       });
     }
     
-    const updatedSettings = {
+    // Atualize apenas os campos fornecidos
+    const updatedSettings: BarbershopSettings = {
       ...this.barbershopSettings,
-      ...settings,
       updated_at: new Date()
     };
+    
+    // Atualize cada campo individualmente para preservar os tipos corretos
+    if (settings.name !== undefined) updatedSettings.name = settings.name;
+    if (settings.address !== undefined) updatedSettings.address = settings.address;
+    if (settings.phone !== undefined) updatedSettings.phone = settings.phone;
+    if (settings.email !== undefined) updatedSettings.email = settings.email;
+    if (settings.open_time !== undefined) updatedSettings.open_time = settings.open_time;
+    if (settings.close_time !== undefined) updatedSettings.close_time = settings.close_time;
+    if (settings.open_days !== undefined) updatedSettings.open_days = settings.open_days;
+    if (settings.description !== undefined) updatedSettings.description = settings.description || null;
+    if (settings.logo_url !== undefined) updatedSettings.logo_url = settings.logo_url || null;
+    if (settings.instagram !== undefined) updatedSettings.instagram = settings.instagram || null;
+    if (settings.facebook !== undefined) updatedSettings.facebook = settings.facebook || null;
     
     this.barbershopSettings = updatedSettings;
     return updatedSettings;
