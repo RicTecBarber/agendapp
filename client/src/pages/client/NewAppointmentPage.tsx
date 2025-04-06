@@ -22,6 +22,17 @@ import { CalendarIcon, Clock } from "lucide-react";
 // Step types
 type Step = "service" | "professional" | "datetime" | "info" | "confirmation";
 
+// Interface para dados de fidelidade
+interface LoyaltyData {
+  client_name: string;
+  client_phone: string;
+  total_attendances: number;
+  free_services_used: number;
+  eligible_rewards: number;
+  attendances_until_next_reward: number;
+  last_reward_at: string | null;
+}
+
 const NewAppointmentPage = () => {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -51,9 +62,19 @@ const NewAppointmentPage = () => {
   });
   
   // Query for loyalty data
-  const { data: loyaltyData, isLoading: isLoadingLoyalty } = useQuery({
+  const { data: loyaltyData, isLoading: isLoadingLoyalty } = useQuery<LoyaltyData>({
     queryKey: ["/api/loyalty", clientPhone],
     enabled: !!clientPhone && currentStep === "info",
+    queryFn: async () => {
+      if (!clientPhone) throw new Error("Telefone não informado");
+      try {
+        const response = await apiRequest("POST", "/api/loyalty/lookup", { client_phone: clientPhone });
+        return await response.json();
+      } catch (error) {
+        console.error("Erro ao buscar fidelidade:", error);
+        return null;
+      }
+    }
   });
   
   // Mutation to create appointment

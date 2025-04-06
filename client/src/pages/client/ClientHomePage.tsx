@@ -7,10 +7,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
+interface LoyaltyData {
+  client_name: string;
+  client_phone: string;
+  total_attendances: number;
+  free_services_used: number;
+  eligible_rewards: number;
+  attendances_until_next_reward: number;
+  last_reward_at: string | null;
+}
+
 const ClientHomePage = () => {
   const [showLoyaltyDialog, setShowLoyaltyDialog] = useState(false);
   const [loyaltyPhone, setLoyaltyPhone] = useState('');
-  const [loyaltyData, setLoyaltyData] = useState<any>(null);
+  const [loyaltyData, setLoyaltyData] = useState<LoyaltyData | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
