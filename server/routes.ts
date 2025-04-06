@@ -14,6 +14,27 @@ import { parseISO, format, addMinutes, isAfter } from "date-fns";
 import { setupAuth } from "./auth";
 import { z } from "zod";
 
+// Função para obter o offset do fuso horário configurado em horas
+function getTimezoneOffset(timezone: string): number {
+  // Mapa de offsets para fusos horários brasileiros
+  const timezoneOffsets: Record<string, number> = {
+    'America/Sao_Paulo': -3,  // UTC-3
+    'America/Recife': -3,     // UTC-3
+    'America/Maceio': -3,     // UTC-3
+    'America/Fortaleza': -3,  // UTC-3
+    'America/Bahia': -3,      // UTC-3
+    'America/Belem': -3,      // UTC-3
+    'America/Cuiaba': -4,     // UTC-4
+    'America/Manaus': -4,     // UTC-4
+    'America/Boa_Vista': -4,  // UTC-4
+    'America/Porto_Velho': -4, // UTC-4
+    'America/Rio_Branco': -5   // UTC-5
+  };
+  
+  // Retorna o offset configurado ou o padrão de Brasília (-3) se não estiver no mapa
+  return timezoneOffsets[timezone] || -3;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   setupAuth(app);
@@ -476,16 +497,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const appointmentDate = new Date(appointment.appointment_date);
         
         // Como os dados no banco estão em UTC, usamos UTC para extrair horas
-        // Isso garante que os dados sejam exibidos de forma consistente em qualquer fuso horário
-        // Porém, no Brasil, queremos converter de UTC para Brasília (UTC-3)
+        // e depois convertemos para o fuso horário da barbearia
         
         // Horário em UTC
         const utcHour = appointmentDate.getUTCHours();
         const utcMinute = appointmentDate.getUTCMinutes();
         
-        // Convertendo para horário de Brasília (UTC-3)
-        const brasilOffset = -3;
-        let appointmentHour = utcHour + brasilOffset;
+        // Obtendo configurações da barbearia para o offset correto
+        const timezoneOffset = getTimezoneOffset(settings?.timezone || 'America/Sao_Paulo');
+        
+        // Convertendo para o fuso horário configurado
+        let appointmentHour = utcHour + timezoneOffset;
         if (appointmentHour < 0) appointmentHour += 24;
         const appointmentMinute = utcMinute;
         
@@ -745,17 +767,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if appointment time plus service duration exceeds closing time
-      // Importante: Considera 3 horas a menos no UTC para fuso horário de São Paulo, Brasil (UTC-3)
+      // Usando o fuso horário configurado pela barbearia
       const shopEndCheckDate = new Date(appointmentData.appointment_date);
       shopEndCheckDate.setUTCMinutes(shopEndCheckDate.getUTCMinutes() + service.duration);
       
-      // Converter horário UTC para horário local (Brasil, -3 horas)
-      const shopEndHoursLocal = shopEndCheckDate.getUTCHours();
-      const shopEndMinutesLocal = shopEndCheckDate.getUTCMinutes();
+      // Obter o fuso horário configurado
+      const timezoneOffset = getTimezoneOffset(barbershopSettings.timezone || 'America/Sao_Paulo');
+      console.log(`Verificando com fuso horário: ${barbershopSettings.timezone}, offset: ${timezoneOffset}`);
+      
+      // Não converter as horas para comparar corretamente com o horário de fechamento
+      const shopEndHours = shopEndCheckDate.getUTCHours();
+      const shopEndMinutes = shopEndCheckDate.getUTCMinutes();
       
       const shopEndTimeObj = {
-        hours: shopEndHoursLocal,
-        minutes: shopEndMinutesLocal
+        hours: shopEndHours,
+        minutes: shopEndMinutes
       };
       
       console.log(`Debugging: Service duration: ${service.duration} min`);
@@ -810,13 +836,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profEndCheckDate = new Date(appointmentData.appointment_date);
       profEndCheckDate.setUTCMinutes(profEndCheckDate.getUTCMinutes() + service.duration);
       
-      // Converter horário UTC para horário local (Brasil, -3 horas)
-      const profEndHoursLocal = profEndCheckDate.getUTCHours();
-      const profEndMinutesLocal = profEndCheckDate.getUTCMinutes();
+      // Usar o mesmo fuso horário que foi configurado anteriormente
+      const profEndHours = profEndCheckDate.getUTCHours();
+      const profEndMinutes = profEndCheckDate.getUTCMinutes();
       
       const profAvailEndTimeObj = {
-        hours: profEndHoursLocal,
-        minutes: profEndMinutesLocal
+        hours: profEndHours,
+        minutes: profEndMinutes
       };
       
       if (profAvailEndTimeObj.hours > profEndTime.hours || 

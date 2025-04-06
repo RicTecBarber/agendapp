@@ -48,11 +48,36 @@ export function utcToLocal(utcDateString: string): Date {
 }
 
 /**
+ * Obtém o offset do fuso horário configurado em horas
+ */
+export function getTimezoneOffset(): number {
+  const timezone = getLocalTimeZone();
+  
+  // Mapa de offsets para fusos horários brasileiros
+  const timezoneOffsets: Record<string, number> = {
+    'America/Sao_Paulo': -3,  // UTC-3
+    'America/Recife': -3,     // UTC-3
+    'America/Maceio': -3,     // UTC-3
+    'America/Fortaleza': -3,  // UTC-3
+    'America/Bahia': -3,      // UTC-3
+    'America/Belem': -3,      // UTC-3
+    'America/Cuiaba': -4,     // UTC-4
+    'America/Manaus': -4,     // UTC-4
+    'America/Boa_Vista': -4,  // UTC-4
+    'America/Porto_Velho': -4, // UTC-4
+    'America/Rio_Branco': -5   // UTC-5
+  };
+  
+  // Retorna o offset configurado ou o padrão de Brasília (-3) se não estiver no mapa
+  return timezoneOffsets[timezone] || -3;
+}
+
+/**
  * Converte uma data local para UTC
  */
 export function localToUtc(localDate: Date): Date {
-  // O fuso horário de Brasília é UTC-3
-  const brazilOffsetHours = -3;
+  // Obtém o offset configurado
+  const timezoneOffset = getTimezoneOffset();
   
   // Cria uma data em UTC baseada na data local
   const year = localDate.getFullYear();
@@ -62,10 +87,11 @@ export function localToUtc(localDate: Date): Date {
   const minutes = localDate.getMinutes();
   const seconds = localDate.getSeconds();
   
-  // Cria uma nova data UTC e ajusta com o offset do Brasil (UTC-3)
-  // Quando for 9:00 no Brasil, será 12:00 em UTC
-  const utcDate = new Date(Date.UTC(year, month, day, hours - brazilOffsetHours, minutes, seconds));
+  // Cria uma nova data UTC ajustando com o offset configurado
+  // Por exemplo: Quando for 9:00 em UTC-3, será 12:00 em UTC
+  const utcDate = new Date(Date.UTC(year, month, day, hours - timezoneOffset, minutes, seconds));
   
+  console.log(`Conversão para UTC: Local (${hours}:${minutes}) => UTC (${utcDate.getUTCHours()}:${utcDate.getUTCMinutes()})`);
   return utcDate;
 }
 
@@ -98,19 +124,19 @@ export function createUtcDateFromLocalTime(date: Date, timeString: string): Date
   // Defina as horas e minutos na data local
   localDate.setHours(hours, minutes, 0, 0);
   
-  // O fuso horário de Brasília é UTC-3
-  const brazilOffsetHours = -3;
+  // Obtém o offset configurado baseado no fuso horário selecionado
+  const timezoneOffset = getTimezoneOffset();
   
-  // Cria uma data UTC considerando o fuso de Brasília
+  // Cria uma data UTC considerando o fuso horário configurado
   const year = localDate.getFullYear();
   const month = localDate.getMonth();
   const day = localDate.getDate();
   
-  console.log(`Horário local Brasil: ${hours}:${minutes}`);
-  console.log(`Ajustando para UTC: ${hours - brazilOffsetHours}:${minutes}`);
+  console.log(`Horário local: ${hours}:${minutes} (fuso: ${getLocalTimeZone()}, offset: ${timezoneOffset})`);
+  console.log(`Ajustando para UTC: ${hours - timezoneOffset}:${minutes}`);
   
-  // Quando for 9:00 no Brasil, será 12:00 em UTC
-  const utcDate = new Date(Date.UTC(year, month, day, hours - brazilOffsetHours, minutes, 0, 0));
+  // Quando for 9:00 em fuso com offset -3, será 12:00 em UTC
+  const utcDate = new Date(Date.UTC(year, month, day, hours - timezoneOffset, minutes, 0, 0));
   
   return utcDate;
 }
