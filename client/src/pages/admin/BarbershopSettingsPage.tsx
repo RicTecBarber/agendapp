@@ -19,7 +19,23 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+
+// Lista de fusos horários disponíveis no Brasil
+const BRAZIL_TIMEZONES = [
+  { id: "America/Sao_Paulo", label: "São Paulo (UTC-3)" },
+  { id: "America/Recife", label: "Recife (UTC-3)" },
+  { id: "America/Maceio", label: "Maceió (UTC-3)" },
+  { id: "America/Fortaleza", label: "Fortaleza (UTC-3)" },
+  { id: "America/Bahia", label: "Salvador (UTC-3)" },
+  { id: "America/Belem", label: "Belém (UTC-3)" },
+  { id: "America/Cuiaba", label: "Cuiabá (UTC-4)" },
+  { id: "America/Manaus", label: "Manaus (UTC-4)" },
+  { id: "America/Boa_Vista", label: "Boa Vista (UTC-4)" },
+  { id: "America/Porto_Velho", label: "Porto Velho (UTC-4)" },
+  { id: "America/Rio_Branco", label: "Rio Branco (UTC-5)" }
+];
 
 // Esquema para validação do formulário
 const barbershopSettingsSchema = z.object({
@@ -329,9 +345,24 @@ export default function BarbershopSettingsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Fuso Horário</FormLabel>
-                      <FormControl>
-                        <Input placeholder="America/Sao_Paulo" {...field} value={field.value || "America/Sao_Paulo"} />
-                      </FormControl>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value || "America/Sao_Paulo"}
+                        value={field.value || "America/Sao_Paulo"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o fuso horário" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {BRAZIL_TIMEZONES.map((timezone) => (
+                            <SelectItem key={timezone.id} value={timezone.id}>
+                              {timezone.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
