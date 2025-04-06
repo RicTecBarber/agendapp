@@ -418,81 +418,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Prepare a map of occupied time slots
+      const occupiedSlots = new Map<string, number[]>();
+      
+      // Get service details
+      const services = await storage.getAllServices();
+      
+      // Pre-process todos os agendamentos para saber quais horários estão ocupados
+      professionalAppointments.forEach(appointment => {
+        const appointmentStart = new Date(appointment.appointment_date);
+        const service = services.find((s) => s.id === appointment.service_id);
+        const serviceDuration = service?.duration || 30;
+        
+        // Marcar slots ocupados pelo agendamento (incluindo duração do serviço)
+        let currentTime = new Date(appointmentStart);
+        const appointmentEnd = addMinutes(appointmentStart, serviceDuration);
+        
+        // Log detalhado para este agendamento
+        console.log(`Processando agendamento #${appointment.id}:`, {
+          hora_inicio: format(appointmentStart, "HH:mm"),
+          hora_fim: format(appointmentEnd, "HH:mm"),
+          duracao: serviceDuration
+        });
+        
+        // Verificar cada slot de 30 minutos que esse agendamento ocupa
+        while (currentTime < appointmentEnd) {
+          const timeKey = format(currentTime, "HH:mm");
+          if (!occupiedSlots.has(timeKey)) {
+            occupiedSlots.set(timeKey, []);
+          }
+          occupiedSlots.get(timeKey)?.push(appointment.id);
+          
+          // Avançar para o próximo slot de 30 minutos
+          currentTime = addMinutes(currentTime, 30);
+        }
+      });
+      
+      console.log("Mapa de horários ocupados:", Object.fromEntries(occupiedSlots));
+      
+      // Agora vamos criar os slots disponíveis
       let currentSlot = new Date(date);
       currentSlot.setHours(startTime.hours, startTime.minutes, 0, 0);
       
       const endDateTime = new Date(date);
       endDateTime.setHours(endTime.hours, endTime.minutes, 0, 0);
       
-      // Get service details for duration calculation
-      const professionalData = await storage.getProfessional(professionalId);
-      const services = await storage.getAllServices();
-      
       while (currentSlot < endDateTime) {
-        const slotEnd = new Date(currentSlot);
-        slotEnd.setMinutes(slotEnd.getMinutes() + 30); // Default slot duration
-        
-        // Check if this slot conflicts with any appointment
-        const isAvailable = !professionalAppointments.some(appointment => {
-          const appointmentStart = new Date(appointment.appointment_date);
-          const service = services.find(s => s.id === appointment.service_id);
-          const appointmentEnd = addMinutes(appointmentStart, service?.duration || 30);
-          
-          const hasConflict = (
-            (currentSlot >= appointmentStart && currentSlot < appointmentEnd) ||
-            (slotEnd > appointmentStart && slotEnd <= appointmentEnd) ||
-            (currentSlot <= appointmentStart && slotEnd >= appointmentEnd)
-          );
-
-          // Log de depuração para horário especifico
-          const currentSlotTime = format(currentSlot, "HH:mm");
-          if (currentSlotTime === "09:00") {
-            console.log(`Verificando horário 09:00 para agendamento existente #${appointment.id}:`);
-            console.log(`  Slot atual: ${currentSlot.toISOString()}`);
-            console.log(`  Slot fim: ${slotEnd.toISOString()}`);
-            console.log(`  Início agendamento: ${appointmentStart.toISOString()}`);
-            console.log(`  Fim agendamento: ${appointmentEnd.toISOString()}`);
-            console.log(`  Há conflito: ${hasConflict}`);
-            console.log(`  Condição 1: ${currentSlot >= appointmentStart && currentSlot < appointmentEnd}`);
-            console.log(`  Condição 2: ${slotEnd > appointmentStart && slotEnd <= appointmentEnd}`);
-            console.log(`  Condição 3: ${currentSlot <= appointmentStart && slotEnd >= appointmentEnd}`);
-          }
-          
-          return hasConflict;
-        });
-        
-        // Coleta detalhes sobre o slot (tanto disponíveis quanto ocupados)
         const slotTime = format(currentSlot, "HH:mm");
+        const slotEnd = addMinutes(currentSlot, 30);
         
-        // Verifica conflitos específicos para este slot
-        const conflicts = professionalAppointments
-          .filter(appointment => {
-            const appointmentStart = new Date(appointment.appointment_date);
-            const service = services.find(s => s.id === appointment.service_id);
-            const appointmentEnd = addMinutes(appointmentStart, service?.duration || 30);
-            
-            return (
-              (currentSlot >= appointmentStart && currentSlot < appointmentEnd) ||
-              (slotEnd > appointmentStart && slotEnd <= appointmentEnd) ||
-              (currentSlot <= appointmentStart && slotEnd >= appointmentEnd)
-            );
-          })
-          .map(a => a.id);
-          
+        // Verificar se é horário passado
+        const isPastTime = isAfter(new Date(), currentSlot);
+        
+        // Verificar se está ocupado
+        const conflictingAppointments = occupiedSlots.get(slotTime) || [];
+        const isOccupied = conflictingAppointments.length > 0;
+        
+        // Log sempre que houver conflitos
+        if (isOccupied) {
+          console.log(`CONFLITO ENCONTRADO para horário ${slotTime}:`, conflictingAppointments);
+        }
+        
+        // Um slot disponível deve: 
+        // 1. Não ser um horário passado
+        // 2. Não estar ocupado por nenhum agendamento
+        const isAvailable = !isPastTime && !isOccupied;
+        
+        // Log detalhado para horários específicos
+        if (slotTime === "09:00" || slotTime === "15:00") {
+          console.log(`Análise detalhada do horário ${slotTime}:`);
+          console.log(`  É horário passado? ${isPastTime}`);
+          console.log(`  Tem conflitos? ${isOccupied}`);
+          console.log(`  Conflitos com agendamentos: ${conflictingAppointments.join(', ') || 'Nenhum'}`);
+          console.log(`  Disponível? ${isAvailable}`);
+        }
+        
         // Adiciona ao array de slots disponíveis
-        if (isAvailable && isAfter(currentSlot, new Date())) {
+        if (isAvailable) {
           timeSlots.push(slotTime);
         }
         
         // Informações detalhadas sobre este horário (para debug)
         slotDetails.push({
           time: slotTime,
-          available: isAvailable && isAfter(currentSlot, new Date()),
-          conflicts: conflicts.length > 0 ? conflicts : null
+          available: isAvailable,
+          is_past: isPastTime,
+          conflicts: conflictingAppointments.length > 0 ? conflictingAppointments : null
         });
         
         // Move to next 30-minute slot
-        currentSlot.setMinutes(currentSlot.getMinutes() + 30);
+        currentSlot = slotEnd;
       }
       
       // Retorna tanto os slots disponíveis quanto informações detalhadas para debug
@@ -759,7 +774,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Optional date filter
       const dateFilter = req.query.date as string;
-      let appointments;
+      let appointments: any[] = [];
       
       if (dateFilter) {
         const date = parseISO(dateFilter);
