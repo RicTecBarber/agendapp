@@ -163,7 +163,7 @@ const AppointmentsPage = () => {
   });
 
   // Filter appointments by tab and professional
-  const filteredAppointments = appointments?.filter(appointment => {
+  const filteredAppointments = appointments?.filter((appointment: any) => {
     // Filter by tab (date range)
     if (selectedTab === "today" && !isToday(parseISO(appointment.appointment_date))) {
       return false;
@@ -381,7 +381,7 @@ const AppointmentsPage = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os profissionais</SelectItem>
-                  {!isLoadingProfessionals && professionals?.map((professional: any) => (
+                  {!isLoadingProfessionals && Array.isArray(professionals) && professionals.map((professional: any) => (
                     <SelectItem key={professional.id} value={professional.id.toString()}>
                       {professional.name}
                     </SelectItem>
@@ -660,7 +660,7 @@ const AppointmentsPage = () => {
                   <SelectValue placeholder="Selecione um serviço" />
                 </SelectTrigger>
                 <SelectContent>
-                  {!isLoadingServices && services?.map((service: any) => (
+                  {!isLoadingServices && Array.isArray(services) && services.map((service: any) => (
                     <SelectItem key={service.id} value={service.id.toString()}>
                       {service.name} - R$ {service.price.toFixed(2)}
                     </SelectItem>
@@ -684,7 +684,7 @@ const AppointmentsPage = () => {
                   <SelectValue placeholder="Selecione um profissional" />
                 </SelectTrigger>
                 <SelectContent>
-                  {!isLoadingProfessionalsByService && professionalsByService?.map((professional: any) => (
+                  {!isLoadingProfessionalsByService && Array.isArray(professionalsByService) && professionalsByService.map((professional: any) => (
                     <SelectItem key={professional.id} value={professional.id.toString()}>
                       {professional.name}
                     </SelectItem>

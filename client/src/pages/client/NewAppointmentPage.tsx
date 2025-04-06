@@ -131,7 +131,7 @@ const NewAppointmentPage = () => {
     console.log("Resposta completa de disponibilidade:", JSON.stringify(availabilityData, null, 2));
     
     // Certificar-se de que estamos recebendo um array válido de horários
-    if (availabilityData.available_slots && Array.isArray(availabilityData.available_slots)) {
+    if (availabilityData && availabilityData.available_slots && Array.isArray(availabilityData.available_slots)) {
       console.log("Horários disponíveis recebidos:", availabilityData.available_slots);
       
       // Verificar se temos informações de debug para identificar problemas
@@ -163,7 +163,7 @@ const NewAppointmentPage = () => {
     }
     
     // Se tiver uma mensagem de indisponibilidade, exibir para o usuário
-    if (availabilityData.message) {
+    if (availabilityData && availabilityData.message) {
       toast({
         title: "Horários Indisponíveis",
         description: availabilityData.message,
@@ -278,7 +278,7 @@ const NewAppointmentPage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {services?.map((service: any) => (
+                {Array.isArray(services) && services.map((service: any) => (
                   <div 
                     key={service.id}
                     className={`bg-white rounded-xl shadow p-6 cursor-pointer hover:shadow-md transition ${selectedService?.id === service.id ? 'ring-2 ring-secondary' : ''}`}
@@ -307,7 +307,7 @@ const NewAppointmentPage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {professionals?.map((professional: any) => (
+                {Array.isArray(professionals) && professionals.map((professional: any) => (
                   <div 
                     key={professional.id}
                     className={`bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition ${selectedProfessional?.id === professional.id ? 'ring-2 ring-secondary' : ''}`}
@@ -323,7 +323,7 @@ const NewAppointmentPage = () => {
                         <h3 className="text-lg font-bold text-primary">{professional.name}</h3>
                         <p className="text-neutral-dark mb-2">{professional.description}</p>
                         <div className="flex flex-wrap">
-                          {services?.filter((service: any) => 
+                          {Array.isArray(services) && services.filter((service: any) => 
                             (professional.services_offered as number[]).includes(service.id)
                           ).map((service: any) => (
                             <div key={service.id} className="bg-primary-light/10 px-2 py-1 rounded text-xs mr-1 mb-1">
