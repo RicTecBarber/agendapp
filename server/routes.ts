@@ -510,9 +510,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentSlot = slotEnd;
       }
       
+      // Verificação final: remover quaisquer slots na lista de disponíveis que não estejam marcados como disponíveis nos detalhes
+      const trulyAvailableSlots = timeSlots.filter(slot => 
+        slotDetails.find(detail => detail.time === slot && detail.available)
+      );
+      
+      console.log("Slots finais após verificação adicional:", trulyAvailableSlots);
+      
       // Retorna tanto os slots disponíveis quanto informações detalhadas para debug
       res.json({ 
-        available_slots: timeSlots,
+        available_slots: trulyAvailableSlots,
         debug_info: {
           date: date.toISOString().split('T')[0],
           professional_id: professionalId,
