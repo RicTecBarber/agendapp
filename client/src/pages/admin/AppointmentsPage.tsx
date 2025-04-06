@@ -497,8 +497,9 @@ const AppointmentsPage = () => {
                             {format(parseISO(appointment.appointment_date), "dd/MM/yyyy", { locale: ptBR })}
                           </td>
                           <td className="py-3 px-4">
-                            {format(parseISO(appointment.appointment_date), "HH:mm")}
-                            <span className="text-xs text-gray-500 ml-1 block">(horário local)</span>
+                            {/* SOLUÇÃO RADICAL - Extrair a hora diretamente sem conversão de Date */}
+                            {appointment.appointment_date.substring(11, 16)}
+                            <span className="text-xs text-green-600 font-medium ml-1 block">(exato)</span>
                           </td>
                           <td className="py-3 px-4">
                             {appointment.is_loyalty_reward 
@@ -604,8 +605,9 @@ const AppointmentsPage = () => {
                 <div>
                   <p className="text-sm text-neutral-dark">Horário:</p>
                   <p className="font-medium">
-                    {format(parseISO(statusDialog.appointment.appointment_date), "HH:mm")}
-                    <span className="text-xs text-gray-500 ml-1 block">(horário local)</span>
+                    {/* SOLUÇÃO RADICAL - Extrair a hora diretamente sem conversão de Date */}
+                    {statusDialog.appointment.appointment_date.substring(11, 16)}
+                    <span className="text-xs text-green-600 font-medium ml-1 block">(exato)</span>
                   </p>
                 </div>
               </div>

@@ -215,7 +215,9 @@ const CheckAppointmentPage = () => {
                             {format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: ptBR })}
                           </p>
                           <p className="text-neutral-dark">
-                            {format(new Date(appointment.appointment_date), "HH:mm")}
+                            {/* SOLUÇÃO RADICAL - Extrair o horário diretamente da string */}
+                            {appointment.appointment_date.substring(11, 16)}
+                            <span className="text-xs text-green-600 font-medium ml-1">(exato)</span>
                           </p>
                           <p className="text-secondary font-bold mt-1">
                             {appointment.is_loyalty_reward 
@@ -276,7 +278,9 @@ const CheckAppointmentPage = () => {
                 <div className="flex justify-between">
                   <span className="text-neutral-dark">Horário:</span>
                   <span className="font-medium">
-                    {format(new Date(appointmentToCancel.appointment_date), "HH:mm")}
+                    {/* SOLUÇÃO RADICAL - Extrair o horário diretamente da string */}
+                    {appointmentToCancel.appointment_date.substring(11, 16)}
+                    <span className="text-xs text-green-600 font-medium ml-1">(exato)</span>
                   </span>
                 </div>
               </div>
