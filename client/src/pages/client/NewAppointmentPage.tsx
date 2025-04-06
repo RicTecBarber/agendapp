@@ -538,7 +538,8 @@ const NewAppointmentPage = () => {
               <div className="flex justify-between mb-3">
                 <p className="text-neutral-dark">Horário:</p>
                 <p className="font-bold text-primary">
-                  {format(new Date(appointment.appointment_date), "HH:mm")}
+                  {/* Extrair horário diretamente da string original que foi enviada */}
+                  {selectedTime}
                   <span className="text-xs text-gray-500 ml-1">(horário local)</span>
                 </p>
               </div>

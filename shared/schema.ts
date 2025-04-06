@@ -83,6 +83,7 @@ export const insertAppointmentSchema = baseAppointmentSchema.extend({
     z.string().transform(str => new Date(str)),
     z.date()
   ]),
+  status: z.string().optional().default("scheduled"),
 });
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type Appointment = typeof appointments.$inferSelect;
