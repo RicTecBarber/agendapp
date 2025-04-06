@@ -20,6 +20,7 @@ import ClientsPage from "@/pages/admin/ClientsPage";
 import LoyaltyManagementPage from "@/pages/admin/LoyaltyManagementPage";
 import ServicesPage from "@/pages/admin/ServicesPage";
 import UsersPage from "@/pages/admin/UsersPage";
+import ProfessionalsPage from "@/pages/admin/ProfessionalsPage";
 
 function Router() {
   return (
@@ -37,6 +38,7 @@ function Router() {
       <ProtectedRoute path="/admin/clients" component={ClientsPage} />
       <ProtectedRoute path="/admin/loyalty" component={LoyaltyManagementPage} />
       <ProtectedRoute path="/admin/services" component={ServicesPage} />
+      <ProtectedRoute path="/admin/professionals" component={ProfessionalsPage} />
       <ProtectedRoute path="/admin/users" component={UsersPage} />
       
       {/* Fallback Route */}

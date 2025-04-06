@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LogOut, Home, Calendar, Users, DollarSign, Scissors, Settings, UserPlus } from "lucide-react";
+import { LogOut, Home, Calendar, Users, DollarSign, Scissors, Settings, UserPlus, UserCircle } from "lucide-react";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -60,6 +60,12 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/services" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <Scissors className="h-5 w-5 mr-3" />
                   Serviços
+                </a>
+              </Link>
+              <Link href="/admin/professionals">
+                <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/professionals" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
+                  <UserCircle className="h-5 w-5 mr-3" />
+                  Profissionais
                 </a>
               </Link>
               {user?.role === "admin" && (
