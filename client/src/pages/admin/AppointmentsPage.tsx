@@ -98,7 +98,7 @@ const AppointmentsPage = () => {
   
   // Get professionals by service for new appointment
   const { data: professionalsByService, isLoading: isLoadingProfessionalsByService } = useQuery({
-    queryKey: ["/api/professionals/service", selectedService],
+    queryKey: [`/api/professionals/service/${selectedService}`],
     queryFn: selectedService ? undefined : () => Promise.resolve([]),
     enabled: !!selectedService, // Only run query when a service is selected
   });
@@ -122,8 +122,11 @@ const AppointmentsPage = () => {
       // Reset form and close dialog
       setNewAppointmentDialog(false);
       resetNewAppointmentForm();
-      // Invalidate appointments query to refresh list
+      // Invalidate appointments and professionals queries to refresh lists
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      if (selectedService) {
+        queryClient.invalidateQueries({ queryKey: [`/api/professionals/service/${selectedService}`] });
+      }
       toast({
         title: "Agendamento criado",
         description: "O agendamento foi criado com sucesso.",
