@@ -751,39 +751,41 @@ const AppointmentsPage = () => {
               
               <div className="grid gap-2">
                 <Label htmlFor="time">Horário</Label>
-                <div>
-                  {!selectedProfessional || !selectedDate ? (
-                    <div className="border rounded p-3 text-center text-muted-foreground bg-muted/20">
-                      Selecione um profissional e uma data para ver horários disponíveis
-                    </div>
-                  ) : isLoadingAvailability ? (
-                    <div className="border rounded p-3 text-center">
-                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                      <span className="text-sm text-muted-foreground">Carregando horários...</span>
-                    </div>
-                  ) : availableTimes.length > 0 ? (
-                    <div className="grid grid-cols-4 gap-2 mt-1">
+                {!selectedProfessional || !selectedDate ? (
+                  <div className="border rounded p-3 text-center text-muted-foreground bg-muted/20">
+                    Selecione um profissional e uma data para ver horários disponíveis
+                  </div>
+                ) : isLoadingAvailability ? (
+                  <div className="border rounded p-3 text-center">
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                    <span className="text-sm text-muted-foreground">Carregando horários...</span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      id="time-select"
+                      className="w-full h-10 px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      value={selectedTime || ''}
+                      onChange={(e) => {
+                        console.log("Horário selecionado:", e.target.value);
+                        setSelectedTime(e.target.value);
+                      }}
+                      disabled={!selectedProfessional || !selectedDate || isLoadingAvailability || availableTimes.length === 0}
+                    >
+                      <option value="" disabled>Selecione um horário</option>
                       {availableTimes.map((time) => (
-                        <Button
-                          key={time}
-                          type="button"
-                          variant={selectedTime === time ? "default" : "outline"}
-                          className="h-9"
-                          onClick={() => {
-                            console.log("Horário selecionado:", time);
-                            setSelectedTime(time);
-                          }}
-                        >
+                        <option key={time} value={time}>
                           {time}
-                        </Button>
+                        </option>
                       ))}
-                    </div>
-                  ) : (
-                    <div className="border rounded p-3 text-center text-muted-foreground">
-                      Nenhum horário disponível para esta data
-                    </div>
-                  )}
-                </div>
+                    </select>
+                    {availableTimes.length === 0 && !isLoadingAvailability && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span className="text-sm text-muted-foreground">Nenhum horário disponível</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             
