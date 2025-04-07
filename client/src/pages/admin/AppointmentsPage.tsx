@@ -761,45 +761,42 @@ const AppointmentsPage = () => {
                 </Popover>
               </div>
               
-              {/* Seleção de horário simplificada */}
+              {/* Seleção de horário com dropdown nativo HTML */}
               <div className="grid gap-2">
-                <Label htmlFor="time">Horário</Label>
-                <Select
-                  value={selectedTime || ""}
-                  onValueChange={(value) => {
-                    console.log("Horário selecionado:", value);
-                    setSelectedTime(value);
-                  }}
-                  disabled={!selectedProfessional || !selectedDate || isLoadingAvailability}
-                >
-                  <SelectTrigger id="time-select" className="w-full">
-                    <SelectValue placeholder="Selecione um horário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {!selectedProfessional || !selectedDate ? (
-                      <SelectItem value="placeholder" disabled>
-                        Selecione um profissional e uma data primeiro
-                      </SelectItem>
-                    ) : isLoadingAvailability ? (
-                      <SelectItem value="loading" disabled>
-                        <div className="flex items-center">
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          <span>Carregando horários...</span>
-                        </div>
-                      </SelectItem>
-                    ) : availableTimes.length > 0 ? (
+                <Label htmlFor="time-select-native">Horário</Label>
+                <div className="relative">
+                  {isLoadingAvailability && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </div>
+                  )}
+                  <select
+                    id="time-select-native"
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={selectedTime || ''}
+                    onChange={(e) => {
+                      const selectedValue = e.target.value;
+                      console.log("Horário selecionado:", selectedValue);
+                      setSelectedTime(selectedValue);
+                    }}
+                    disabled={!selectedProfessional || !selectedDate || isLoadingAvailability}
+                  >
+                    <option value="" disabled>Selecione um horário</option>
+                    {availableTimes.length > 0 ? (
                       availableTimes.map((time) => (
-                        <SelectItem key={time} value={time}>
+                        <option key={time} value={time}>
                           {time}
-                        </SelectItem>
+                        </option>
                       ))
                     ) : (
-                      <SelectItem value="none" disabled>
-                        Nenhum horário disponível
-                      </SelectItem>
+                      <option value="" disabled>
+                        {!selectedProfessional || !selectedDate 
+                          ? "Selecione um profissional e data primeiro" 
+                          : "Nenhum horário disponível"}
+                      </option>
                     )}
-                  </SelectContent>
-                </Select>
+                  </select>
+                </div>
               </div>
             </div>
             
