@@ -667,7 +667,7 @@ const AppointmentsPage = () => {
           resetNewAppointmentForm();
         }
       }}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="max-w-[580px] overflow-y-auto max-h-[85vh] p-6">
           <DialogHeader>
             <DialogTitle>Novo Agendamento</DialogTitle>
             <DialogDescription>
@@ -761,58 +761,62 @@ const AppointmentsPage = () => {
                 </Popover>
               </div>
               
-              {/* Seleção de horário com botões simples */}
+              {/* Seleção de horário super simplificada em HTML */}
               <div className="grid gap-2">
                 <div>
-                  <Label>Horário</Label>
+                  <Label>Horário: {selectedTime ? <span className="font-bold">{selectedTime}</span> : "Nenhum selecionado"}</Label>
+                  
                   {isLoadingAvailability && (
-                    <div className="flex items-center mt-2">
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      <span className="text-sm text-muted-foreground">Carregando horários...</span>
+                    <div className="mt-2 p-3 border rounded-md bg-muted/10">
+                      <div className="flex items-center">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <span className="text-sm text-muted-foreground">Carregando horários...</span>
+                      </div>
                     </div>
                   )}
                   
                   {!isLoadingAvailability && (!selectedProfessional || !selectedDate) && (
-                    <div className="text-sm text-muted-foreground mt-2">
-                      Selecione um profissional e data primeiro
+                    <div className="mt-2 p-3 border rounded-md bg-muted/10">
+                      <span className="text-sm text-muted-foreground">
+                        Selecione um profissional e data primeiro
+                      </span>
                     </div>
                   )}
                   
                   {!isLoadingAvailability && selectedProfessional && selectedDate && availableTimes.length === 0 && (
-                    <div className="text-sm text-muted-foreground mt-2">
-                      Nenhum horário disponível nesta data
+                    <div className="mt-2 p-3 border rounded-md bg-muted/10">
+                      <span className="text-sm text-muted-foreground">
+                        Nenhum horário disponível nesta data
+                      </span>
                     </div>
                   )}
                   
                   {!isLoadingAvailability && availableTimes.length > 0 && (
-                    <div className="grid grid-cols-4 gap-2 mt-2">
-                      {availableTimes.map((time) => (
-                        <button
-                          key={time}
-                          type="button"
-                          className={`py-2 px-3 text-sm border rounded-md transition-colors ${
-                            selectedTime === time 
-                              ? 'bg-primary text-primary-foreground border-primary' 
-                              : 'bg-background hover:bg-muted/50 border-input'
-                          }`}
-                          onClick={() => {
-                            console.log("Horário selecionado (botão):", time);
-                            setSelectedTime(time);
-                          }}
-                        >
-                          {time}
-                        </button>
-                      ))}
+                    <div className="mt-2 border rounded-md p-3 bg-background">
+                      <p className="text-sm text-muted-foreground mb-2">Selecione um horário disponível:</p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {availableTimes.map((time) => (
+                          <a 
+                            key={time}
+                            href="#"
+                            className={`text-center py-2 px-1 text-sm border rounded-md transition-colors ${
+                              selectedTime === time 
+                                ? 'bg-blue-500 text-white font-semibold' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                            }`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              console.log("Link clicado para horário:", time);
+                              setSelectedTime(time);
+                            }}
+                          >
+                            {time}
+                          </a>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
-                
-                {/* Campo escondido para guardar o valor selecionado */}
-                <input 
-                  type="hidden" 
-                  id="selected-time-hidden" 
-                  value={selectedTime || ''} 
-                />
               </div>
             </div>
             
@@ -868,7 +872,8 @@ const AppointmentsPage = () => {
             </Button>
             <Button 
               onClick={handleCreateAppointment}
-              disabled={createAppointment.isPending}
+              disabled={createAppointment.isPending || !selectedTime || !selectedService || !selectedProfessional || !selectedDate || !clientName || !clientPhone}
+              className={selectedTime ? "bg-green-600 hover:bg-green-700" : ""}
             >
               {createAppointment.isPending ? "Criando..." : "Criar Agendamento"}
             </Button>
