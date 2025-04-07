@@ -761,42 +761,58 @@ const AppointmentsPage = () => {
                 </Popover>
               </div>
               
-              {/* Seleção de horário com dropdown nativo HTML */}
+              {/* Seleção de horário com botões simples */}
               <div className="grid gap-2">
-                <Label htmlFor="time-select-native">Horário</Label>
-                <div className="relative">
+                <div>
+                  <Label>Horário</Label>
                   {isLoadingAvailability && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    <div className="flex items-center mt-2">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <span className="text-sm text-muted-foreground">Carregando horários...</span>
                     </div>
                   )}
-                  <select
-                    id="time-select-native"
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    value={selectedTime || ''}
-                    onChange={(e) => {
-                      const selectedValue = e.target.value;
-                      console.log("Horário selecionado:", selectedValue);
-                      setSelectedTime(selectedValue);
-                    }}
-                    disabled={!selectedProfessional || !selectedDate || isLoadingAvailability}
-                  >
-                    <option value="" disabled>Selecione um horário</option>
-                    {availableTimes.length > 0 ? (
-                      availableTimes.map((time) => (
-                        <option key={time} value={time}>
+                  
+                  {!isLoadingAvailability && (!selectedProfessional || !selectedDate) && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      Selecione um profissional e data primeiro
+                    </div>
+                  )}
+                  
+                  {!isLoadingAvailability && selectedProfessional && selectedDate && availableTimes.length === 0 && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      Nenhum horário disponível nesta data
+                    </div>
+                  )}
+                  
+                  {!isLoadingAvailability && availableTimes.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2 mt-2">
+                      {availableTimes.map((time) => (
+                        <button
+                          key={time}
+                          type="button"
+                          className={`py-2 px-3 text-sm border rounded-md transition-colors ${
+                            selectedTime === time 
+                              ? 'bg-primary text-primary-foreground border-primary' 
+                              : 'bg-background hover:bg-muted/50 border-input'
+                          }`}
+                          onClick={() => {
+                            console.log("Horário selecionado (botão):", time);
+                            setSelectedTime(time);
+                          }}
+                        >
                           {time}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="" disabled>
-                        {!selectedProfessional || !selectedDate 
-                          ? "Selecione um profissional e data primeiro" 
-                          : "Nenhum horário disponível"}
-                      </option>
-                    )}
-                  </select>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+                
+                {/* Campo escondido para guardar o valor selecionado */}
+                <input 
+                  type="hidden" 
+                  id="selected-time-hidden" 
+                  value={selectedTime || ''} 
+                />
               </div>
             </div>
             
