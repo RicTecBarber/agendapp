@@ -753,13 +753,16 @@ const AppointmentsPage = () => {
                 <Label htmlFor="time">Horário</Label>
                 <Select
                   value={selectedTime || ''}
-                  onValueChange={setSelectedTime}
+                  onValueChange={(value) => {
+                    console.log("Horário selecionado:", value);
+                    setSelectedTime(value);
+                  }}
                   disabled={!selectedProfessional || !selectedDate || isLoadingAvailability}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="time-select">
                     <SelectValue placeholder="Selecione um horário" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper">
                     {isLoadingAvailability ? (
                       <SelectItem value="loading" disabled>
                         Carregando horários...
