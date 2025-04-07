@@ -761,84 +761,45 @@ const AppointmentsPage = () => {
                 </Popover>
               </div>
               
-              {/* Novo componente de seleção de horário */}
+              {/* Seleção de horário simplificada */}
               <div className="grid gap-2">
                 <Label htmlFor="time">Horário</Label>
-                
-                {/* Estado: nenhum profissional ou data selecionados */}
-                {!selectedProfessional || !selectedDate ? (
-                  <div className="h-10 border rounded flex items-center justify-center bg-muted/10">
-                    <span className="text-sm text-muted-foreground">Selecione um profissional e uma data primeiro</span>
-                  </div>
-                ) 
-                
-                /* Estado: carregando horários disponíveis */
-                : isLoadingAvailability ? (
-                  <div className="h-10 border rounded flex items-center justify-center">
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    <span className="text-sm">Carregando horários...</span>
-                  </div>
-                ) 
-                
-                /* Estado: horários carregados */
-                : (
-                  <>
-                    {/* Componente HTML nativo para máxima compatibilidade */}
-                    <div className="relative">
-                      <select
-                        id="time-select-native"
-                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        value={selectedTime || ''}
-                        onChange={(e) => {
-                          const selectedValue = e.target.value;
-                          console.log("Horário selecionado (select nativo):", selectedValue);
-                          setSelectedTime(selectedValue);
-                        }}
-                      >
-                        <option value="" disabled>Escolha um horário disponível</option>
-                        {availableTimes.length > 0 ? (
-                          availableTimes.map((time) => (
-                            <option key={time} value={time}>
-                              {time}
-                            </option>
-                          ))
-                        ) : (
-                          <option value="" disabled>Nenhum horário disponível</option>
-                        )}
-                      </select>
-                      
-                      {/* Caso não haja horários disponíveis e não esteja carregando */}
-                      {availableTimes.length === 0 && !isLoadingAvailability && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="text-sm text-muted-foreground">Nenhum horário disponível nesta data</span>
+                <Select
+                  value={selectedTime || ""}
+                  onValueChange={(value) => {
+                    console.log("Horário selecionado:", value);
+                    setSelectedTime(value);
+                  }}
+                  disabled={!selectedProfessional || !selectedDate || isLoadingAvailability}
+                >
+                  <SelectTrigger id="time-select" className="w-full">
+                    <SelectValue placeholder="Selecione um horário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!selectedProfessional || !selectedDate ? (
+                      <SelectItem value="placeholder" disabled>
+                        Selecione um profissional e uma data primeiro
+                      </SelectItem>
+                    ) : isLoadingAvailability ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center">
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <span>Carregando horários...</span>
                         </div>
-                      )}
-                    </div>
-                    
-                    {/* Lista de horários em formato de grade para seleção visual */}
-                    {availableTimes.length > 0 && (
-                      <div className="grid grid-cols-4 gap-2 mt-2">
-                        {availableTimes.map((time) => (
-                          <button
-                            key={time}
-                            type="button"
-                            className={`py-1 px-2 text-sm border rounded-md transition-colors ${
-                              selectedTime === time 
-                                ? 'bg-primary text-primary-foreground' 
-                                : 'bg-background hover:bg-muted'
-                            }`}
-                            onClick={() => {
-                              console.log("Horário selecionado (botão):", time);
-                              setSelectedTime(time);
-                            }}
-                          >
-                            {time}
-                          </button>
-                        ))}
-                      </div>
+                      </SelectItem>
+                    ) : availableTimes.length > 0 ? (
+                      availableTimes.map((time) => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>
+                        Nenhum horário disponível
+                      </SelectItem>
                     )}
-                  </>
-                )}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
