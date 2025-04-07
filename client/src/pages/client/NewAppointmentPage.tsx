@@ -395,20 +395,42 @@ const NewAppointmentPage = () => {
                           <p className="text-xs mt-1">Verifique outras datas ou entre em contato conosco.</p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-3">
-                          {availableTimes.map((time) => (
-                            <button
-                              key={time}
-                              className={`py-2 border ${
-                                selectedTime === time
-                                  ? 'border-primary bg-primary/5 font-bold'
-                                  : 'border-neutral hover:border-secondary hover:text-secondary'
-                              } text-center rounded transition`}
-                              onClick={() => setSelectedTime(time)}
-                            >
-                              {time}
-                            </button>
-                          ))}
+                        <div className="flex flex-col gap-4">
+                          <select
+                            className="w-full p-3 rounded border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary"
+                            value={selectedTime || ''}
+                            onChange={(e) => {
+                              console.log("Horário selecionado (select):", e.target.value);
+                              setSelectedTime(e.target.value);
+                            }}
+                          >
+                            <option value="" disabled>Selecione um horário</option>
+                            {availableTimes.map((time) => (
+                              <option key={time} value={time}>
+                                {time}
+                              </option>
+                            ))}
+                          </select>
+                          
+                          <div className="grid grid-cols-3 gap-3">
+                            {availableTimes.map((time) => (
+                              <button
+                                key={time}
+                                type="button"
+                                className={`py-2 border ${
+                                  selectedTime === time
+                                    ? 'border-primary bg-primary/5 font-bold'
+                                    : 'border-neutral hover:border-secondary hover:text-secondary'
+                                } text-center rounded transition`}
+                                onClick={() => {
+                                  console.log("Horário selecionado (botão):", time);
+                                  setSelectedTime(time);
+                                }}
+                              >
+                                {time}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </>
