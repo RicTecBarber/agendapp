@@ -291,12 +291,57 @@ const AppointmentsPage = () => {
   
   // Handle appointment submission
   const handleCreateAppointment = () => {
-    // Validar campos obrigatórios
-    if (!selectedService || !selectedProfessional || !selectedDate || !selectedTime || !clientName || !clientPhone) {
+    // Verificações específicas de cada campo
+    if (!selectedService) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Preencha todos os campos obrigatórios para continuar.",
-        variant: "destructive",
+        title: "Serviço não selecionado",
+        description: "Por favor, selecione um serviço para o agendamento.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!selectedProfessional) {
+      toast({
+        title: "Profissional não selecionado",
+        description: "Por favor, selecione um profissional para o agendamento.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!selectedDate) {
+      toast({
+        title: "Data não selecionada",
+        description: "Por favor, selecione uma data para o agendamento.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!selectedTime) {
+      toast({
+        title: "Horário não selecionado",
+        description: "Por favor, selecione um horário disponível para o agendamento.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!clientName || clientName.trim() === '') {
+      toast({
+        title: "Nome não informado",
+        description: "Por favor, informe o nome do cliente.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!clientPhone || clientPhone.trim() === '') {
+      toast({
+        title: "Telefone não informado",
+        description: "Por favor, informe o telefone do cliente.",
+        variant: "destructive"
       });
       return;
     }
@@ -317,7 +362,14 @@ const AppointmentsPage = () => {
     console.log("==== LOG DE DEPURAÇÃO DO AGENDAMENTO ====");
     console.log(`Data selecionada: ${selectedDate.toLocaleDateString()}`);
     console.log(`Horário selecionado: ${selectedTime}`);
+    console.log(`Horário após formatação: ${hoursStr}:${minutesStr}`);
     console.log(`String formatada para envio: ${formattedDate}`);
+    console.log(`Serviço ID: ${selectedService}`);
+    console.log(`Profissional ID: ${selectedProfessional}`);
+    console.log(`Cliente: ${clientName}`);
+    console.log(`Telefone: ${clientPhone}`);
+    console.log(`Notificar WhatsApp: ${notifyWhatsapp ? 'Sim' : 'Não'}`);
+    console.log(`É resgate de fidelidade: ${isRewardRedemption ? 'Sim' : 'Não'}`);
     
     // Create appointment data
     const appointmentData = {
@@ -332,7 +384,23 @@ const AppointmentsPage = () => {
       status: "scheduled"
     };
     
-    createAppointment.mutate(appointmentData);
+    // Feedback ao usuário antes do envio
+    toast({
+      title: "Processando agendamento...",
+      description: `Criando agendamento para ${clientName} às ${selectedTime}`,
+    });
+    
+    // Enviar o agendamento com dados detalhados
+    try {
+      createAppointment.mutate(appointmentData);
+    } catch (error) {
+      console.error("Erro ao criar agendamento:", error);
+      toast({
+        title: "Erro inesperado",
+        description: "Ocorreu um erro ao processar o agendamento. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
   
   // Get status badge styles
@@ -764,7 +832,13 @@ const AppointmentsPage = () => {
               {/* Seleção de horário super simplificada em HTML */}
               <div className="grid gap-2">
                 <div>
-                  <Label>Horário: {selectedTime ? <span className="font-bold">{selectedTime}</span> : "Nenhum selecionado"}</Label>
+                  <Label htmlFor="time-selection">
+                    Horário: {selectedTime ? 
+                      <span className="inline-block ml-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold">{selectedTime}</span> 
+                      : 
+                      <span className="inline-block ml-1 px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">Nenhum selecionado</span>
+                    }
+                  </Label>
                   
                   {isLoadingAvailability && (
                     <div className="mt-2 p-3 border rounded-md bg-muted/10">
@@ -792,28 +866,42 @@ const AppointmentsPage = () => {
                   )}
                   
                   {!isLoadingAvailability && availableTimes.length > 0 && (
-                    <div className="mt-2 border rounded-md p-3 bg-background">
-                      <p className="text-sm text-muted-foreground mb-2">Selecione um horário disponível:</p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {availableTimes.map((time) => (
-                          <a 
-                            key={time}
-                            href="#"
-                            className={`text-center py-2 px-1 text-sm border rounded-md transition-colors ${
-                              selectedTime === time 
-                                ? 'bg-blue-500 text-white font-semibold' 
-                                : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                    <div className="mt-2 border rounded-md p-3 bg-white">
+                      <p className="text-sm font-bold mb-2">Escolha um horário:</p>
+                      
+                      {/* Usa botões padrão em vez de elementos personalizados */}
+                      <div className="flex flex-wrap gap-2">
+                        {availableTimes.map((timeValue) => (
+                          <button
+                            key={timeValue}
+                            type="button"
+                            className={`px-4 py-2 rounded border font-medium ${
+                              selectedTime === timeValue 
+                                ? 'bg-blue-600 text-white border-blue-600' 
+                                : 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200'
                             }`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              console.log("Link clicado para horário:", time);
-                              setSelectedTime(time);
+                            onClick={() => {
+                              console.log(`Escolhendo horário ${timeValue}`);
+                              // Força a atualização do estado com um valor totalmente novo
+                              setSelectedTime(null);
+                              // Pequeno atraso para garantir que o setState anterior foi processado
+                              setTimeout(() => {
+                                setSelectedTime(timeValue);
+                                console.log(`Horário definido para: ${timeValue}`);
+                              }, 50);
                             }}
                           >
-                            {time}
-                          </a>
+                            {timeValue}
+                          </button>
                         ))}
                       </div>
+                      
+                      {/* Mostra o horário selecionado em texto também */}
+                      {selectedTime && (
+                        <div className="mt-3 p-2 bg-blue-50 text-blue-700 rounded border border-blue-200">
+                          Horário selecionado: <strong>{selectedTime}</strong>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
