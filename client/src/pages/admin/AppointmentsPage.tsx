@@ -869,32 +869,23 @@ const AppointmentsPage = () => {
                     <div className="mt-2 border rounded-md p-3 bg-white">
                       <p className="text-sm font-bold mb-2">Escolha um horário:</p>
                       
-                      {/* Usa botões padrão em vez de elementos personalizados */}
-                      <div className="flex flex-wrap gap-2">
+                      {/* Lista de tempos em formato de select para compatibilidade máxima */}
+                      <select
+                        className="w-full p-3 rounded border focus:ring-2 focus:ring-primary"
+                        value={selectedTime || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          console.log(`Horário selecionado: ${value}`);
+                          setSelectedTime(value);
+                        }}
+                      >
+                        <option value="" disabled>Selecione um horário</option>
                         {availableTimes.map((timeValue) => (
-                          <button
-                            key={timeValue}
-                            type="button"
-                            className={`px-4 py-2 rounded border font-medium ${
-                              selectedTime === timeValue 
-                                ? 'bg-blue-600 text-white border-blue-600' 
-                                : 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200'
-                            }`}
-                            onClick={() => {
-                              console.log(`Escolhendo horário ${timeValue}`);
-                              // Força a atualização do estado com um valor totalmente novo
-                              setSelectedTime(null);
-                              // Pequeno atraso para garantir que o setState anterior foi processado
-                              setTimeout(() => {
-                                setSelectedTime(timeValue);
-                                console.log(`Horário definido para: ${timeValue}`);
-                              }, 50);
-                            }}
-                          >
+                          <option key={timeValue} value={timeValue}>
                             {timeValue}
-                          </button>
+                          </option>
                         ))}
-                      </div>
+                      </select>
                       
                       {/* Mostra o horário selecionado em texto também */}
                       {selectedTime && (
