@@ -291,6 +291,7 @@ const AppointmentsPage = () => {
   
   // Handle appointment submission
   const handleCreateAppointment = () => {
+    // Validar campos obrigatórios
     if (!selectedService || !selectedProfessional || !selectedDate || !selectedTime || !clientName || !clientPhone) {
       toast({
         title: "Campos obrigatórios",
@@ -300,19 +301,30 @@ const AppointmentsPage = () => {
       return;
     }
     
-    // Prepare date with time using timezone utility
+    // Extrair hora e minuto do horário selecionado
     const [hours, minutes] = selectedTime.split(':').map(Number);
-    // Usar a função que lida corretamente com timezone
-    const appointmentDate = createUtcDateFromLocalTime(selectedDate, `${hours}:${minutes}`);
-    console.log(`Data local selecionada: ${selectedDate.toLocaleString()}`);
+    
+    // Formatamos a data manualmente para mantê-la no formato esperado pelo backend
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const hoursStr = String(hours).padStart(2, '0');
+    const minutesStr = String(minutes).padStart(2, '0');
+    
+    // Criar string de data formatada (YYYY-MM-DDThh:mm:00.000) com indicador LOCAL
+    const formattedDate = `${year}-${month}-${day}T${hoursStr}:${minutesStr}:00.000LOCAL`;
+    
+    console.log("==== LOG DE DEPURAÇÃO DO AGENDAMENTO ====");
+    console.log(`Data selecionada: ${selectedDate.toLocaleDateString()}`);
     console.log(`Horário selecionado: ${selectedTime}`);
-    console.log(`Data UTC criada para envio: ${appointmentDate.toISOString()}`);
+    console.log(`String formatada para envio: ${formattedDate}`);
     
     // Create appointment data
     const appointmentData = {
       service_id: selectedService,
       professional_id: selectedProfessional,
-      appointment_date: appointmentDate.toISOString(),
+      // Enviar string formatada ao invés de data
+      appointment_date: formattedDate,
       client_name: clientName,
       client_phone: clientPhone,
       notify_whatsapp: notifyWhatsapp,
@@ -749,42 +761,83 @@ const AppointmentsPage = () => {
                 </Popover>
               </div>
               
+              {/* Novo componente de seleção de horário */}
               <div className="grid gap-2">
                 <Label htmlFor="time">Horário</Label>
+                
+                {/* Estado: nenhum profissional ou data selecionados */}
                 {!selectedProfessional || !selectedDate ? (
-                  <div className="border rounded p-3 text-center text-muted-foreground bg-muted/20">
-                    Selecione um profissional e uma data para ver horários disponíveis
+                  <div className="h-10 border rounded flex items-center justify-center bg-muted/10">
+                    <span className="text-sm text-muted-foreground">Selecione um profissional e uma data primeiro</span>
                   </div>
-                ) : isLoadingAvailability ? (
-                  <div className="border rounded p-3 text-center">
-                    <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                    <span className="text-sm text-muted-foreground">Carregando horários...</span>
+                ) 
+                
+                /* Estado: carregando horários disponíveis */
+                : isLoadingAvailability ? (
+                  <div className="h-10 border rounded flex items-center justify-center">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <span className="text-sm">Carregando horários...</span>
                   </div>
-                ) : (
-                  <div className="relative">
-                    <select
-                      id="time-select"
-                      className="w-full h-10 px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      value={selectedTime || ''}
-                      onChange={(e) => {
-                        console.log("Horário selecionado:", e.target.value);
-                        setSelectedTime(e.target.value);
-                      }}
-                      disabled={!selectedProfessional || !selectedDate || isLoadingAvailability || availableTimes.length === 0}
-                    >
-                      <option value="" disabled>Selecione um horário</option>
-                      {availableTimes.map((time) => (
-                        <option key={time} value={time}>
-                          {time}
-                        </option>
-                      ))}
-                    </select>
-                    {availableTimes.length === 0 && !isLoadingAvailability && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="text-sm text-muted-foreground">Nenhum horário disponível</span>
+                ) 
+                
+                /* Estado: horários carregados */
+                : (
+                  <>
+                    {/* Componente HTML nativo para máxima compatibilidade */}
+                    <div className="relative">
+                      <select
+                        id="time-select-native"
+                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={selectedTime || ''}
+                        onChange={(e) => {
+                          const selectedValue = e.target.value;
+                          console.log("Horário selecionado (select nativo):", selectedValue);
+                          setSelectedTime(selectedValue);
+                        }}
+                      >
+                        <option value="" disabled>Escolha um horário disponível</option>
+                        {availableTimes.length > 0 ? (
+                          availableTimes.map((time) => (
+                            <option key={time} value={time}>
+                              {time}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="" disabled>Nenhum horário disponível</option>
+                        )}
+                      </select>
+                      
+                      {/* Caso não haja horários disponíveis e não esteja carregando */}
+                      {availableTimes.length === 0 && !isLoadingAvailability && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="text-sm text-muted-foreground">Nenhum horário disponível nesta data</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Lista de horários em formato de grade para seleção visual */}
+                    {availableTimes.length > 0 && (
+                      <div className="grid grid-cols-4 gap-2 mt-2">
+                        {availableTimes.map((time) => (
+                          <button
+                            key={time}
+                            type="button"
+                            className={`py-1 px-2 text-sm border rounded-md transition-colors ${
+                              selectedTime === time 
+                                ? 'bg-primary text-primary-foreground' 
+                                : 'bg-background hover:bg-muted'
+                            }`}
+                            onClick={() => {
+                              console.log("Horário selecionado (botão):", time);
+                              setSelectedTime(time);
+                            }}
+                          >
+                            {time}
+                          </button>
+                        ))}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             </div>
