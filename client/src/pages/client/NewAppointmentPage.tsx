@@ -396,22 +396,6 @@ const NewAppointmentPage = () => {
                         </div>
                       ) : (
                         <div className="flex flex-col gap-4">
-                          <select
-                            className="w-full p-3 rounded border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary"
-                            value={selectedTime || ''}
-                            onChange={(e) => {
-                              console.log("Horário selecionado (select):", e.target.value);
-                              setSelectedTime(e.target.value);
-                            }}
-                          >
-                            <option value="" disabled>Selecione um horário</option>
-                            {availableTimes.map((time) => (
-                              <option key={time} value={time}>
-                                {time}
-                              </option>
-                            ))}
-                          </select>
-                          
                           <div className="grid grid-cols-3 gap-3">
                             {availableTimes.map((time) => (
                               <button
