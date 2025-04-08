@@ -612,18 +612,18 @@ export class MemStorage implements IStorage {
     // Add barbershop settings
     this.barbershopSettings = {
       id: 1,
-      name: "BarberSync",
+      name: "AgendApp Serviços",
       address: "Avenida Paulista, 1000 - São Paulo, SP",
       phone: "(11) 98765-4321",
-      email: "contato@barbersync.com",
+      email: "contato@agendapp.com",
       logo_url: "https://images.unsplash.com/photo-1583334837046-34ede1126010?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&h=200&q=80",
       timezone: "America/Sao_Paulo", // Fuso horário de São Paulo (UTC-3)
       open_time: "08:00",
       close_time: "20:00",
       open_days: [1, 2, 3, 4, 5, 6],
-      description: "A melhor barbearia da cidade com atendimento de qualidade.",
-      instagram: "@barbersync",
-      facebook: "facebook.com/barbersync",
+      description: "O melhor sistema de agendamento para diversos tipos de serviços.",
+      instagram: "@agendapp.servicos",
+      facebook: "facebook.com/agendapp.servicos",
       created_at: new Date(),
       updated_at: new Date()
     };
@@ -633,16 +633,16 @@ export class MemStorage implements IStorage {
       username: "admin",
       password: "$2b$10$3euPcmQFCiblsZeEu5s7p.9NjT3nWm.TnECVXwxjZ6I.hkQQr1vD.", // "admin123"
       name: "Administrator",
-      email: "admin@barbersync.com",
+      email: "admin@agendapp.com",
       role: "admin"
     });
     
-    // Add barber users
+    // Add professional users
     this.createUser({
       username: "joao",
       password: "$2b$10$3euPcmQFCiblsZeEu5s7p.9NjT3nWm.TnECVXwxjZ6I.hkQQr1vD.", // "admin123"
       name: "João Costa",
-      email: "joao@barbersync.com",
+      email: "joao@agendapp.com",
       role: "barber"
     });
     
@@ -650,7 +650,7 @@ export class MemStorage implements IStorage {
       username: "matheus",
       password: "$2b$10$3euPcmQFCiblsZeEu5s7p.9NjT3nWm.TnECVXwxjZ6I.hkQQr1vD.", // "admin123"
       name: "Matheus Oliveira",
-      email: "matheus@barbersync.com",
+      email: "matheus@agendapp.com",
       role: "barber"
     });
     
