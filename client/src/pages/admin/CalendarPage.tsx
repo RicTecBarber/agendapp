@@ -296,7 +296,7 @@ const CalendarPage = () => {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => setLocation('/admin')}
+            onClick={() => setLocation('/admin/dashboard')}
             className="flex items-center"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
