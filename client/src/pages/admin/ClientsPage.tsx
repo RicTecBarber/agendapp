@@ -54,9 +54,14 @@ interface Client {
 const ClientsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isClientInfoOpen, setIsClientInfoOpen] = useState(false);
+  const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientsWithRewards, setClientsWithRewards] = useState<any[]>([]);
   const [isLoadingRewards, setIsLoadingRewards] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    name: "",
+    phone: ""
+  });
 
   // Get all appointments to extract clients
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery({
@@ -183,7 +188,7 @@ const ClientsPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button>
+            <Button onClick={() => setIsNewClientDialogOpen(true)}>
               <UserPlus className="h-4 w-4 mr-2" />
               Novo Cliente
             </Button>
@@ -570,6 +575,67 @@ const ClientsPage = () => {
               }
             }}>
               Agendar Serviço
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Novo Cliente dialog */}
+      <Dialog open={isNewClientDialogOpen} onOpenChange={setIsNewClientDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Novo Cliente</DialogTitle>
+            <DialogDescription>
+              Adicione um novo cliente ao sistema.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="client-name" className="text-sm font-medium">
+                Nome Completo
+              </label>
+              <Input
+                id="client-name"
+                placeholder="Ex: João Silva"
+                value={newClientData.name}
+                onChange={(e) => setNewClientData(prev => ({...prev, name: e.target.value}))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="client-phone" className="text-sm font-medium">
+                Telefone
+              </label>
+              <Input
+                id="client-phone"
+                placeholder="Ex: (11) 98765-4321"
+                value={newClientData.phone}
+                onChange={(e) => setNewClientData(prev => ({...prev, phone: e.target.value}))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Digite apenas números ou use o formato (XX) XXXXX-XXXX
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNewClientDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => {
+                if (!newClientData.name || !newClientData.phone) {
+                  return;
+                }
+                
+                // Redirecionar para criar um agendamento com o novo cliente
+                const url = `/admin/agendamentos/novo?cliente=${encodeURIComponent(newClientData.name)}&telefone=${encodeURIComponent(newClientData.phone)}`;
+                window.location.href = url;
+              }}
+              disabled={!newClientData.name || !newClientData.phone}
+            >
+              Adicionar e Agendar
             </Button>
           </DialogFooter>
         </DialogContent>
