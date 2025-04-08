@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Scissors } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 // Login form schema
@@ -66,7 +65,7 @@ const AuthPage = () => {
       <div className="max-w-md w-full mx-auto">
         <div className="text-center mb-10">
           <div className="flex justify-center mb-4">
-            <Scissors className="h-12 w-12 text-secondary" />
+            <img src="/assets/logo.svg" alt="AgendApp Logo" className="h-16 w-16" />
           </div>
           <h1 className="text-3xl font-display font-bold text-primary">
             {barbershopSettings?.name || 'AgendApp'}
