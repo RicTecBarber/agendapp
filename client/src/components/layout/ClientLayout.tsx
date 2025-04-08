@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ClientLayoutProps {
   children: ReactNode;
@@ -7,7 +8,19 @@ interface ClientLayoutProps {
 }
 
 const ClientLayout = ({ children, title }: ClientLayoutProps) => {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const { user } = useAuth();
+  
+  const handleAdminClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Se já estiver autenticado, vá direto para o dashboard
+    if (user) {
+      navigate('/admin/dashboard');
+    } else {
+      // Senão, vá para a página de autenticação
+      navigate('/admin/auth');
+    }
+  };
   
   return (
     <div id="client-interface" className="min-h-screen bg-neutral-light">
@@ -19,9 +32,12 @@ const ClientLayout = ({ children, title }: ClientLayoutProps) => {
               <h1 className="ml-2 text-2xl font-display font-bold text-white">AgendApp</h1>
             </a>
           </Link>
-          <a href="/admin/auth" className="text-sm text-white/60 hover:text-white">
+          <button 
+            onClick={handleAdminClick}
+            className="text-sm text-white/60 hover:text-white focus:outline-none"
+          >
             Área do Administrador
-          </a>
+          </button>
         </div>
       </header>
 
