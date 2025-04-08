@@ -35,8 +35,10 @@ export function useAppointments(options: AppointmentOptions = {}) {
         params.append("date", format(date, "yyyy-MM-dd"));
       }
       
-      if (professionalId) {
+      if (professionalId !== undefined) {
+        // Garantir que mesmo o valor 0 seja enviado
         params.append("professionalId", professionalId.toString());
+        console.log(`Adicionando filtro de profissional: ${professionalId}`);
       }
       
       if (startDate && endDate) {
@@ -49,6 +51,16 @@ export function useAppointments(options: AppointmentOptions = {}) {
       console.log("Buscando agendamentos com URL:", url);
       
       try {
+        // Log completo da requisição para debug
+        console.log("Parâmetros completos:", {
+          url,
+          date: date ? format(date, "yyyy-MM-dd") : null,
+          professionalId: professionalId !== undefined ? professionalId : 'não definido',
+          startDate: startDate ? format(startDate, "yyyy-MM-dd") : null,
+          endDate: endDate ? format(endDate, "yyyy-MM-dd") : null,
+          queryKey
+        });
+        
         const res = await apiRequest("GET", url);
         
         if (!res.ok) {
@@ -57,8 +69,15 @@ export function useAppointments(options: AppointmentOptions = {}) {
         }
         
         const data = await res.json();
-        console.log("Agendamentos recebidos:", data);
-        return data;
+        
+        // Filtrar localmente os resultados para profissional (segurança extra)
+        const filteredData = professionalId !== undefined 
+          ? data.filter((a: any) => Number(a.professional_id) === Number(professionalId))
+          : data;
+        
+        console.log(`Agendamentos recebidos: ${data.length}, filtrados localmente: ${filteredData.length}`);
+        
+        return filteredData;
       } catch (err) {
         console.error("Erro na requisição de agendamentos:", err);
         throw new Error("Falha ao buscar agendamentos");

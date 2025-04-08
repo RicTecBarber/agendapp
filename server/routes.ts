@@ -1105,41 +1105,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDateFilter = req.query.startDate as string;
       const endDateFilter = req.query.endDate as string;
       const professionalIdFilter = req.query.professionalId ? parseInt(req.query.professionalId as string) : null;
-      let appointments: any[] = [];
       
+      // Log detalhado dos filtros
       console.log("Filtros recebidos:", { 
         dateFilter, 
         startDateFilter, 
         endDateFilter, 
-        professionalIdFilter 
+        professionalIdFilter,
+        professionalIdType: typeof professionalIdFilter
       });
       
-      // Obter todos os agendamentos primeiro
-      appointments = await storage.getAllAppointments();
+      let appointments: any[] = [];
+      
+      // Se tiver um filtro de profissional, usar o método específico
+      if (professionalIdFilter !== null) {
+        console.log(`Usando método específico para buscar agendamentos do profissional ${professionalIdFilter}`);
+        appointments = await storage.getAppointmentsByProfessionalId(professionalIdFilter);
+      } else {
+        // Caso contrário, obter todos os agendamentos
+        console.log("Buscando todos os agendamentos sem filtro de profissional");
+        appointments = await storage.getAllAppointments();
+      }
+      
+      console.log(`Total de agendamentos antes de filtrar por data: ${appointments.length}`);
       
       // Aplicar filtro de data única se fornecido
       if (dateFilter) {
         const date = parseISO(dateFilter);
         const dateString = format(date, 'yyyy-MM-dd');
+        console.log(`Filtrando por data única: ${dateString}`);
+        
         appointments = appointments.filter(appointment => {
           const appointmentDate = new Date(appointment.appointment_date);
-          return format(appointmentDate, 'yyyy-MM-dd') === dateString;
+          const appointmentDateStr = format(appointmentDate, 'yyyy-MM-dd');
+          const isMatch = appointmentDateStr === dateString;
+          console.log(`Agendamento ${appointment.id}: ${appointmentDateStr} = ${dateString}? ${isMatch}`);
+          return isMatch;
         });
       }
       // Aplicar filtro de intervalo de datas se fornecido
       else if (startDateFilter && endDateFilter) {
         const startDate = parseISO(startDateFilter);
         const endDate = parseISO(endDateFilter);
+        console.log(`Filtrando por intervalo de datas: ${format(startDate, 'yyyy-MM-dd')} até ${format(endDate, 'yyyy-MM-dd')}`);
+        
+        // Ajustar endDate para incluir o final do dia
+        const adjustedEndDate = new Date(endDate);
+        adjustedEndDate.setHours(23, 59, 59, 999);
+        
         appointments = appointments.filter(appointment => {
           const appointmentDate = new Date(appointment.appointment_date);
-          return appointmentDate >= startDate && appointmentDate <= endDate;
+          return appointmentDate >= startDate && appointmentDate <= adjustedEndDate;
         });
       }
       
       // Aplicar filtro de profissional se fornecido na query
       if (professionalIdFilter) {
         console.log(`Filtrando por profissional ID: ${professionalIdFilter}`);
-        appointments = appointments.filter(a => a.professional_id === professionalIdFilter);
+        console.log(`Total de agendamentos antes do filtro: ${appointments.length}`);
+        
+        // Verificar os IDs dos profissionais disponíveis
+        const professionalIds: number[] = [];
+        appointments.forEach(a => {
+          if (!professionalIds.includes(a.professional_id)) {
+            professionalIds.push(a.professional_id);
+          }
+        });
+        console.log(`IDs de profissionais nos agendamentos: ${professionalIds.join(', ')}`);
+        
+        // Aplicar filtro com verificação explícita dos tipos
+        appointments = appointments.filter(a => {
+          const isProfessionalMatch = Number(a.professional_id) === Number(professionalIdFilter);
+          if (isProfessionalMatch) {
+            console.log(`Agendamento compatível: ${a.id} - Prof ID: ${a.professional_id}`);
+          }
+          return isProfessionalMatch;
+        });
+        
+        console.log(`Total de agendamentos após filtro: ${appointments.length}`);
       }
       // Ou aplicar filtro se o usuário for um profissional (barber)
       else if (req.user?.role === "barber") {
