@@ -19,11 +19,9 @@ const ClientLayout = ({ children, title }: ClientLayoutProps) => {
               <h1 className="ml-2 text-2xl font-display font-bold text-white">AgendApp</h1>
             </a>
           </Link>
-          <Link href="/admin/auth">
-            <a className="text-sm text-white/60 hover:text-white">
-              Área do Administrador
-            </a>
-          </Link>
+          <a href="/admin/auth" className="text-sm text-white/60 hover:text-white">
+            Área do Administrador
+          </a>
         </div>
       </header>
 

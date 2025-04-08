@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Scissors } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 // Login form schema
 const loginSchema = z.object({
@@ -16,9 +17,30 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Senha é obrigatória'),
 });
 
+interface BarbershopSettings {
+  id: number;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  open_time: string;
+  close_time: string;
+  open_days: number[];
+  description: string | null;
+  logo_url: string | null;
+  instagram: string | null;
+  facebook: string | null;
+}
+
 const AuthPage = () => {
   const [location, navigate] = useLocation();
   const { user, loginMutation } = useAuth();
+  
+  // Buscar as configurações da barbearia
+  const { data: barbershopSettings } = useQuery<BarbershopSettings>({
+    queryKey: ['/api/barbershop-settings'],
+    refetchOnWindowFocus: false,
+  });
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -46,7 +68,9 @@ const AuthPage = () => {
           <div className="flex justify-center mb-4">
             <Scissors className="h-12 w-12 text-secondary" />
           </div>
-          <h1 className="text-3xl font-display font-bold text-primary">BarberSync</h1>
+          <h1 className="text-3xl font-display font-bold text-primary">
+            {barbershopSettings?.name || 'AgendApp'}
+          </h1>
           <p className="text-neutral-dark mt-2">Área Administrativa</p>
         </div>
 
