@@ -1,43 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet,
   View,
   Text,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   Alert,
-  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../contexts/AuthContext';
 import { theme } from '../styles/theme';
 
-export default function LoginScreen() {
+const LoginScreen = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, isAuthenticated } = useAuth();
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert('Erro', 'Preencha usuário e senha para continuar.');
+      Alert.alert('Erro', 'Por favor, preencha todos os campos');
       return;
     }
 
     setIsLoading(true);
-    
     try {
-      await signIn({ username, password });
+      await signIn(username, password);
     } catch (error) {
-      console.error(error);
       Alert.alert(
         'Erro de Autenticação',
-        'Não foi possível realizar o login. Verifique suas credenciais.'
+        'Usuário ou senha incorretos. Por favor, tente novamente.'
       );
+      console.error('Login error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -45,70 +44,73 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar style="dark" />
-      
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        <StatusBar style="dark" />
+        
         <View style={styles.logoContainer}>
           <Text style={styles.logoText}>AgendApp</Text>
-          <Text style={styles.logoSubtitle}>Serviços</Text>
+          <Text style={styles.logoTagline}>Gerenciamento Profissional</Text>
         </View>
-        
+
         <View style={styles.formContainer}>
-          <Text style={styles.title}>Login</Text>
-          <Text style={styles.subtitle}>Acesse sua conta de administrador</Text>
-          
+          <Text style={styles.welcomeText}>Bem-vindo(a) de volta!</Text>
+          <Text style={styles.instructionText}>
+            Faça login para acessar o painel administrativo
+          </Text>
+
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Usuário</Text>
+            <Text style={styles.inputLabel}>Usuário</Text>
             <TextInput
               style={styles.input}
-              placeholder="Digite seu usuário"
-              autoCapitalize="none"
+              placeholder="Digite seu nome de usuário"
+              placeholderTextColor={theme.colors.textSecondary}
               value={username}
               onChangeText={setUsername}
-              editable={!isLoading}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
-          
+
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Senha</Text>
+            <Text style={styles.inputLabel}>Senha</Text>
             <TextInput
               style={styles.input}
               placeholder="Digite sua senha"
+              placeholderTextColor={theme.colors.textSecondary}
               secureTextEntry
               value={password}
               onChangeText={setPassword}
-              editable={!isLoading}
             />
           </View>
-          
+
           <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
+            style={styles.loginButton}
             onPress={handleLogin}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator size="small" color={theme.colors.white} />
             ) : (
-              <Text style={styles.buttonText}>Entrar</Text>
+              <Text style={styles.loginButtonText}>Entrar</Text>
             )}
           </TouchableOpacity>
-        </View>
-        
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            © {new Date().getFullYear()} AgendApp Serviços
-          </Text>
+
+          <View style={styles.footerText}>
+            <Text style={styles.versionText}>
+              AgendApp Serviços - v1.0.0
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -125,32 +127,32 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
   },
   logoText: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 36,
+    fontWeight: theme.fontWeights.bold,
     color: theme.colors.primary,
+    marginBottom: theme.spacing.xs,
   },
-  logoSubtitle: {
-    fontSize: 18,
+  logoTagline: {
+    fontSize: theme.fontSizes.md,
     color: theme.colors.textSecondary,
-    marginTop: -5,
   },
   formContainer: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    padding: theme.spacing.xl,
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 4,
   },
-  title: {
-    fontSize: theme.fontSizes.xxl,
-    fontWeight: 'bold',
+  welcomeText: {
+    fontSize: theme.fontSizes.xl,
+    fontWeight: theme.fontWeights.bold,
     color: theme.colors.text,
     marginBottom: theme.spacing.xs,
   },
-  subtitle: {
+  instructionText: {
     fontSize: theme.fontSizes.md,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.xl,
@@ -158,42 +160,46 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: theme.spacing.lg,
   },
-  label: {
+  inputLabel: {
     fontSize: theme.fontSizes.sm,
-    fontWeight: '500',
+    fontWeight: theme.fontWeights.medium,
     color: theme.colors.text,
     marginBottom: theme.spacing.xs,
   },
   input: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.md,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
     fontSize: theme.fontSizes.md,
+    color: theme.colors.text,
   },
-  button: {
+  loginButton: {
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.md,
     paddingVertical: theme.spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
     marginTop: theme.spacing.md,
   },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#FFFFFF',
+  loginButtonText: {
+    color: theme.colors.white,
     fontSize: theme.fontSizes.md,
-    fontWeight: '600',
+    fontWeight: theme.fontWeights.semiBold,
   },
-  footer: {
+  footerText: {
     marginTop: theme.spacing.xl,
     alignItems: 'center',
   },
-  footerText: {
+  versionText: {
     fontSize: theme.fontSizes.xs,
     color: theme.colors.textSecondary,
   },
 });
+
+export default LoginScreen;

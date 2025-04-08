@@ -1,16 +1,22 @@
 export const theme = {
   colors: {
-    primary: '#2E64FE',
-    secondary: '#6E8AFA',
-    background: '#F5F7FA',
-    surface: '#FFFFFF',
-    text: '#1A2138',
-    textSecondary: '#6B7280',
-    error: '#FF4D4F',
-    success: '#22C55E',
-    warning: '#F59E0B',
-    accent: '#8B5CF6',
-    border: '#E5E7EB'
+    primary: '#0070f3',
+    primaryDark: '#0052b3',
+    secondary: '#7638fa',
+    text: '#282828',
+    textSecondary: '#757575',
+    background: '#f7f8f9',
+    backgroundDark: '#e4e6eb',
+    border: '#e0e0e0',
+    success: '#4caf50',
+    warning: '#ff9800',
+    error: '#f44336',
+    pending: '#ff9800',
+    completed: '#4caf50',
+    cancelled: '#f44336',
+    white: '#ffffff',
+    black: '#000000',
+    card: '#ffffff',
   },
   spacing: {
     xs: 4,
@@ -18,7 +24,14 @@ export const theme = {
     md: 16,
     lg: 24,
     xl: 32,
-    xxl: 48
+    xxl: 48,
+  },
+  borderRadius: {
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
+    pill: 9999,
   },
   fontSizes: {
     xs: 12,
@@ -27,13 +40,35 @@ export const theme = {
     lg: 18,
     xl: 20,
     xxl: 24,
-    xxxl: 30
+    xxxl: 30,
   },
-  borderRadius: {
-    sm: 4,
-    md: 8,
-    lg: 12,
-    xl: 16,
-    full: 9999
-  }
+  fontWeights: {
+    regular: '400',
+    medium: '500',
+    semiBold: '600',
+    bold: '700',
+  },
+  shadows: {
+    sm: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    md: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    lg: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+      elevation: 4,
+    },
+  },
 };

@@ -1,94 +1,122 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { Svg, Rect, Text as SvgText, Line, G } from 'react-native-svg';
 import { theme } from '../../styles/theme';
 
-interface BarChartProps {
-  data: {
-    label: string;
-    value: number;
-    color?: string;
-  }[];
-  height?: number;
-  title?: string;
-  showValues?: boolean;
-  maxValue?: number;
-  formatValue?: (value: number) => string;
+interface DataPoint {
+  label: string;
+  value: number;
 }
 
-const BarChart: React.FC<BarChartProps> = ({
+interface BarChartProps {
+  data: DataPoint[];
+  height?: number;
+  title?: string;
+  barColor?: string;
+  formatYLabel?: (value: number) => string;
+}
+
+const BarChart = ({
   data,
-  height = 200,
+  height = 220,
   title,
-  showValues = true,
-  maxValue,
-  formatValue = (value) => value.toString(),
-}) => {
-  // Calculando o valor máximo para definir a escala do gráfico
-  const calculatedMaxValue = maxValue || Math.max(...data.map((item) => item.value), 1);
-  
-  // Largura da tela para cálculos responsivos
-  const screenWidth = Dimensions.get('window').width;
-  
-  // Verifica se há dados
+  barColor = theme.colors.primary,
+  formatYLabel = (value) => `${value}`,
+}: BarChartProps) => {
   if (!data || data.length === 0) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={styles.title}>{title || 'Dados não disponíveis'}</Text>
-        <View style={styles.noDataContainer}>
-          <Text style={styles.noDataText}>Sem dados para exibir</Text>
-        </View>
+        <Text style={styles.noDataText}>Nenhum dado disponível</Text>
       </View>
     );
   }
 
+  const width = Dimensions.get('window').width - 40;
+  const chartWidth = width - 40;
+  const chartHeight = height - 60;
+  const barWidth = (chartWidth / data.length) * 0.6;
+  const barSpacing = (chartWidth / data.length) * 0.4;
+  
+  const maxValue = Math.max(...data.map(item => item.value));
+  const paddedMax = maxValue * 1.1; // Add 10% padding at the top
+  
+  // Calculate steps for Y axis
+  const yAxisSteps = 5;
+  const stepValue = paddedMax / yAxisSteps;
+
   return (
-    <View style={[styles.container, { height: height + 50 }]}>
+    <View style={[styles.container, { height }]}>
       {title && <Text style={styles.title}>{title}</Text>}
       
-      <View style={styles.chartContainer}>
-        {/* Linhas de grade horizontais */}
-        <View style={styles.gridContainer}>
-          {[0.25, 0.5, 0.75].map((point) => (
-            <View 
-              key={`grid-${point}`} 
-              style={[styles.gridLine, { bottom: height * point }]}
-            />
-          ))}
-        </View>
+      <Svg width={width} height={chartHeight + 30}>
+        {/* Y-axis lines and labels */}
+        {Array.from({ length: yAxisSteps + 1 }).map((_, i) => {
+          const y = chartHeight - (i * chartHeight) / yAxisSteps;
+          const value = i * stepValue;
+          
+          return (
+            <G key={`y-axis-${i}`}>
+              <Line
+                x1={30}
+                y1={y}
+                x2={width - 10}
+                y2={y}
+                stroke={theme.colors.border}
+                strokeWidth={0.5}
+                strokeDasharray={i === 0 ? [] : [3, 3]}
+              />
+              <SvgText
+                x={25}
+                y={y + 4}
+                fontSize={10}
+                textAnchor="end"
+                fill={theme.colors.textSecondary}
+              >
+                {formatYLabel(value)}
+              </SvgText>
+            </G>
+          );
+        })}
         
-        {/* Barras do gráfico */}
-        <View style={styles.barsContainer}>
-          {data.map((item, index) => {
-            const barHeight = (item.value / calculatedMaxValue) * height;
-            const barWidth = (screenWidth - 60) / data.length - 10;
-            
-            return (
-              <View key={`bar-${index}`} style={styles.barWrapper}>
-                <View 
-                  style={[
-                    styles.bar, 
-                    { 
-                      height: Math.max(barHeight, 2), 
-                      width: barWidth,
-                      backgroundColor: item.color || theme.colors.primary,
-                    }
-                  ]}
-                />
-                {showValues && (
-                  <Text style={styles.barValue}>{formatValue(item.value)}</Text>
-                )}
-                <Text 
-                  style={styles.barLabel}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {item.label}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      </View>
+        {/* X-axis line */}
+        <Line
+          x1={30}
+          y1={chartHeight}
+          x2={width - 10}
+          y2={chartHeight}
+          stroke={theme.colors.border}
+          strokeWidth={1}
+        />
+        
+        {/* Bars and labels */}
+        {data.map((item, index) => {
+          const barHeight = (item.value / paddedMax) * chartHeight;
+          const x = 30 + index * (barWidth + barSpacing) + barSpacing / 2;
+          
+          return (
+            <G key={`bar-${index}`}>
+              <Rect
+                x={x}
+                y={chartHeight - barHeight}
+                width={barWidth}
+                height={barHeight}
+                fill={barColor}
+                rx={4}
+              />
+              
+              <SvgText
+                x={x + barWidth / 2}
+                y={chartHeight + 15}
+                fontSize={10}
+                textAnchor="middle"
+                fill={theme.colors.text}
+              >
+                {item.label}
+              </SvgText>
+            </G>
+          );
+        })}
+      </Svg>
     </View>
   );
 };
@@ -96,9 +124,9 @@ const BarChart: React.FC<BarChartProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    borderRadius: 8,
+    padding: 12,
+    marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -106,68 +134,15 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   title: {
-    fontSize: theme.fontSizes.md,
-    fontWeight: 'bold',
-    marginBottom: theme.spacing.md,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
     color: theme.colors.text,
-  },
-  chartContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    position: 'relative',
-  },
-  gridContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
-  gridLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: theme.colors.border,
-  },
-  barsContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-    marginTop: theme.spacing.md,
-    paddingBottom: 25, // Espaço para as labels
-  },
-  barWrapper: {
-    alignItems: 'center',
-  },
-  bar: {
-    borderTopLeftRadius: theme.borderRadius.sm,
-    borderTopRightRadius: theme.borderRadius.sm,
-  },
-  barValue: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.textSecondary,
-    marginTop: 4,
-  },
-  barLabel: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.text,
-    marginTop: 4,
-    position: 'absolute',
-    bottom: -20,
-    width: 60,
-    textAlign: 'center',
-  },
-  noDataContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   noDataText: {
+    textAlign: 'center',
+    marginTop: 40,
     color: theme.colors.textSecondary,
-    fontSize: theme.fontSizes.md,
   },
 });
 

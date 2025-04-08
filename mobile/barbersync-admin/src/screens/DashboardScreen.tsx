@@ -1,179 +1,187 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet,
   View,
   Text,
+  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
   ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '../contexts/AuthContext';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { theme } from '../styles/theme';
-import { dashboardService } from '../services/api';
+import BarChart from '../components/charts/BarChart';
+import api from '../services/api';
 
 interface DashboardStats {
+  total_revenue: number;
   total_appointments: number;
   pending_appointments: number;
   completed_appointments: number;
-  cancelled_appointments: number;
-  total_revenue: number;
-  today_appointments: number;
+  canceled_appointments: number;
+  total_clients: number;
 }
 
-export default function DashboardScreen({ navigation }: any) {
-  const { user } = useAuth();
+interface ChartData {
+  date: string;
+  revenue: number;
+  appointments: number;
+}
+
+const DashboardScreen = ({ navigation }: any) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const [statsResponse, chartResponse] = await Promise.all([
+        api.get('/api/dashboard/stats'),
+        api.get('/api/dashboard/chart')
+      ]);
+      
+      setStats(statsResponse.data);
+      setChartData(chartResponse.data);
+    } catch (error) {
+      console.error('Erro ao carregar dados do dashboard:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      // Em uma implementação real, isso seria substituído pela chamada de API real
-      // const response = await dashboardService.getStats();
-      // setStats(response);
-      
-      // Simulando dados para demonstração
-      setStats({
-        total_appointments: 238,
-        pending_appointments: 12,
-        completed_appointments: 220,
-        cancelled_appointments: 6,
-        total_revenue: 5840,
-        today_appointments: 8
-      });
-    } catch (error) {
-      console.error('Erro ao carregar dados do dashboard:', error);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchDashboardData();
   };
 
-  if (isLoading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Carregando dashboard...</Text>
+        <Text style={styles.loadingText}>Carregando informações...</Text>
+        <StatusBar style="auto" />
       </View>
     );
   }
 
+  // Format chart data for the bar chart
+  const revenueData = chartData.map(item => ({
+    label: item.date,
+    value: item.revenue
+  }));
+
+  const appointmentsData = chartData.map(item => ({
+    label: item.date,
+    value: item.appointments
+  }));
+
+  const formatCurrency = (value: number) => {
+    return `R$ ${value.toFixed(2).replace('.', ',')}`;
+  };
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
-      
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeText}>Olá, {user?.name || 'Admin'}</Text>
-          <Text style={styles.dateText}>
-            {new Date().toLocaleDateString('pt-BR', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </Text>
-        </View>
-      </View>
-      
-      <ScrollView
-        style={styles.content}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Text style={styles.sectionTitle}>Resumo</Text>
-        
+        <View style={styles.header}>
+          <Text style={styles.pageTitle}>Dashboard</Text>
+          <Text style={styles.dateText}>
+            {format(new Date(), "'Hoje é' EEEE, dd 'de' MMMM", { locale: ptBR })}
+          </Text>
+        </View>
+
         <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: theme.colors.primary }]}>
-            <Text style={styles.statValue}>{stats?.today_appointments || 0}</Text>
-            <Text style={styles.statLabel}>Agendamentos hoje</Text>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats?.total_appointments || 0}</Text>
+            <Text style={styles.statLabel}>Agendamentos</Text>
           </View>
           
-          <View style={[styles.statCard, { backgroundColor: theme.colors.success }]}>
-            <Text style={styles.statValue}>
-              R$ {stats?.total_revenue?.toFixed(2).replace('.', ',') || '0,00'}
-            </Text>
-            <Text style={styles.statLabel}>Receita Total</Text>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{formatCurrency(stats?.total_revenue || 0)}</Text>
+            <Text style={styles.statLabel}>Faturamento</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats?.total_clients || 0}</Text>
+            <Text style={styles.statLabel}>Clientes</Text>
           </View>
         </View>
-        
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statBoxValue}>{stats?.total_appointments || 0}</Text>
-            <Text style={styles.statBoxLabel}>Total</Text>
+
+        <View style={styles.appointmentStatusContainer}>
+          <View style={[styles.statusCard, styles.pendingCard]}>
+            <Text style={styles.statusValue}>{stats?.pending_appointments || 0}</Text>
+            <Text style={styles.statusLabel}>Pendentes</Text>
           </View>
           
-          <View style={styles.statBox}>
-            <Text style={styles.statBoxValue}>{stats?.pending_appointments || 0}</Text>
-            <Text style={styles.statBoxLabel}>Pendentes</Text>
+          <View style={[styles.statusCard, styles.completedCard]}>
+            <Text style={styles.statusValue}>{stats?.completed_appointments || 0}</Text>
+            <Text style={styles.statusLabel}>Concluídos</Text>
           </View>
           
-          <View style={styles.statBox}>
-            <Text style={styles.statBoxValue}>{stats?.completed_appointments || 0}</Text>
-            <Text style={styles.statBoxLabel}>Concluídos</Text>
-          </View>
-          
-          <View style={styles.statBox}>
-            <Text style={styles.statBoxValue}>{stats?.cancelled_appointments || 0}</Text>
-            <Text style={styles.statBoxLabel}>Cancelados</Text>
+          <View style={[styles.statusCard, styles.canceledCard]}>
+            <Text style={styles.statusValue}>{stats?.canceled_appointments || 0}</Text>
+            <Text style={styles.statusLabel}>Cancelados</Text>
           </View>
         </View>
-        
-        <Text style={styles.sectionTitle}>Acesso Rápido</Text>
-        
-        <View style={styles.quickLinksContainer}>
-          <TouchableOpacity
-            style={styles.quickLinkButton}
+
+        <Text style={styles.sectionTitle}>Agendamentos por Dia</Text>
+        <BarChart 
+          data={appointmentsData} 
+          title="Últimos 7 dias" 
+          barColor={theme.colors.primary}
+        />
+
+        <Text style={styles.sectionTitle}>Faturamento por Dia</Text>
+        <BarChart 
+          data={revenueData} 
+          title="Últimos 7 dias" 
+          barColor={theme.colors.secondary}
+          formatYLabel={(value) => `R$ ${value}`}
+        />
+
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Reports')}
+          >
+            <Text style={styles.actionButtonText}>Ver Relatórios Detalhados</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.secondaryButton]}
             onPress={() => navigation.navigate('Appointments')}
           >
-            <Text style={styles.quickLinkText}>Agendamentos</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.quickLinkButton}
-            onPress={() => navigation.navigate('Professionals')}
-          >
-            <Text style={styles.quickLinkText}>Profissionais</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.quickLinkButton}
-            onPress={() => navigation.navigate('Services')}
-          >
-            <Text style={styles.quickLinkText}>Serviços</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.quickLinkButton}
-            onPress={() => navigation.navigate('Settings')}
-          >
-            <Text style={styles.quickLinkText}>Configurações</Text>
+            <Text style={[styles.actionButtonText, styles.secondaryButtonText]}>
+              Gerenciar Agendamentos
+            </Text>
           </TouchableOpacity>
         </View>
-        
-        {/* Espaço adicional no final do scroll */}
-        <View style={{ height: 30 }} />
       </ScrollView>
+      <StatusBar style="auto" />
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  scrollContent: {
+    padding: theme.spacing.md,
   },
   loadingContainer: {
     flex: 1,
@@ -187,116 +195,109 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.md,
   },
   header: {
-    backgroundColor: theme.colors.primary,
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: theme.spacing.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: theme.spacing.xl,
   },
-  welcomeText: {
-    color: 'white',
-    fontSize: theme.fontSizes.xl,
-    fontWeight: 'bold',
+  pageTitle: {
+    fontSize: theme.fontSizes.xxl,
+    fontWeight: theme.fontWeights.bold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
   },
   dateText: {
-    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: theme.fontSizes.sm,
-    marginTop: 4,
-  },
-  content: {
-    flex: 1,
-    padding: theme.spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: theme.fontSizes.lg,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    color: theme.colors.textSecondary,
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
   },
   statCard: {
     flex: 1,
+    backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
     marginHorizontal: 4,
+    ...theme.shadows.sm,
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-    height: 100,
   },
   statValue: {
-    color: 'white',
     fontSize: theme.fontSizes.xl,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontWeight: theme.fontWeights.bold,
+    color: theme.colors.primary,
+    marginBottom: theme.spacing.xs,
   },
   statLabel: {
-    color: 'white',
-    fontSize: theme.fontSizes.sm,
-    textAlign: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: theme.spacing.lg,
-  },
-  statBox: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    alignItems: 'center',
-    width: '22%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  statBoxValue: {
-    fontSize: theme.fontSizes.lg,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: 2,
-  },
-  statBoxLabel: {
     fontSize: theme.fontSizes.xs,
     color: theme.colors.textSecondary,
     textAlign: 'center',
   },
-  quickLinksContainer: {
+  appointmentStatusContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginBottom: theme.spacing.xl,
   },
-  quickLinkButton: {
-    backgroundColor: theme.colors.surface,
+  statusCard: {
+    flex: 1,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginHorizontal: 4,
+    ...theme.shadows.sm,
+    alignItems: 'center',
+  },
+  pendingCard: {
+    backgroundColor: theme.colors.warning,
+  },
+  completedCard: {
+    backgroundColor: theme.colors.success,
+  },
+  canceledCard: {
+    backgroundColor: theme.colors.error,
+  },
+  statusValue: {
+    fontSize: theme.fontSizes.xl,
+    fontWeight: theme.fontWeights.bold,
+    color: theme.colors.white,
+    marginBottom: theme.spacing.xs,
+  },
+  statusLabel: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.white,
+    textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: theme.fontSizes.lg,
+    fontWeight: theme.fontWeights.semiBold,
+    color: theme.colors.text,
+    marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.md,
+  },
+  actionButtonsContainer: {
+    marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.xxl,
+  },
+  actionButton: {
+    backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '48%',
     marginBottom: theme.spacing.md,
-    height: 70,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    ...theme.shadows.sm,
   },
-  quickLinkText: {
+  actionButtonText: {
+    color: theme.colors.white,
     fontSize: theme.fontSizes.md,
-    fontWeight: '500',
-    color: theme.colors.text,
+    fontWeight: theme.fontWeights.medium,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  secondaryButtonText: {
+    color: theme.colors.primary,
   },
 });
+
+export default DashboardScreen;

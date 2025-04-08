@@ -1,72 +1,80 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../contexts/AuthContext';
+
+// Screens
 import LoginScreen from '../screens/LoginScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import AppointmentsScreen from '../screens/AppointmentsScreen';
 import ReportsHomeScreen from '../screens/reports/ReportsHomeScreen';
 import ProfessionalPerformanceScreen from '../screens/reports/ProfessionalPerformanceScreen';
-import { Text, View, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../styles/theme';
 
-// Para implementação futura:
-// import ProfessionalsScreen from '../screens/ProfessionalsScreen';
-// import ServicesScreen from '../screens/ServicesScreen';
-// import SettingsScreen from '../screens/SettingsScreen';
-
+// Stack navigators
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const ReportsStack = createNativeStackNavigator();
 
-// Placeholder para telas futuras
-const PlaceholderScreen = ({ route }: any) => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 18 }}>Tela de {route.name} em desenvolvimento</Text>
-  </View>
-);
-
-// Stack Navigator para as telas de relatórios
-function ReportsNavigator() {
+// Reports Stack Navigator
+const ReportsNavigator = () => {
   return (
-    <ReportsStack.Navigator screenOptions={{ headerShown: false }}>
-      <ReportsStack.Screen name="ReportsHome" component={ReportsHomeScreen} />
-      <ReportsStack.Screen name="ProfessionalPerformance" component={ProfessionalPerformanceScreen} />
-      <ReportsStack.Screen name="ClientAnalytics" component={PlaceholderScreen} />
-      <ReportsStack.Screen name="ForecastReport" component={PlaceholderScreen} />
-      <ReportsStack.Screen name="LoyaltyReport" component={PlaceholderScreen} />
+    <ReportsStack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.primary,
+        },
+        headerTintColor: theme.colors.white,
+        headerTitleStyle: {
+          fontWeight: theme.fontWeights.semiBold,
+        },
+      }}
+    >
+      <ReportsStack.Screen
+        name="ReportsHome"
+        component={ReportsHomeScreen}
+        options={{ title: 'Relatórios' }}
+      />
+      <ReportsStack.Screen
+        name="ProfessionalPerformance"
+        component={ProfessionalPerformanceScreen}
+        options={{ title: 'Desempenho Profissional' }}
+      />
     </ReportsStack.Navigator>
   );
-}
+};
 
-// Navegação para usuários autenticados
-function AuthenticatedNavigator() {
+// Main Tab Navigator (for authenticated users)
+const MainNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-          marginBottom: 5,
-        },
         tabBarStyle: {
+          backgroundColor: theme.colors.white,
+          borderTopColor: theme.colors.border,
           height: 60,
           paddingBottom: 10,
           paddingTop: 10,
         },
-        headerShown: false,
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
+        headerStyle: {
+          backgroundColor: theme.colors.primary,
+        },
+        headerTintColor: theme.colors.white,
+        headerTitleStyle: {
+          fontWeight: theme.fontWeights.semiBold,
+        },
       }}
     >
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarLabel: 'Início',
+          title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
-            <TabBarIcon name="home" color={color} size={size} />
+            <TabBarIcon name="dashboard" color={color} size={size} />
           ),
         }}
       />
@@ -74,7 +82,7 @@ function AuthenticatedNavigator() {
         name="Appointments"
         component={AppointmentsScreen}
         options={{
-          tabBarLabel: 'Agendamentos',
+          title: 'Agendamentos',
           tabBarIcon: ({ color, size }) => (
             <TabBarIcon name="calendar" color={color} size={size} />
           ),
@@ -84,70 +92,94 @@ function AuthenticatedNavigator() {
         name="Reports"
         component={ReportsNavigator}
         options={{
-          tabBarLabel: 'Relatórios',
+          headerShown: false,
+          title: 'Relatórios',
           tabBarIcon: ({ color, size }) => (
             <TabBarIcon name="chart" color={color} size={size} />
           ),
         }}
       />
       <Tab.Screen
-        name="Professionals"
-        component={PlaceholderScreen}
+        name="Settings"
+        component={DashboardScreen} // Placeholder, replace with actual settings screen when created
         options={{
-          tabBarLabel: 'Profissionais',
+          title: 'Configurações',
           tabBarIcon: ({ color, size }) => (
-            <TabBarIcon name="users" color={color} size={size} />
+            <TabBarIcon name="settings" color={color} size={size} />
           ),
         }}
       />
       <Tab.Screen
-        name="Settings"
-        component={PlaceholderScreen}
+        name="Profile"
+        component={DashboardScreen} // Placeholder, replace with actual profile screen when created
         options={{
-          tabBarLabel: 'Mais',
+          title: 'Perfil',
           tabBarIcon: ({ color, size }) => (
-            <TabBarIcon name="menu" color={color} size={size} />
+            <TabBarIcon name="user" color={color} size={size} />
           ),
         }}
       />
     </Tab.Navigator>
   );
-}
+};
 
-// Componente de ícone temporário (este seria substituído por um pacote de ícones real como React Native Vector Icons)
-function TabBarIcon({ name, color, size }: { name: string; color: string; size: number }) {
+// A simple tab bar icon component for demonstration
+const TabBarIcon = ({ name, color, size }: { name: string, color: string, size: number }) => {
+  // This would normally use an actual icon from a library
   return (
-    <View style={{
-      width: size,
-      height: size,
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-      <Text style={{ color, fontSize: 10 }}>{name[0].toUpperCase()}</Text>
+    <View style={styles.iconContainer}>
+      <Text style={[styles.icon, { color }]}>
+        {name === 'dashboard' && '📊'}
+        {name === 'calendar' && '📅'}
+        {name === 'chart' && '📈'}
+        {name === 'settings' && '⚙️'}
+        {name === 'user' && '👤'}
+      </Text>
     </View>
   );
-}
+};
 
-export default function AppNavigator() {
+// Root Navigator (handles authentication state)
+const AppNavigator = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Carregando...</Text>
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
-          <Stack.Screen name="MainApp" component={AuthenticatedNavigator} />
-        ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!isAuthenticated ? (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      ) : (
+        <Stack.Screen name="Main" component={MainNavigator} />
+      )}
+    </Stack.Navigator>
   );
-}
+};
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+  },
+  loadingText: {
+    fontSize: theme.fontSizes.lg,
+    color: theme.colors.primary,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: {
+    fontSize: 20,
+  },
+});
+
+export default AppNavigator;

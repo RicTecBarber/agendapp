@@ -1,98 +1,87 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../services/api';
 
-// Definindo os tipos
 interface User {
   id: number;
   username: string;
   name: string;
+  email: string;
   role: string;
 }
 
 interface AuthContextData {
   user: User | null;
   isLoading: boolean;
-  signIn: (credentials: { username: string; password: string }) => Promise<void>;
+  signIn: (username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-// Criando o contexto
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
-// Hook para usar o contexto
-export function useAuth() {
-  return useContext(AuthContext);
-}
-
-// Provider do contexto
-export function AuthProvider({ children }: AuthProviderProps) {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadStorageData() {
-      setIsLoading(true);
+      setLoading(true);
       try {
-        const storedUser = await AsyncStorage.getItem('@BarberSync:user');
-        const storedToken = await AsyncStorage.getItem('@BarberSync:token');
-
+        const storedUser = await AsyncStorage.getItem('@AgendApp:user');
+        const storedToken = await AsyncStorage.getItem('@AgendApp:token');
+        
         if (storedUser && storedToken) {
+          api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
           setUser(JSON.parse(storedUser));
         }
       } catch (error) {
-        console.error('Error loading storage data:', error);
+        console.error('Error loading auth data from storage:', error);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     }
-
+    
     loadStorageData();
   }, []);
 
-  async function signIn(credentials: { username: string; password: string }) {
+  async function signIn(username: string, password: string) {
     try {
-      // TODO: Implementar a chamada real à API
-      // Simulação básica para exemplificar
-      const response = {
-        user: {
-          id: 1,
-          username: credentials.username,
-          name: 'Admin BarberSync',
-          role: 'admin',
-        },
-        token: 'fake-jwt-token',
-      };
-
-      setUser(response.user);
-
-      await AsyncStorage.setItem('@BarberSync:user', JSON.stringify(response.user));
-      await AsyncStorage.setItem('@BarberSync:token', response.token);
+      const response = await api.post('/api/login', { username, password });
+      const userData = response.data;
+      
+      // Store token if your API returns it
+      // const { token } = response.data;
+      // await AsyncStorage.setItem('@AgendApp:token', token);
+      
+      // For now, we'll store the user data without a separate token
+      await AsyncStorage.setItem('@AgendApp:user', JSON.stringify(userData));
+      
+      setUser(userData);
     } catch (error) {
-      console.error('Error signing in:', error);
+      console.error('Authentication error:', error);
       throw error;
     }
   }
 
   async function signOut() {
     try {
-      await AsyncStorage.removeItem('@BarberSync:user');
-      await AsyncStorage.removeItem('@BarberSync:token');
+      await api.post('/api/logout');
+      
+      await AsyncStorage.removeItem('@AgendApp:user');
+      await AsyncStorage.removeItem('@AgendApp:token');
+      
       setUser(null);
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('Error during sign out:', error);
       throw error;
     }
   }
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
+    <AuthContext.Provider 
+      value={{ 
+        user, 
         isLoading,
         signIn,
         signOut,
@@ -102,4 +91,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       {children}
     </AuthContext.Provider>
   );
+};
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  
+  return context;
 }
