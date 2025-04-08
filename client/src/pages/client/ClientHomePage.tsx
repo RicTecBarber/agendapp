@@ -1,11 +1,12 @@
 import { Link } from "wouter";
 import ClientLayout from "@/components/layout/ClientLayout";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 
 interface LoyaltyData {
   client_name: string;
@@ -17,12 +18,33 @@ interface LoyaltyData {
   last_reward_at: string | null;
 }
 
+interface BarbershopSettings {
+  id: number;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  open_time: string;
+  close_time: string;
+  open_days: number[];
+  description: string | null;
+  logo_url: string | null;
+  instagram: string | null;
+  facebook: string | null;
+}
+
 const ClientHomePage = () => {
   const [showLoyaltyDialog, setShowLoyaltyDialog] = useState(false);
   const [loyaltyPhone, setLoyaltyPhone] = useState('');
   const [loyaltyData, setLoyaltyData] = useState<LoyaltyData | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  
+  // Buscar as configurações da barbearia
+  const { data: barbershopSettings } = useQuery<BarbershopSettings>({
+    queryKey: ['/api/barbershop-settings'],
+    refetchOnWindowFocus: false,
+  });
 
   const checkLoyalty = async () => {
     if (!loyaltyPhone) {
@@ -54,8 +76,12 @@ const ClientHomePage = () => {
     <ClientLayout title="">
       <section className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-display font-bold text-primary mb-4">Bem-vindo à BarberSync</h2>
-          <p className="text-neutral-dark text-lg max-w-2xl mx-auto">O jeito mais fácil de agendar seu corte ou barba na nossa barbearia.</p>
+          <h2 className="text-3xl md:text-4xl font-display font-bold text-primary mb-4">
+            Bem-vindo{barbershopSettings?.name ? ` à ${barbershopSettings.name}` : ''}
+          </h2>
+          <p className="text-neutral-dark text-lg max-w-2xl mx-auto">
+            {barbershopSettings?.description || 'O jeito mais fácil de agendar serviços.'}
+          </p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -90,31 +116,59 @@ const ClientHomePage = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <p className="font-bold mb-1">Segunda-Feira</p>
-              <p className="text-neutral-dark">9:00 - 20:00</p>
+              <p className="text-neutral-dark">
+                {barbershopSettings?.open_days.includes(1) 
+                  ? `${barbershopSettings.open_time} - ${barbershopSettings.close_time}` 
+                  : 'Fechado'}
+              </p>
             </div>
             <div className="text-center">
               <p className="font-bold mb-1">Terça-Feira</p>
-              <p className="text-neutral-dark">9:00 - 20:00</p>
+              <p className="text-neutral-dark">
+                {barbershopSettings?.open_days.includes(2) 
+                  ? `${barbershopSettings.open_time} - ${barbershopSettings.close_time}` 
+                  : 'Fechado'}
+              </p>
             </div>
             <div className="text-center">
               <p className="font-bold mb-1">Quarta-Feira</p>
-              <p className="text-neutral-dark">9:00 - 20:00</p>
+              <p className="text-neutral-dark">
+                {barbershopSettings?.open_days.includes(3) 
+                  ? `${barbershopSettings.open_time} - ${barbershopSettings.close_time}` 
+                  : 'Fechado'}
+              </p>
             </div>
             <div className="text-center">
               <p className="font-bold mb-1">Quinta-Feira</p>
-              <p className="text-neutral-dark">9:00 - 20:00</p>
+              <p className="text-neutral-dark">
+                {barbershopSettings?.open_days.includes(4) 
+                  ? `${barbershopSettings.open_time} - ${barbershopSettings.close_time}` 
+                  : 'Fechado'}
+              </p>
             </div>
             <div className="text-center">
               <p className="font-bold mb-1">Sexta-Feira</p>
-              <p className="text-neutral-dark">9:00 - 21:00</p>
+              <p className="text-neutral-dark">
+                {barbershopSettings?.open_days.includes(5) 
+                  ? `${barbershopSettings.open_time} - ${barbershopSettings.close_time}` 
+                  : 'Fechado'}
+              </p>
             </div>
             <div className="text-center">
               <p className="font-bold mb-1">Sábado</p>
-              <p className="text-neutral-dark">8:00 - 18:00</p>
+              <p className="text-neutral-dark">
+                {barbershopSettings?.open_days.includes(6) 
+                  ? `${barbershopSettings.open_time} - ${barbershopSettings.close_time}` 
+                  : 'Fechado'}
+              </p>
             </div>
             <div className="text-center">
               <p className="font-bold mb-1">Domingo</p>
-              <p className="text-neutral-dark">Fechado</p>
+              <p className="text-neutral-dark">
+                {barbershopSettings?.open_days.includes(0) 
+                  ? `${barbershopSettings.open_time} - ${barbershopSettings.close_time}` 
+                  : 'Fechado'}
+              </p>
             </div>
             <div className="text-center">
               <p className="font-bold mb-1">Feriados</p>
