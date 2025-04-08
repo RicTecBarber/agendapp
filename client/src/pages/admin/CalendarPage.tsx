@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { VirtualList } from '@/components/ui/virtual-list';
 import { useMobile, useShouldOptimize } from '@/hooks/use-mobile';
 import { useAuth } from '@/hooks/use-auth';
+import { useAppointments } from '@/hooks/use-appointments';
 import { Appointment, Professional, User } from '@shared/schema';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon, X, AlertTriangle } from 'lucide-react';
@@ -128,43 +129,27 @@ const CalendarPage = () => {
     return eachDayOfInterval({ start, end });
   }, [selectedDate]);
 
-  // Carregar agendamentos da semana
+  // Calcular o intervalo de datas para a semana atual
   const startDate = format(weekDays[0], 'yyyy-MM-dd');
   const endDate = format(weekDays[6], 'yyyy-MM-dd');
 
-  const { data: appointments = [], isLoading } = useQuery({
-    queryKey: ['/api/appointments', startDate, endDate, selectedProfessionalId],
-    queryFn: async () => {
-      let url = `/api/appointments?startDate=${startDate}&endDate=${endDate}`;
-      
-      // Adicionar filtro de profissional se estiver selecionado
-      if (selectedProfessionalId) {
-        url += `&professionalId=${selectedProfessionalId}`;
-      }
-      
-      try {
-        console.log('Buscando agendamentos:', url);
-        const response = await apiRequest('GET', url);
-        
-        if (!response.ok) {
-          if (response.status === 403 || response.status === 401) {
-            console.log('Usuário não autenticado ou não autorizado');
-            return [];
-          }
-          console.error('Erro ao buscar agendamentos:', response.statusText);
-          throw new Error('Falha ao carregar agendamentos');
-        }
-        
-        const data = await response.json();
-        console.log('Agendamentos recebidos:', data);
-        return data as Appointment[];
-      } catch (error) {
-        console.error('Erro ao buscar agendamentos:', error);
-        return [];
-      }
-    },
-    refetchOnWindowFocus: false,
+  // Usar o hook useAppointments para buscar agendamentos com filtros
+  const { 
+    appointments = [], 
+    isLoading,
+    error
+  } = useAppointments({
+    startDate: weekDays[0],
+    endDate: weekDays[6],
+    professionalId: selectedProfessionalId
   });
+  
+  // Registrar erros se ocorrerem
+  useEffect(() => {
+    if (error) {
+      console.error('Erro ao buscar agendamentos:', error);
+    }
+  }, [error]);
 
   // Navegação entre semanas
   const navigateWeek = useCallback((direction: 'prev' | 'next') => {

@@ -4,17 +4,50 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
-export function useAppointments(date?: Date) {
+interface AppointmentOptions {
+  date?: Date;
+  professionalId?: number;
+  startDate?: Date;
+  endDate?: Date;
+}
+
+export function useAppointments(options: AppointmentOptions = {}) {
   const { toast } = useToast();
+  const { date, professionalId, startDate, endDate } = options;
   
-  // Query for appointments, filtered by date if provided
-  const queryKey = date ? ["/api/appointments", "date", format(date, "yyyy-MM-dd")] : ["/api/appointments"];
+  // Construir a queryKey com base nos parâmetros fornecidos
+  let queryKey: any[] = ["/api/appointments"];
+  
+  // Adicionar cada filtro à queryKey
+  if (date) queryKey.push("date", format(date, "yyyy-MM-dd"));
+  if (professionalId) queryKey.push("professionalId", professionalId.toString());
+  if (startDate && endDate) {
+    queryKey.push("range", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"));
+  }
+  
   const { data: appointments, isLoading, error } = useQuery({
     queryKey: queryKey,
     queryFn: async ({ queryKey }) => {
-      const url = date 
-        ? `/api/appointments?date=${format(date, "yyyy-MM-dd")}` 
-        : "/api/appointments";
+      // Construir os parâmetros de consulta URL com base nos filtros
+      const params = new URLSearchParams();
+      
+      if (date) {
+        params.append("date", format(date, "yyyy-MM-dd"));
+      }
+      
+      if (professionalId) {
+        params.append("professionalId", professionalId.toString());
+      }
+      
+      if (startDate && endDate) {
+        params.append("startDate", format(startDate, "yyyy-MM-dd"));
+        params.append("endDate", format(endDate, "yyyy-MM-dd"));
+      }
+      
+      const url = `/api/appointments${params.toString() ? `?${params.toString()}` : ''}`;
+      
+      console.log("Buscando agendamentos com URL:", url);
+      
       try {
         const res = await apiRequest("GET", url);
         

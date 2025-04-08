@@ -1100,19 +1100,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized" });
       }
       
-      // Optional date filter
+      // Optional date filters
       const dateFilter = req.query.date as string;
+      const startDateFilter = req.query.startDate as string;
+      const endDateFilter = req.query.endDate as string;
+      const professionalIdFilter = req.query.professionalId ? parseInt(req.query.professionalId as string) : null;
       let appointments: any[] = [];
       
+      console.log("Filtros recebidos:", { 
+        dateFilter, 
+        startDateFilter, 
+        endDateFilter, 
+        professionalIdFilter 
+      });
+      
+      // Obter todos os agendamentos primeiro
+      appointments = await storage.getAllAppointments();
+      
+      // Aplicar filtro de data única se fornecido
       if (dateFilter) {
         const date = parseISO(dateFilter);
-        appointments = await storage.getAppointmentsByDate(date);
-      } else {
-        appointments = await storage.getAllAppointments();
+        const dateString = format(date, 'yyyy-MM-dd');
+        appointments = appointments.filter(appointment => {
+          const appointmentDate = new Date(appointment.appointment_date);
+          return format(appointmentDate, 'yyyy-MM-dd') === dateString;
+        });
+      }
+      // Aplicar filtro de intervalo de datas se fornecido
+      else if (startDateFilter && endDateFilter) {
+        const startDate = parseISO(startDateFilter);
+        const endDate = parseISO(endDateFilter);
+        appointments = appointments.filter(appointment => {
+          const appointmentDate = new Date(appointment.appointment_date);
+          return appointmentDate >= startDate && appointmentDate <= endDate;
+        });
       }
       
-      // Professional filter (barber can only see their own appointments)
-      if (req.user?.role === "barber") {
+      // Aplicar filtro de profissional se fornecido na query
+      if (professionalIdFilter) {
+        console.log(`Filtrando por profissional ID: ${professionalIdFilter}`);
+        appointments = appointments.filter(a => a.professional_id === professionalIdFilter);
+      }
+      // Ou aplicar filtro se o usuário for um profissional (barber)
+      else if (req.user?.role === "barber") {
         const user = await storage.getUserByUsername(req.user.username);
         const professional = (await storage.getAllProfessionals()).find(
           p => p.name === user?.name

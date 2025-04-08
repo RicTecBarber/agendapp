@@ -110,7 +110,10 @@ const AppointmentsPage = () => {
     appointments, 
     isLoading, 
     updateAppointmentStatus 
-  } = useAppointments(dateFilter);
+  } = useAppointments({ 
+    date: dateFilter,
+    professionalId: professionalFilter !== "all" ? parseInt(professionalFilter) : undefined
+  });
 
   // Get professionals for filter
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery({
