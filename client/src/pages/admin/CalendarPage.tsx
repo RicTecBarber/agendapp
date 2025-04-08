@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, isSameDay, parseISO, isValid } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -6,19 +6,56 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { VirtualList } from '@/components/ui/virtual-list';
 import { useMobile, useShouldOptimize } from '@/hooks/use-mobile';
-import { Appointment } from '@shared/schema';
+import { Appointment, Professional, User } from '@shared/schema';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon } from 'lucide-react';
 import { useLocalCache } from '@/hooks/use-cache';
 import { cn } from '@/lib/utils';
+import { useLocation } from 'wouter';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// Funções utilitárias para formatação de datas e horas
+const formatAppointmentDate = (date: string | Date): string => {
+  if (typeof date === 'string') {
+    return date.split('T')[0];
+  }
+  return format(date, 'yyyy-MM-dd');
+};
+
+const formatAppointmentDateShort = (date: string | Date): string => {
+  if (typeof date === 'string') {
+    return format(new Date(date), 'dd/MM/yyyy');
+  }
+  return format(date, 'dd/MM/yyyy');
+};
+
+const formatAppointmentTime = (date: string | Date): string => {
+  if (typeof date === 'string') {
+    const timePart = date.split('T')[1];
+    return timePart ? timePart.substring(0, 5) : '00:00';
+  }
+  return format(date, 'HH:mm');
+};
 
 const CalendarPage = () => {
+  const [, setLocation] = useLocation();
+  
   // Cache para armazenar a semana selecionada
-  const cache = useLocalCache<{ selectedDate: string }>({
+  const cache = useLocalCache<{ selectedDate: string; selectedProfessionalId?: number }>({
     persistent: true,
     cacheName: 'calendar-state',
   });
 
+  // Estado para controlar o profissional selecionado
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | undefined>(() => {
+    const cachedState = cache.getItem('selected-week');
+    return cachedState?.selectedProfessionalId;
+  });
+
+  // Estado para o usuário atual
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfessionalId, setUserProfessionalId] = useState<number | null>(null);
+  
   // Estado para controlar a data selecionada (semana atual por padrão)
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     // Tentar recuperar do cache
@@ -36,6 +73,52 @@ const CalendarPage = () => {
   const isMobile = useMobile();
   const shouldOptimize = useShouldOptimize();
 
+  // Buscar dados do usuário
+  const { data: userData } = useQuery({
+    queryKey: ['/api/user'],
+    queryFn: async () => {
+      const response = await fetch('/api/user');
+      if (!response.ok) {
+        if (response.status === 401) {
+          return null;
+        }
+        throw new Error('Falha ao carregar usuário');
+      }
+      return response.json() as Promise<User>;
+    },
+  });
+
+  // Buscar todos os profissionais
+  const { data: professionals = [], isLoading: isLoadingProfessionals } = useQuery({
+    queryKey: ['/api/professionals'],
+    queryFn: async () => {
+      const response = await fetch('/api/professionals');
+      if (!response.ok) {
+        throw new Error('Falha ao carregar profissionais');
+      }
+      return response.json() as Promise<Professional[]>;
+    },
+  });
+
+  // Efeito para definir o profissional do usuário se ele for um profissional
+  useEffect(() => {
+    if (userData && professionals.length > 0) {
+      setCurrentUser(userData);
+
+      // Se o usuário é um profissional (barber), procuramos o ID correspondente
+      if (userData.role === 'barber') {
+        const matchingProfessional = professionals.find(p => p.name === userData.name);
+        if (matchingProfessional) {
+          setUserProfessionalId(matchingProfessional.id);
+          // Apenas atualizamos o profissional selecionado se ele não estiver definido ou se o selecionado não for o do usuário
+          if (!selectedProfessionalId || (userProfessionalId && selectedProfessionalId !== userProfessionalId)) {
+            setSelectedProfessionalId(matchingProfessional.id);
+          }
+        }
+      }
+    }
+  }, [userData, professionals, userProfessionalId, selectedProfessionalId]);
+
   // Calcular os dias da semana baseado na data selecionada
   const weekDays = useMemo(() => {
     const start = startOfWeek(selectedDate, { weekStartsOn: 0 });
@@ -47,11 +130,22 @@ const CalendarPage = () => {
   const startDate = format(weekDays[0], 'yyyy-MM-dd');
   const endDate = format(weekDays[6], 'yyyy-MM-dd');
 
-  const { data: appointments, isLoading } = useQuery({
-    queryKey: ['/api/appointments', startDate, endDate],
+  const { data: appointments = [], isLoading } = useQuery({
+    queryKey: ['/api/appointments', startDate, endDate, selectedProfessionalId],
     queryFn: async () => {
-      const response = await fetch(`/api/appointments?startDate=${startDate}&endDate=${endDate}`);
+      let url = `/api/appointments?startDate=${startDate}&endDate=${endDate}`;
+      
+      // Adicionar filtro de profissional se estiver selecionado
+      if (selectedProfessionalId) {
+        url += `&professionalId=${selectedProfessionalId}`;
+      }
+      
+      const response = await fetch(url);
       if (!response.ok) {
+        if (response.status === 403 || response.status === 401) {
+          console.log('Usuário não autenticado ou não autorizado');
+          return [];
+        }
         throw new Error('Falha ao carregar agendamentos');
       }
       return response.json() as Promise<Appointment[]>;
@@ -66,11 +160,26 @@ const CalendarPage = () => {
         : addDays(current, 7);
       
       // Salvar no cache
-      cache.setItem('selected-week', { selectedDate: newDate.toISOString() });
+      cache.setItem('selected-week', { 
+        selectedDate: newDate.toISOString(),
+        selectedProfessionalId
+      });
       
       return newDate;
     });
-  }, [cache]);
+  }, [cache, selectedProfessionalId]);
+
+  // Handler para mudança de profissional
+  const handleProfessionalChange = useCallback((professionalId: string) => {
+    const id = parseInt(professionalId);
+    setSelectedProfessionalId(id);
+    
+    // Atualizar o cache
+    cache.setItem('selected-week', {
+      selectedDate: selectedDate.toISOString(),
+      selectedProfessionalId: id
+    });
+  }, [cache, selectedDate]);
 
   // Agrupar agendamentos por dia da semana
   const appointmentsByDay = useMemo(() => {
@@ -87,9 +196,7 @@ const CalendarPage = () => {
     appointments.forEach(appointment => {
       try {
         // Extrair a data do appointment_date (formato ISO)
-        const appointmentDate = typeof appointment.appointment_date === 'string'
-          ? appointment.appointment_date.split('T')[0]
-          : format(appointment.appointment_date, 'yyyy-MM-dd');
+        const appointmentDate = formatAppointmentDate(appointment.appointment_date);
         
         if (grouped.has(appointmentDate)) {
           grouped.get(appointmentDate)!.push(appointment);
@@ -146,7 +253,7 @@ const CalendarPage = () => {
             <div className="space-y-2">
               {/* Renderiza no máximo 20 agendamentos se estiver otimizando */}
               {(shouldOptimize ? dayAppointments.slice(0, 20) : dayAppointments)
-                .map(appointment => (
+                .map((appointment: Appointment) => (
                 <div 
                   key={appointment.id} 
                   className={cn(
@@ -159,10 +266,7 @@ const CalendarPage = () => {
                   <div className="font-medium">{appointment.client_name}</div>
                   <div className="flex items-center mt-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3 mr-1" />
-                    {(typeof appointment.appointment_date === 'string' 
-                        ? appointment.appointment_date.split('T')[1]?.substring(0, 5) || '00:00'
-                        : format(appointment.appointment_date, 'HH:mm')
-                     )}
+                    {formatAppointmentTime(appointment.appointment_date)}
                   </div>
                 </div>
               ))}
@@ -180,41 +284,94 @@ const CalendarPage = () => {
     );
   }, [appointmentsByDay, isLoading, shouldOptimize]);
 
+  // Verificar se o usuário é admin ou profissional para mostrar ou não o seletor de profissional
+  const showProfessionalSelector = currentUser?.role === 'admin';
+
   return (
     <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Calendário de Agendamentos</h1>
-        
+      {/* Botão Voltar e Título */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => navigateWeek('prev')}
+            onClick={() => setLocation('/admin')}
+            className="flex items-center"
           >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Anterior
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Voltar
           </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            className="font-medium"
-            onClick={() => setSelectedDate(new Date())}
-          >
-            <CalendarIcon className="h-4 w-4 mr-1" />
-            Hoje
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => navigateWeek('next')}
-          >
-            Próxima
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
+          <h1 className="text-2xl font-bold">Calendário de Agendamentos</h1>
+        </div>
+
+        {/* Seletor de profissional */}
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-4">
+          {professionals.length > 0 && (
+            <div className={cn(
+              "w-full sm:w-auto",
+              !showProfessionalSelector && "hidden" // Esconder se o usuário não for admin
+            )}>
+              <Select 
+                value={selectedProfessionalId?.toString()} 
+                onValueChange={handleProfessionalChange}
+              >
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Selecione um profissional" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos os profissionais</SelectItem>
+                  {professionals.map(prof => (
+                    <SelectItem key={prof.id} value={prof.id.toString()}>
+                      {prof.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Controles de navegação de data */}
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigateWeek('prev')}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Anterior
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-medium"
+              onClick={() => setSelectedDate(new Date())}
+            >
+              <CalendarIcon className="h-4 w-4 mr-1" />
+              Hoje
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigateWeek('next')}
+            >
+              Próxima
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Mostrar qual profissional está visualizando (se for barbeiro) */}
+      {currentUser?.role === 'barber' && userProfessionalId && (
+        <div className="mb-4 p-2 bg-primary/10 rounded-md flex items-center">
+          <UserIcon className="h-4 w-4 mr-2 text-primary" />
+          <span className="text-sm font-medium">
+            Visualizando sua agenda de atendimentos
+          </span>
+        </div>
+      )}
       
       {isMobile ? (
         // Versão mobile - Lista vertical de dias
@@ -247,7 +404,7 @@ const CalendarPage = () => {
               <VirtualList
                 items={appointments}
                 estimateSize={() => 80}
-                renderItem={(appointment) => (
+                renderItem={(appointment: Appointment) => (
                   <div 
                     key={appointment.id}
                     className="p-4 border-b last:border-0 flex justify-between items-center"
@@ -260,14 +417,10 @@ const CalendarPage = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-sm">
-                        {typeof appointment.appointment_date === 'string' 
-                          ? format(new Date(appointment.appointment_date), 'dd/MM/yyyy')
-                          : format(appointment.appointment_date, 'dd/MM/yyyy')}
+                        {formatAppointmentDateShort(appointment.appointment_date)}
                       </div>
                       <div className="text-sm font-medium">
-                        {typeof appointment.appointment_date === 'string'
-                          ? appointment.appointment_date.split('T')[1]?.substring(0, 5) || '00:00'
-                          : format(appointment.appointment_date, 'HH:mm')}
+                        {formatAppointmentTime(appointment.appointment_date)}
                       </div>
                     </div>
                   </div>
