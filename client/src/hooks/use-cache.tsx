@@ -1,427 +1,328 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useShouldOptimize } from '@/hooks/use-mobile';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
-// Tipos para a configuração do cache
-interface CacheOptions {
-  // Tempo de vida do cache em milissegundos
-  ttl?: number;
-  // Usar localStorage para persistência entre sessões 
-  persistent?: boolean;
-  // Nome do cache (para storage persistente)
-  cacheName?: string;
-  // Prefixo usado para todas as chaves deste cache
-  keyPrefix?: string;
+// Definições de tipos
+interface CacheItem<T> {
+  data: T;
+  timestamp: number;
+  expiry?: number; // Tempo de expiração em milissegundos
 }
 
-// Implementação principal do hook
-export function useLocalCache<T>(defaultOptions?: CacheOptions) {
-  const shouldOptimize = useShouldOptimize();
-  
-  // Configurações padrão
-  const options = useMemo(() => ({
-    ttl: 1000 * 60 * 30, // 30 minutos padrão
-    persistent: true,
-    cacheName: 'app-cache',
-    keyPrefix: 'cache:',
-    ...defaultOptions
-  }), [defaultOptions]);
+export interface CacheOptions {
+  cacheName?: string;
+  cacheVersion?: number;
+  persistent?: boolean;
+  // Expiração padrão para itens no cache (em milissegundos)
+  defaultExpiry?: number | null;
+  // Prefixo para chaves do localStorage
+  storageKeyPrefix?: string;
+  // Desabilitar cache (útil para desenvolvimento)
+  disabled?: boolean;
+}
 
-  // Cache em memória (otimizado para dispositivos móveis)
-  const memoryCache = useMemo(() => new Map<string, { data: T, timestamp: number }>(), []);
+/**
+ * Hook para gerenciar cache em memória com suporte
+ * para persistência em localStorage e expiração
+ */
+export function useCache<T = any>(options: CacheOptions = {}) {
+  const {
+    cacheName = 'default-cache',
+    cacheVersion = 1,
+    persistent = false,
+    defaultExpiry = null,
+    storageKeyPrefix = 'app_cache_',
+    disabled = false,
+  } = options;
 
-  // Função para gerar uma chave completa com o prefixo
-  const getFullKey = useCallback((key: string): string => {
-    return `${options.keyPrefix}${key}`;
-  }, [options.keyPrefix]);
+  // Cache em memória
+  const cacheRef = useRef(new Map<string, CacheItem<T>>());
+  const storageKey = `${storageKeyPrefix}${cacheName}_v${cacheVersion}`;
+  const isInitializedRef = useRef(false);
 
-  // Verificar se o item está expirado
-  const isExpired = useCallback((timestamp: number): boolean => {
-    return Date.now() - timestamp > options.ttl;
-  }, [options.ttl]);
+  // Função para carregar o cache do localStorage
+  const loadFromStorage = useCallback(() => {
+    if (!persistent || disabled || typeof window === 'undefined') return;
 
-  // Obter um item do cache
-  const getItem = useCallback(<R = T>(key: string): R | null => {
-    const fullKey = getFullKey(key);
-    
-    // Tentar ler do cache em memória primeiro (mais rápido)
-    if (memoryCache.has(fullKey)) {
-      const cachedItem = memoryCache.get(fullKey);
-      if (cachedItem && !isExpired(cachedItem.timestamp)) {
-        return cachedItem.data as R;
-      }
-      // Se expirado, remover do cache em memória
-      memoryCache.delete(fullKey);
-    }
-    
-    // Se persistente e não encontrado em memória, tentar localStorage
-    if (options.persistent && typeof window !== 'undefined') {
-      try {
-        const storedItem = localStorage.getItem(`${options.cacheName}:${fullKey}`);
-        if (storedItem) {
-          const parsedItem = JSON.parse(storedItem);
-          
-          if (!isExpired(parsedItem.timestamp)) {
-            // Atualizar cache em memória para futuras leituras
-            memoryCache.set(fullKey, parsedItem);
-            return parsedItem.data as R;
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const newCache = new Map<string, CacheItem<T>>();
+        
+        // Carregar apenas itens válidos (não expirados)
+        Object.entries(parsed).forEach(([key, value]) => {
+          const item = value as CacheItem<T>;
+          // Verificar se o item expirou
+          if (item.expiry && Date.now() > item.timestamp + item.expiry) {
+            return; // Item expirado, não adicionar ao cache
           }
-          
-          // Se expirado, remover do localStorage
-          localStorage.removeItem(`${options.cacheName}:${fullKey}`);
+          newCache.set(key, item);
+        });
+        
+        cacheRef.current = newCache;
+      }
+    } catch (error) {
+      console.error('Erro ao carregar cache:', error);
+    }
+  }, [persistent, disabled, storageKey]);
+
+  // Função para salvar o cache no localStorage
+  const saveToStorage = useCallback(() => {
+    if (!persistent || disabled || typeof window === 'undefined') return;
+
+    try {
+      const cacheObj: Record<string, CacheItem<T>> = {};
+      for (const [key, value] of cacheRef.current.entries()) {
+        // Verificar se o item expirou antes de salvar
+        if (value.expiry && Date.now() > value.timestamp + value.expiry) {
+          continue; // Não salvar itens expirados
         }
-      } catch (error) {
-        console.error('Erro ao ler do cache persistente:', error);
+        cacheObj[key] = value;
       }
+      localStorage.setItem(storageKey, JSON.stringify(cacheObj));
+    } catch (error) {
+      console.error('Erro ao salvar cache:', error);
     }
-    
-    return null;
-  }, [getFullKey, isExpired, memoryCache, options.cacheName, options.persistent]);
+  }, [persistent, disabled, storageKey]);
 
-  // Definir um item no cache
-  const setItem = useCallback((key: string, data: T, customTtl?: number): void => {
-    if (data === undefined || data === null) return;
-    
-    const fullKey = getFullKey(key);
-    const timestamp = Date.now();
-    const cacheItem = { data, timestamp };
-    
-    // Sempre salvar em memória
-    memoryCache.set(fullKey, cacheItem);
-    
-    // Se configurado para persistência, salvar também no localStorage
-    if (options.persistent && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(
-          `${options.cacheName}:${fullKey}`,
-          JSON.stringify(cacheItem)
-        );
-      } catch (error) {
-        console.error('Erro ao salvar no cache persistente:', error);
-        
-        // Em caso de quota excedida, tentar limpar itens antigos
-        if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-          cleanExpiredItems();
-        }
-      }
-    }
-    
-    // Se foi definido um TTL personalizado, criar um timeout para expiração
-    if (customTtl) {
-      setTimeout(() => {
-        removeItem(key);
-      }, customTtl);
-    }
-  }, [getFullKey, memoryCache, options.cacheName, options.persistent]);
-
-  // Remover um item do cache
-  const removeItem = useCallback((key: string): void => {
-    const fullKey = getFullKey(key);
-    
-    // Remover da memória
-    memoryCache.delete(fullKey);
-    
-    // Remover do localStorage se persistente
-    if (options.persistent && typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem(`${options.cacheName}:${fullKey}`);
-      } catch (error) {
-        console.error('Erro ao remover do cache persistente:', error);
-      }
-    }
-  }, [getFullKey, memoryCache, options.cacheName, options.persistent]);
-
-  // Limpar todo o cache (memória e persistente)
-  const clearCache = useCallback((): void => {
-    // Limpar memória
-    memoryCache.clear();
-    
-    // Limpar localStorage se persistente
-    if (options.persistent && typeof window !== 'undefined') {
-      try {
-        // Remover apenas os itens deste cache específico
-        const prefix = `${options.cacheName}:${options.keyPrefix}`;
-        
-        Object.keys(localStorage)
-          .filter(key => key.startsWith(prefix))
-          .forEach(key => localStorage.removeItem(key));
-      } catch (error) {
-        console.error('Erro ao limpar cache persistente:', error);
-      }
-    }
-  }, [memoryCache, options.cacheName, options.keyPrefix, options.persistent]);
-
-  // Limpar itens expirados do cache (útil para economizar espaço)
-  const cleanExpiredItems = useCallback((): void => {
-    // Limpar da memória
-    for (const [key, item] of memoryCache.entries()) {
-      if (isExpired(item.timestamp)) {
-        memoryCache.delete(key);
-      }
-    }
-    
-    // Limpar do localStorage se persistente
-    if (options.persistent && typeof window !== 'undefined') {
-      try {
-        const prefix = `${options.cacheName}:${options.keyPrefix}`;
-        
-        Object.keys(localStorage)
-          .filter(key => key.startsWith(prefix))
-          .forEach(key => {
-            try {
-              const item = JSON.parse(localStorage.getItem(key) || '');
-              if (isExpired(item.timestamp)) {
-                localStorage.removeItem(key);
-              }
-            } catch (e) {
-              // Se não puder ser parseado, remover
-              localStorage.removeItem(key);
-            }
-          });
-      } catch (error) {
-        console.error('Erro ao limpar itens expirados do cache persistente:', error);
-      }
-    }
-  }, [isExpired, memoryCache, options.cacheName, options.keyPrefix, options.persistent]);
-
-  // Limpar itens expirados periodicamente (mais frequente em dispositivos otimizados)
+  // Inicializar o cache
   useEffect(() => {
-    const interval = setInterval(
-      cleanExpiredItems, 
-      shouldOptimize ? 1000 * 60 * 5 : 1000 * 60 * 30  // 5 ou 30 minutos
-    );
-    
-    // Cleanup do interval
-    return () => clearInterval(interval);
-  }, [cleanExpiredItems, shouldOptimize]);
+    if (isInitializedRef.current) return;
+    loadFromStorage();
+    isInitializedRef.current = true;
+  }, [loadFromStorage]);
 
-  // API retornada pelo hook
+  // Salvar o cache quando a janela for fechada
+  useEffect(() => {
+    if (!persistent || disabled || typeof window === 'undefined') return;
+
+    const handleBeforeUnload = () => {
+      saveToStorage();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      saveToStorage(); // Salvar quando o componente for desmontado
+    };
+  }, [persistent, disabled, saveToStorage]);
+
+  // Funções de manipulação do cache
+  const getItem = useCallback((key: string): T | undefined => {
+    if (disabled) return undefined;
+    
+    const item = cacheRef.current.get(key);
+    if (!item) return undefined;
+    
+    // Verificar se o item expirou
+    if (item.expiry && Date.now() > item.timestamp + item.expiry) {
+      cacheRef.current.delete(key);
+      return undefined;
+    }
+    
+    return item.data;
+  }, [disabled]);
+
+  const setItem = useCallback((key: string, data: T, expiry: number | null = defaultExpiry): void => {
+    if (disabled) return;
+    
+    const cacheItem: CacheItem<T> = {
+      data,
+      timestamp: Date.now(),
+      expiry: expiry === null ? undefined : expiry,
+    };
+    
+    cacheRef.current.set(key, cacheItem);
+    if (persistent) {
+      saveToStorage();
+    }
+  }, [disabled, defaultExpiry, persistent, saveToStorage]);
+
+  const removeItem = useCallback((key: string): void => {
+    if (disabled) return;
+    
+    cacheRef.current.delete(key);
+    if (persistent) {
+      saveToStorage();
+    }
+  }, [disabled, persistent, saveToStorage]);
+
+  const clear = useCallback((): void => {
+    if (disabled) return;
+    
+    cacheRef.current.clear();
+    if (persistent && typeof window !== 'undefined') {
+      localStorage.removeItem(storageKey);
+    }
+  }, [disabled, persistent, storageKey]);
+
+  const hasItem = useCallback((key: string): boolean => {
+    if (disabled) return false;
+    
+    const item = cacheRef.current.get(key);
+    if (!item) return false;
+    
+    // Verificar se o item expirou
+    if (item.expiry && Date.now() > item.timestamp + item.expiry) {
+      cacheRef.current.delete(key);
+      return false;
+    }
+    
+    return true;
+  }, [disabled]);
+
+  const getAllKeys = useCallback((): string[] => {
+    if (disabled) return [];
+    
+    const keys: string[] = [];
+    
+    // Filtrar itens expirados
+    for (const [key, item] of cacheRef.current.entries()) {
+      if (item.expiry && Date.now() > item.timestamp + item.expiry) {
+        cacheRef.current.delete(key);
+        continue;
+      }
+      keys.push(key);
+    }
+    
+    return keys;
+  }, [disabled]);
+
+  const size = useMemo(() => {
+    // Calcular tamanho excluindo itens expirados
+    let validItems = 0;
+    for (const item of cacheRef.current.values()) {
+      if (item.expiry && Date.now() > item.timestamp + item.expiry) {
+        continue;
+      }
+      validItems++;
+    }
+    return validItems;
+  }, []);
+
+  // Retornar as funções e propriedades do cache
   return {
     getItem,
     setItem,
     removeItem,
-    clearCache,
-    cleanExpiredItems
+    clear,
+    hasItem,
+    getAllKeys,
+    size,
   };
 }
 
-// Hook simplificado para uso em componentes
-export function useCachedData<T>(
-  key: string,
-  fetcher: () => Promise<T>, 
-  options?: CacheOptions & { 
-    disabled?: boolean,
-    refetchInterval?: number 
-  }
-) {
-  const [data, setData] = useState<T | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
-  
-  const shouldOptimize = useShouldOptimize();
-  const cache = useLocalCache<T>(options);
-  
-  const refetch = useCallback(async (force: boolean = false) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // Verificar cache somente se não for forçado a atualizar
-      if (!force && !options?.disabled) {
-        const cachedData = cache.getItem(key);
-        if (cachedData !== null) {
-          setData(cachedData);
-          setIsLoading(false);
-          
-          // Se estamos otimizando, podemos retornar os dados do cache sem refetch
-          if (shouldOptimize) {
-            return;
-          }
-        }
-      }
-      
-      // Buscar novos dados
-      const newData = await fetcher();
-      setData(newData);
-      
-      // Atualizar cache se não desabilitado
-      if (!options?.disabled) {
-        cache.setItem(key, newData);
-      }
-      
-      setLastUpdated(Date.now());
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-      
-      // Em caso de erro, tentar usar dados do cache mesmo que force=true
-      if (!options?.disabled) {
-        const cachedData = cache.getItem(key);
-        if (cachedData !== null) {
-          setData(cachedData);
-        }
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [cache, fetcher, key, options?.disabled, shouldOptimize]);
-  
-  // Efeito para carregar dados iniciais e configurar refetch periódico
-  useEffect(() => {
-    // Carregar dados imediatamente
-    refetch();
-    
-    // Configurar refetch periódico se especificado
-    if (options?.refetchInterval) {
-      const intervalTime = shouldOptimize 
-        ? Math.max(options.refetchInterval, 60000) // Mínimo 1 minuto para dispositivos otimizados
-        : options.refetchInterval;
-        
-      const interval = setInterval(() => refetch(), intervalTime);
-      return () => clearInterval(interval);
-    }
-  }, [options?.refetchInterval, refetch, shouldOptimize]);
-  
-  return { 
-    data, 
-    isLoading, 
-    error, 
-    refetch, 
-    lastUpdated 
-  };
-}
-
-// Hook para armazenar dados de formulário localmente 
-// (útil para salvar progresso em formulários longos)
-export function useCachedForm<T extends Record<string, any>>(
-  formId: string,
-  initialValues: T, 
-  options?: CacheOptions & { 
-    autoSaveDelay?: number, 
-    disabled?: boolean 
-  }
-) {
-  const [formData, setFormData] = useState<T>(initialValues);
-  const [isDirty, setIsDirty] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [lastSaved, setLastSaved] = useState<number | null>(null);
-  
-  const cache = useLocalCache<T>(options);
-  const autoSaveDelay = options?.autoSaveDelay || 2000; // 2 segundos padrão
-  
-  // Carregar dados do cache ao inicializar
-  useEffect(() => {
-    if (options?.disabled) return;
-    
-    const cachedFormData = cache.getItem<T>(formId);
-    if (cachedFormData) {
-      setFormData(cachedFormData);
-    }
-  }, [cache, formId, options?.disabled]);
-  
-  // Salvar no cache quando formData mudar
-  useEffect(() => {
-    if (options?.disabled || !isDirty) return;
-    
-    const timer = setTimeout(() => {
-      setIsSaving(true);
-      
-      try {
-        cache.setItem(formId, formData);
-        setLastSaved(Date.now());
-        setIsDirty(false);
-      } catch (error) {
-        console.error('Erro ao salvar formulário no cache:', error);
-      } finally {
-        setIsSaving(false);
-      }
-    }, autoSaveDelay);
-    
-    return () => clearTimeout(timer);
-  }, [autoSaveDelay, cache, formData, formId, isDirty, options?.disabled]);
-  
-  // Atualizar valores do formulário
-  const updateFormValues = useCallback((values: Partial<T>) => {
-    setFormData(prev => ({
-      ...prev,
-      ...values
-    }));
-    setIsDirty(true);
-  }, []);
-  
-  // Limpar formulário e cache associado
-  const resetForm = useCallback((newValues?: T) => {
-    const valuesToSet = newValues || initialValues;
-    setFormData(valuesToSet);
-    
-    if (!options?.disabled) {
-      if (newValues) {
-        // Se novos valores foram fornecidos, atualizar o cache
-        cache.setItem(formId, valuesToSet);
-      } else {
-        // Caso contrário, remover do cache
-        cache.removeItem(formId);
-      }
-    }
-    
-    setIsDirty(false);
-    setLastSaved(newValues ? Date.now() : null);
-  }, [cache, formId, initialValues, options?.disabled]);
-  
-  return {
-    formData,
-    updateFormValues,
-    resetForm,
-    isDirty,
-    isSaving,
-    lastSaved
-  };
-}
-
-// Hook para armazenar temporariamente um conjunto de dados complexos
-// Útil para gerenciar estado temporário entre páginas sem usar context
-export function useSharedCache<T = any>(namespace = 'shared') {
-  const cache = useLocalCache<Record<string, any>>({
-    ttl: 1000 * 60 * 60, // 1 hora
-    persistent: true,
-    cacheName: 'shared-state',
-    keyPrefix: namespace + ':'
+/**
+ * Hook similar ao useCache, mas otimizado para armazenar 
+ * grandes conjuntos de dados, particularmente para local storage.
+ * 
+ * Suporta fragmentação de dados grandes, compressão e indexação.
+ */
+export function useLocalCache<T = any>(options: CacheOptions = {}) {
+  // Utilizar o hook base como fundação
+  const baseCache = useCache<T>({
+    ...options,
+    cacheName: `local_${options.cacheName || 'default-cache'}`,
   });
   
-  // Obter um valor específico de um namespace
-  const getValue = useCallback(<R = any>(key: string): R | null => {
-    const data = cache.getItem<Record<string, any>>(namespace);
-    if (!data) return null;
-    return (data[key] as R) || null;
-  }, [cache, namespace]);
+  // Adicionar funcionalidades específicas para o local storage
   
-  // Definir um valor específico em um namespace
-  const setValue = useCallback(<R = any>(key: string, value: R): void => {
-    const currentData = cache.getItem<Record<string, any>>(namespace) || {};
-    const newData = {
-      ...currentData,
-      [key]: value
-    };
-    cache.setItem(namespace, newData);
-  }, [cache, namespace]);
-  
-  // Remover um valor específico de um namespace
-  const removeValue = useCallback((key: string): void => {
-    const currentData = cache.getItem<Record<string, any>>(namespace);
-    if (!currentData) return;
+  // Função para salvar um item em chunks se for muito grande
+  const setItemChunked = useCallback((key: string, data: T, expiry: number | null = null) => {
+    // Para dados menores que 100KB, usar a abordagem regular
+    const stringData = JSON.stringify(data);
+    if (stringData.length < 100 * 1024) {
+      return baseCache.setItem(key, data, expiry);
+    }
     
-    const { [key]: _, ...rest } = currentData;
-    cache.setItem(namespace, rest);
-  }, [cache, namespace]);
+    try {
+      // Para dados maiores, dividir em chunks de ~50KB
+      const chunkSize = 50 * 1024; // 50KB por chunk
+      const chunks = [];
+      
+      for (let i = 0; i < stringData.length; i += chunkSize) {
+        chunks.push(stringData.substring(i, i + chunkSize));
+      }
+      
+      // Salvar informações dos chunks
+      baseCache.setItem(`${key}__chunks`, {
+        totalChunks: chunks.length,
+        totalSize: stringData.length,
+        timestamp: Date.now(),
+      } as any, expiry);
+      
+      // Salvar cada chunk individualmente
+      chunks.forEach((chunk, index) => {
+        baseCache.setItem(`${key}__chunk_${index}`, chunk as any, expiry);
+      });
+      
+      return true;
+    } catch (e) {
+      console.error('Erro ao fragmentar dados para cache:', e);
+      // Tentar salvar normalmente como fallback
+      baseCache.setItem(key, data, expiry);
+    }
+  }, [baseCache]);
   
-  // Limpar todo o namespace
-  const clearNamespace = useCallback((): void => {
-    cache.removeItem(namespace);
-  }, [cache, namespace]);
+  // Função para carregar um item que pode estar em chunks
+  const getItemChunked = useCallback((key: string): T | undefined => {
+    // Verificar se existe uma entrada de chunks para esta chave
+    const chunkInfo = baseCache.getItem(`${key}__chunks`) as any;
+    
+    if (!chunkInfo) {
+      // Não está em chunks, retornar normalmente
+      return baseCache.getItem(key);
+    }
+    
+    try {
+      // Reconstruir a partir dos chunks
+      let combinedData = '';
+      
+      for (let i = 0; i < chunkInfo.totalChunks; i++) {
+        const chunk = baseCache.getItem(`${key}__chunk_${i}`) as any;
+        if (!chunk) {
+          // Se um chunk estiver faltando, falhar e limpar tudo
+          for (let j = 0; j < chunkInfo.totalChunks; j++) {
+            baseCache.removeItem(`${key}__chunk_${j}`);
+          }
+          baseCache.removeItem(`${key}__chunks`);
+          return undefined;
+        }
+        combinedData += chunk;
+      }
+      
+      // Verificar o tamanho total por segurança
+      if (combinedData.length !== chunkInfo.totalSize) {
+        console.warn('Tamanho do dado reconstruído não corresponde ao esperado');
+      }
+      
+      // Retornar os dados reconstruídos
+      return JSON.parse(combinedData);
+    } catch (e) {
+      console.error('Erro ao reconstruir dados do cache:', e);
+      return undefined;
+    }
+  }, [baseCache]);
+  
+  // Remover um item que pode estar em chunks
+  const removeItemChunked = useCallback((key: string): void => {
+    const chunkInfo = baseCache.getItem(`${key}__chunks`) as any;
+    
+    if (chunkInfo) {
+      // Remover todos os chunks
+      for (let i = 0; i < chunkInfo.totalChunks; i++) {
+        baseCache.removeItem(`${key}__chunk_${i}`);
+      }
+      baseCache.removeItem(`${key}__chunks`);
+    }
+    
+    // Remover o item principal também
+    baseCache.removeItem(key);
+  }, [baseCache]);
   
   return {
-    getValue,
-    setValue,
-    removeValue,
-    clearNamespace
+    ...baseCache,
+    setItem: setItemChunked,
+    getItem: getItemChunked,
+    removeItem: removeItemChunked,
   };
 }

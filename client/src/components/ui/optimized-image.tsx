@@ -1,353 +1,309 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useShouldOptimize } from '@/hooks/use-mobile';
-import { hasEnoughMemoryFor } from '@/lib/memory-management';
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton';
 
-// Tipos de formatos de imagem disponíveis
-type ImageFormat = 'original' | 'webp' | 'avif' | 'jpg' | 'png';
-
-// Opções para qualidade da imagem
-type ImageQuality = 'low' | 'medium' | 'high' | 'auto';
-
-// Props para o componente OptimizedImage
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
   alt: string;
-  fallbackSrc?: string;
   lowResSrc?: string;
-  formats?: ImageFormat[];
-  quality?: ImageQuality;
-  sizes?: string;
-  priority?: boolean;
-  lazyLoad?: boolean;
-  blurEffect?: boolean;
   placeholderColor?: string;
-  aspectRatio?: string;
-  objectFit?: 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
-  loadingStrategy?: 'eager' | 'lazy' | 'progressive';
-  className?: string;
-  imgClassName?: string;
-  wrapperClassName?: string;
+  lazyLoad?: boolean;
+  threshold?: number;
+  quality?: 'low' | 'medium' | 'high' | 'auto';
+  fallbackSrc?: string;
+  loadingComponent?: React.ReactNode;
+  errorComponent?: React.ReactNode;
+  onLoaded?: () => void;
+  onError?: (error: ErrorEvent) => void;
 }
 
 /**
- * Componente que otimiza o carregamento de imagens para dispositivos móveis
- * com suporte para:
- * - Formato adaptativo (webp/avif para navegadores que suportam)
- * - Qualidade adaptativa baseada no tipo de dispositivo e conexão
- * - Carregamento progressivo (versão de baixa resolução primeiro)
- * - Lazy loading inteligente (só carrega quando necessário)
- * - Fallback para dispositivos de baixa memória
+ * Componente de imagem otimizado para aplicações web
+ * Inclui carregamento lazy, fallback, placeholder, e otimizações para dispositivos móveis
  */
 export function OptimizedImage({
   src,
   alt,
-  fallbackSrc,
   lowResSrc,
-  formats = ['webp', 'original'],
-  quality = 'auto',
-  sizes,
-  priority = false,
+  placeholderColor = '#f3f4f6',
   lazyLoad = true,
-  blurEffect = true,
-  placeholderColor = '#f0f0f0',
-  aspectRatio,
-  objectFit = 'cover',
-  loadingStrategy = 'lazy',
+  threshold = 0.1,
+  quality = 'auto',
+  fallbackSrc,
+  loadingComponent,
+  errorComponent,
+  onLoaded,
+  onError,
   className,
-  imgClassName,
-  wrapperClassName,
-  onLoad,
   ...props
 }: OptimizedImageProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isError, setIsError] = useState(false);
-  const [currentSrc, setCurrentSrc] = useState<string>(lowResSrc || '');
-  const imgRef = useRef<HTMLImageElement>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+  const [actualSrc, setActualSrc] = useState(lowResSrc || src);
   const shouldOptimize = useShouldOptimize();
+  const imgRef = useRef<HTMLImageElement>(null);
   
-  // Determinar a qualidade baseada nas configurações e tipo do dispositivo
-  const getQualityValue = (): number => {
-    if (quality === 'auto') {
-      if (shouldOptimize) {
-        return 60; // Qualidade reduzida para dispositivos móveis
-      }
-      return 85; // Qualidade padrão para desktop
-    }
+  // Determinar a qualidade da imagem com base nas configurações e capacidades do dispositivo
+  const actualQuality = useMemo(() => {
+    if (quality !== 'auto') return quality;
     
-    // Valores fixos baseados na configuração
-    switch (quality) {
-      case 'low': return 50;
-      case 'medium': return 75;
-      case 'high': return 90;
-      default: return 85;
-    }
-  };
+    return shouldOptimize ? 'low' : 'high';
+  }, [quality, shouldOptimize]);
   
-  // Verificar se o navegador suporta um formato específico
-  const supportsFormat = (format: ImageFormat): boolean => {
-    if (typeof document === 'undefined') return false;
-    if (format === 'original') return true;
-    
-    const canvas = document.createElement('canvas');
-    if (!canvas || !canvas.getContext) return false;
-    
-    switch (format) {
-      case 'webp':
-        return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
-      case 'avif':
-        return canvas.toDataURL('image/avif').indexOf('data:image/avif') === 0;
-      default:
-        return true;
-    }
-  };
-  
-  // Preparar a URL da imagem com os parâmetros de otimização
-  const prepareImageUrl = (originalSrc: string): string => {
-    // Verificar se é uma imagem externa ou interna
-    const isExternalUrl = originalSrc.startsWith('http') || originalSrc.startsWith('//');
-    
-    // Se for uma imagem local que não usa CDN, apenas retorna a URL original
-    if (!isExternalUrl && !originalSrc.includes('?')) {
-      return originalSrc;
-    }
-    
-    try {
-      const url = new URL(isExternalUrl ? originalSrc : `https://example.com${originalSrc}`);
+  // Aplicar otimizações de qualidade para dispositivos de baixo desempenho
+  const optimizedSrc = useMemo(() => {
+    // Se for um URL CDN que suporta parâmetros de qualidade (ex: Cloudinary, Imgix)
+    if (src.includes('cloudinary.com') || src.includes('imgix.net')) {
+      const separator = src.includes('?') ? '&' : '?';
+      const qualityMap = {
+        low: 30,
+        medium: 60,
+        high: 85,
+      };
       
-      // Se estamos otimizando e tem parâmetros de qualidade
-      if (shouldOptimize && url.searchParams.has('quality')) {
-        url.searchParams.set('quality', getQualityValue().toString());
-      }
-      
-      // Aplicar formato preferido se a URL tiver parâmetro format
-      const supportedFormats = formats.filter(supportsFormat);
-      if (supportedFormats.length > 0 && url.searchParams.has('format')) {
-        url.searchParams.set('format', supportedFormats[0]);
-      }
-      
-      return isExternalUrl ? url.toString() : url.pathname + url.search;
-    } catch (e) {
-      // Falback para URLs que não são parseáveis
-      return originalSrc;
+      const qualityValue = qualityMap[actualQuality as keyof typeof qualityMap];
+      return `${src}${separator}q=${qualityValue}&auto=format`;
     }
-  };
+    
+    return src;
+  }, [src, actualQuality]);
   
-  // Carregar a imagem otimizada
+  // Configurar observador de interseção para carregamento lazy
   useEffect(() => {
-    if (!src) return;
-    
-    // Verificar se há memória disponível para carregar imagens
-    const hasMemory = hasEnoughMemoryFor('images');
-    
-    // Em caso de dispositivos com pouca memória, usar a versão de baixa qualidade 
-    // ou fallback se disponível
-    if (shouldOptimize && !hasMemory) {
-      if (lowResSrc) {
-        setCurrentSrc(lowResSrc);
-        setIsLoaded(true);
-        return;
-      } else if (fallbackSrc) {
-        setCurrentSrc(fallbackSrc);
-        setIsLoaded(true);
-        return;
-      }
+    if (!lazyLoad || !imgRef.current) {
+      setActualSrc(optimizedSrc);
+      return;
     }
     
-    // Definir estratégia de carregamento
-    if (loadingStrategy === 'eager' || priority) {
-      // Carregar imediatamente em resolução total
-      setCurrentSrc(prepareImageUrl(src));
-    } else if (loadingStrategy === 'progressive' && lowResSrc) {
-      // Carregar versão de baixa resolução primeiro, depois a versão final
-      setCurrentSrc(lowResSrc);
-      
-      // Pré-carregar a imagem em alta resolução
-      const fullImg = new Image();
-      fullImg.src = prepareImageUrl(src);
-      
-      fullImg.onload = () => {
-        setCurrentSrc(prepareImageUrl(src));
-        setIsLoaded(true);
-      };
-      
-      fullImg.onerror = () => {
-        setIsError(true);
-        if (fallbackSrc) {
-          setCurrentSrc(fallbackSrc);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setActualSrc(optimizedSrc);
+          observer.disconnect();
         }
-      };
-    } else {
-      // Carregamento padrão ou lazy
-      setCurrentSrc(prepareImageUrl(src));
-    }
-  }, [src, lowResSrc, fallbackSrc, loadingStrategy, priority, shouldOptimize, formats, quality]);
+      },
+      {
+        rootMargin: '200px',
+        threshold,
+      }
+    );
+    
+    observer.observe(imgRef.current);
+    
+    return () => {
+      if (imgRef.current) {
+        observer.disconnect();
+      }
+    };
+  }, [lazyLoad, optimizedSrc, threshold]);
   
-  // Manipulador para evento de carregamento da imagem
-  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    setIsLoaded(true);
-    if (onLoad) {
-      onLoad(e);
-    }
+  // Handler para carregamento da imagem
+  const handleLoad = () => {
+    setLoaded(true);
+    onLoaded?.();
   };
   
-  // Manipulador para evento de erro ao carregar imagem
-  const handleError = () => {
-    setIsError(true);
-    if (fallbackSrc) {
-      setCurrentSrc(fallbackSrc);
+  // Handler para erro de carregamento
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    setError(true);
+    if (fallbackSrc && !actualSrc.includes(fallbackSrc)) {
+      setActualSrc(fallbackSrc);
     }
+    onError?.(e as unknown as ErrorEvent);
   };
   
-  // Determinar o valor de loading do <img>
-  const getLoadingAttr = (): 'eager' | 'lazy' | undefined => {
-    if (priority || loadingStrategy === 'eager') return 'eager';
-    if (lazyLoad || loadingStrategy === 'lazy') return 'lazy';
-    return undefined; // O navegador decide
+  // Estilo para placeholder
+  const placeholderStyle = {
+    backgroundColor: placeholderColor,
   };
-
-  return (
-    <div 
-      className={cn(
-        'relative overflow-hidden', 
-        aspectRatio && `aspect-[${aspectRatio}]`, 
-        wrapperClassName
-      )}
-      style={{ backgroundColor: !isLoaded ? placeholderColor : 'transparent' }}
-    >
-      {/* Esqueleto/Placeholder enquanto carrega */}
-      {!isLoaded && (
-        <Skeleton 
-          className={cn(
-            'absolute inset-0 z-10 animate-pulse',
-            blurEffect && 'backdrop-blur-sm'
-          )} 
-        />
-      )}
-      
-      {/* Imagem principal */}
-      {currentSrc && (
+  
+  // Renderizar componente de loading se estiver carregando
+  if (!loaded && !error && loadingComponent) {
+    return (
+      <div 
+        className={cn("relative overflow-hidden", className)}
+        style={placeholderStyle}
+        {...props}
+      >
+        {loadingComponent}
         <img
           ref={imgRef}
-          src={currentSrc}
+          src={actualSrc}
           alt={alt}
-          sizes={sizes}
-          loading={getLoadingAttr()}
+          className="opacity-0 absolute inset-0 w-full h-full object-cover"
           onLoad={handleLoad}
           onError={handleError}
-          className={cn(
-            'transition-opacity duration-300', 
-            objectFit && `object-${objectFit}`, 
-            isLoaded ? 'opacity-100' : 'opacity-0',
-            imgClassName
-          )}
-          {...props}
+          loading={lazyLoad ? 'lazy' : undefined}
         />
-      )}
-      
-      {/* Mensagem de erro ou fallback */}
-      {isError && !fallbackSrc && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500 text-sm p-2 text-center">
-          Imagem não disponível
-        </div>
-      )}
+      </div>
+    );
+  }
+  
+  // Renderizar componente de erro se houve erro de carregamento
+  if (error && errorComponent) {
+    return (
+      <div 
+        className={cn("relative overflow-hidden", className)}
+        {...props}
+      >
+        {errorComponent}
+      </div>
+    );
+  }
+  
+  // Renderizar imagem com placeholder
+  return (
+    <div 
+      className={cn("relative overflow-hidden", className)}
+      style={!loaded ? placeholderStyle : undefined}
+      {...props}
+    >
+      <img
+        ref={imgRef}
+        src={actualSrc}
+        alt={alt}
+        className={cn(
+          "w-full h-full object-cover transition-opacity duration-300",
+          !loaded && "opacity-0",
+          loaded && "opacity-100"
+        )}
+        onLoad={handleLoad}
+        onError={handleError}
+        loading={lazyLoad ? 'lazy' : undefined}
+      />
     </div>
   );
 }
 
 /**
- * Componente para imagens de avatar/perfil otimizadas e com fallback
+ * Hook para otimizar o carregamento de imagens em listas grandes
  */
-interface OptimizedAvatarProps extends Omit<OptimizedImageProps, 'objectFit'> {
-  name?: string;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
-  shape?: 'circle' | 'rounded' | 'square';
-  border?: boolean;
-  borderColor?: string;
-}
-
-export function OptimizedAvatar({
-  src,
-  alt,
-  name,
-  size = 'md',
-  shape = 'circle',
-  border = false,
-  borderColor = 'border-gray-200',
-  className,
-  ...props
-}: OptimizedAvatarProps) {
-  // Gerar iniciais do nome como fallback
-  const getInitials = (): string => {
-    if (!name) return '';
-    return name
-      .split(' ')
-      .map(part => part[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
-  };
+export function useOptimizedImageList(
+  urls: string[],
+  options: {
+    quality?: 'low' | 'medium' | 'high' | 'auto';
+    preloadCount?: number;
+    concurrentLoads?: number;
+  } = {}
+) {
+  const { 
+    quality = 'auto',
+    preloadCount = 5,
+    concurrentLoads = 3,
+  } = options;
   
-  // Função para gerar uma cor de fundo baseada no nome
-  const getNameColor = (): string => {
-    if (!name) return '#6E56CF'; // Cor padrão
+  const shouldOptimize = useShouldOptimize();
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const loadingQueue = useRef<string[]>([]);
+  const activeLoads = useRef<Set<string>>(new Set());
+  
+  // Determinar a qualidade das imagens
+  const actualQuality = useMemo(() => {
+    if (quality !== 'auto') return quality;
+    return shouldOptimize ? 'low' : 'high';
+  }, [quality, shouldOptimize]);
+  
+  // Pré-carregar imagens
+  useEffect(() => {
+    if (!urls.length) {
+      setLoading(false);
+      return;
+    }
     
-    // Gerar uma cor baseada no hash do nome
-    const hash = name.split('').reduce((acc, char) => {
-      return char.charCodeAt(0) + ((acc << 5) - acc);
-    }, 0);
+    // Inicializar a fila de carregamento
+    loadingQueue.current = [...urls].slice(0, preloadCount);
+    activeLoads.current = new Set();
     
-    // Usar matiz entre 200° e 280° (tons de azul/roxo) para melhor contraste com texto branco
-    const h = Math.abs(hash) % 80 + 200;
-    const s = 70; // Saturação 
-    const l = 60; // Luminosidade
+    const loadNextBatch = () => {
+      // Carregar até o limite de carregamentos concorrentes
+      while (
+        activeLoads.current.size < concurrentLoads && 
+        loadingQueue.current.length > 0
+      ) {
+        const url = loadingQueue.current.shift()!;
+        if (loadedImages.has(url)) continue;
+        
+        activeLoads.current.add(url);
+        
+        const img = new Image();
+        img.onload = () => {
+          setLoadedImages(prev => {
+            const newSet = new Set(prev);
+            newSet.add(url);
+            return newSet;
+          });
+          activeLoads.current.delete(url);
+          
+          // Verificar se terminamos todos os carregamentos
+          if (activeLoads.current.size === 0 && loadingQueue.current.length === 0) {
+            setLoading(false);
+          } else {
+            loadNextBatch();
+          }
+        };
+        
+        img.onerror = () => {
+          activeLoads.current.delete(url);
+          
+          // Continuar carregando mesmo com erro
+          if (activeLoads.current.size === 0 && loadingQueue.current.length === 0) {
+            setLoading(false);
+          } else {
+            loadNextBatch();
+          }
+        };
+        
+        // Aplicar otimizações de qualidade para CDNs que suportam
+        let imageUrl = url;
+        if (
+          (url.includes('cloudinary.com') || url.includes('imgix.net')) &&
+          actualQuality !== 'high'
+        ) {
+          const separator = url.includes('?') ? '&' : '?';
+          const qualityMap = {
+            low: 30,
+            medium: 60,
+            high: 85,
+          };
+          
+          const qualityValue = qualityMap[actualQuality as keyof typeof qualityMap];
+          imageUrl = `${url}${separator}q=${qualityValue}&auto=format`;
+        }
+        
+        img.src = imageUrl;
+      }
+    };
     
-    return `hsl(${h}, ${s}%, ${l}%)`;
-  };
+    loadNextBatch();
+    
+    return () => {
+      // Limpar imagens em carregamento ao desmontar
+      loadingQueue.current = [];
+      activeLoads.current.clear();
+    };
+  }, [urls, preloadCount, concurrentLoads, actualQuality, loadedImages]);
   
-  // Mapear tamanhos para classes
-  const sizeClasses = {
-    'xs': 'h-6 w-6 text-xs',
-    'sm': 'h-8 w-8 text-xs',
-    'md': 'h-10 w-10 text-sm',
-    'lg': 'h-12 w-12 text-base',
-    'xl': 'h-16 w-16 text-lg',
-    '2xl': 'h-24 w-24 text-xl',
+  return {
+    loadedImages,
+    loading,
+    isImageLoaded: (url: string) => loadedImages.has(url),
+    optimizeImageUrl: (url: string) => {
+      if (
+        (url.includes('cloudinary.com') || url.includes('imgix.net')) &&
+        actualQuality !== 'high'
+      ) {
+        const separator = url.includes('?') ? '&' : '?';
+        const qualityMap = {
+          low: 30,
+          medium: 60,
+          high: 85,
+        };
+        
+        const qualityValue = qualityMap[actualQuality as keyof typeof qualityMap];
+        return `${url}${separator}q=${qualityValue}&auto=format`;
+      }
+      return url;
+    },
   };
-  
-  // Mapear formas para classes
-  const shapeClasses = {
-    'circle': 'rounded-full',
-    'rounded': 'rounded-md',
-    'square': 'rounded-none',
-  };
-  
-  return (
-    <div
-      className={cn(
-        'relative flex items-center justify-center overflow-hidden bg-primary/10 text-primary-foreground font-medium',
-        sizeClasses[size],
-        shapeClasses[shape],
-        border && `border-2 ${borderColor}`,
-        className
-      )}
-      style={!src ? { backgroundColor: getNameColor() } : undefined}
-    >
-      {src ? (
-        <OptimizedImage
-          src={src}
-          alt={alt}
-          className={cn(
-            'h-full w-full object-cover',
-            shapeClasses[shape],
-          )}
-          objectFit="cover"
-          {...props}
-        />
-      ) : (
-        <span className="text-white">{getInitials()}</span>
-      )}
-    </div>
-  );
 }

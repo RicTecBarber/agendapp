@@ -1,251 +1,250 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
-/**
- * Constantes para gerenciamento de memória
- */
-const MEMORY_CHECK_INTERVAL = 30000; // 30 segundos
-const LOW_MEMORY_THRESHOLD = 100 * 1024 * 1024; // 100MB em bytes
-const CRITICAL_MEMORY_THRESHOLD = 50 * 1024 * 1024; // 50MB em bytes
-const RESOURCE_MEMORY_ESTIMATES = {
-  images: {
-    lowRes: 0.5 * 1024 * 1024, // 500KB por imagem de baixa resolução
-    highRes: 2 * 1024 * 1024, // 2MB por imagem de alta resolução
-    animation: 5 * 1024 * 1024 // 5MB por animação
-  },
-  videos: {
-    preview: 5 * 1024 * 1024, // 5MB para um preview de vídeo
-    medium: 20 * 1024 * 1024, // 20MB para um vídeo médio
-    high: 50 * 1024 * 1024 // 50MB para um vídeo HD
-  },
-  animations: {
-    simple: 1 * 1024 * 1024, // 1MB para animações simples
-    complex: 5 * 1024 * 1024 // 5MB para animações complexas
-  }
-};
-
-/**
- * Hook para monitorar a memória disponível do navegador
- * e fornecer callbacks/utilidades para gerenciamento de memória
- */
-export function useMemoryMonitor() {
-  const [memoryInfo, setMemoryInfo] = useState<{
-    totalJSHeapSize?: number;
-    usedJSHeapSize?: number;
-    jsHeapSizeLimit?: number;
-    availableMemory?: number;
-    isLowMemory: boolean;
-    isCriticalMemory: boolean;
-  }>({
-    isLowMemory: false,
-    isCriticalMemory: false
-  });
+// Detectar se uma imagem caberia na memória disponível
+export function hasEnoughMemoryFor(
+  width: number, 
+  height: number, 
+  bytesPerPixel: number = 4
+): boolean {
+  // Calcular tamanho aproximado da imagem em bytes
+  const imageSizeBytes = width * height * bytesPerPixel;
   
-  const memoryWarningShown = useRef<boolean>(false);
-  
-  const checkMemory = useCallback(() => {
-    // Verifica se a API de Performance está disponível
-    if (typeof performance === 'undefined' || !performance.memory) {
-      return null;
-    }
-    
-    try {
-      const memory = (performance as any).memory;
-      const totalJSHeapSize = memory?.totalJSHeapSize;
-      const usedJSHeapSize = memory?.usedJSHeapSize;
-      const jsHeapSizeLimit = memory?.jsHeapSizeLimit;
-      const availableMemory = jsHeapSizeLimit - usedJSHeapSize;
-      
-      const isLowMemory = availableMemory < LOW_MEMORY_THRESHOLD;
-      const isCriticalMemory = availableMemory < CRITICAL_MEMORY_THRESHOLD;
-      
-      // Definir flags globais para otimização
-      if (typeof window !== 'undefined') {
-        window.__OPTIMIZE_IMAGES = isLowMemory;
-      }
-      
-      // Mostrar aviso de memória baixa
-      if (isCriticalMemory && !memoryWarningShown.current && typeof window !== 'undefined') {
-        memoryWarningShown.current = true;
-        window.__MEMORY_WARNING_SHOWN = true;
-        console.warn('Memória crítica detectada. Otimizações de memória ativadas.');
-      }
-      
-      return {
-        totalJSHeapSize,
-        usedJSHeapSize,
-        jsHeapSizeLimit,
-        availableMemory,
-        isLowMemory,
-        isCriticalMemory
-      };
-    } catch (error) {
-      console.error('Erro ao verificar memória:', error);
-      return null;
-    }
-  }, []);
-  
-  // Atualizar informações de memória periodicamente
-  useEffect(() => {
-    // Verificação inicial
-    const initialMemoryInfo = checkMemory();
-    if (initialMemoryInfo) {
-      setMemoryInfo(initialMemoryInfo);
-    }
-    
-    // Configurar intervalo para verificação periódica
-    const intervalId = setInterval(() => {
-      const memoryInfo = checkMemory();
-      if (memoryInfo) {
-        setMemoryInfo(memoryInfo);
-      }
-    }, MEMORY_CHECK_INTERVAL);
-    
-    // Limpeza
-    return () => clearInterval(intervalId);
-  }, [checkMemory]);
-  
-  // Função para liberar memória sob demanda
-  const freeMemory = useCallback(() => {
-    // Forçar coleta de lixo se o navegador suportar
-    if (typeof window !== 'undefined' && 'gc' in window) {
-      try {
-        (window as any).gc();
-      } catch (error) {
-        console.warn('Falha ao tentar liberar memória:', error);
-      }
-    }
-    
-    // Limpar caches que possam estar consumindo memória
-    if (typeof caches !== 'undefined') {
-      try {
-        caches.keys().then(names => {
-          names.forEach(name => {
-            if (name.includes('image') || name.includes('media')) {
-              caches.delete(name);
-            }
-          });
-        });
-      } catch (error) {
-        console.warn('Falha ao limpar caches:', error);
-      }
-    }
-  }, []);
-  
-  return {
-    ...memoryInfo,
-    checkMemory,
-    freeMemory
-  };
-}
-
-/**
- * Verifica se há memória suficiente disponível para carregar recursos pesados
- * como imagens de alta resolução, vídeos, etc.
- */
-export function hasEnoughMemoryFor(resourceType: 'images' | 'videos' | 'animations'): boolean {
-  // Se não temos acesso à API de memória, assumir que tem memória suficiente
-  if (typeof performance === 'undefined' || !performance.memory) {
-    return true;
-  }
-  
-  try {
+  // Em navegadores modernos, tentar verificar a memória disponível
+  if (typeof performance !== 'undefined' && 'memory' in performance) {
     const memory = (performance as any).memory;
-    if (!memory) return true;
-    
-    const availableMemory = memory.jsHeapSizeLimit - memory.usedJSHeapSize;
-    
-    // Verificar com base no tipo de recurso
-    switch (resourceType) {
-      case 'images':
-        // Assumir que vamos carregar várias imagens (10)
-        return availableMemory > (RESOURCE_MEMORY_ESTIMATES.images.highRes * 10);
-      case 'videos':
-        // Verificar para um vídeo médio
-        return availableMemory > RESOURCE_MEMORY_ESTIMATES.videos.medium;
-      case 'animations':
-        // Verificar para várias animações simples (5)
-        return availableMemory > (RESOURCE_MEMORY_ESTIMATES.animations.simple * 5);
-      default:
-        return true;
+    if (memory && memory.jsHeapSizeLimit) {
+      // Verificar se a imagem ocuparia mais de 20% da memória máxima disponível
+      return imageSizeBytes < (memory.jsHeapSizeLimit * 0.2);
     }
-  } catch (error) {
-    console.warn('Erro ao verificar memória disponível:', error);
-    return true; // Em caso de erro, permitir carregamento
   }
+  
+  // Fallback para uma heurística simples baseada no tamanho da imagem
+  // Considerar que imagens maiores que 16MP podem causar problemas
+  const MAX_SAFE_PIXELS = 16 * 1024 * 1024; // 16 megapixels
+  return (width * height) < MAX_SAFE_PIXELS;
 }
 
-/**
- * Hook para detectar e prevenir vazamentos de memória
- * em componentes com muitos elementos ou dados
- */
-export function useLeakPrevention(componentName: string) {
-  const mountTime = useRef<number>(Date.now());
-  const unmountHandler = useRef<NodeJS.Timeout | null>(null);
-  const isMounted = useRef<boolean>(true);
+// Hook para detecção de vazamentos de memória
+export function useLeakPrevention(warningThresholdMB: number = 100) {
+  const [memoryWarning, setMemoryWarning] = useState(false);
+  const cleanupFunctionsRef = useRef<Array<() => void>>([]);
   
+  // Monitorar uso de memória
   useEffect(() => {
-    // Registrar quando o componente é montado
-    mountTime.current = Date.now();
-    isMounted.current = true;
+    if (typeof performance === 'undefined' || !('memory' in performance)) {
+      return;
+    }
     
-    return () => {
-      // Quando o componente é desmontado
-      isMounted.current = false;
-      
-      // Verificar quanto tempo o componente esteve montado
-      const mountDuration = Date.now() - mountTime.current;
-      
-      // Para componentes que estiveram montados por mais tempo,
-      // agendar uma verificação após a desmontagem para garantir
-      // que a memória foi liberada
-      if (mountDuration > 60000) { // 1 minuto ou mais
-        unmountHandler.current = setTimeout(() => {
-          // Forçar coleta de lixo se possível
-          if ('gc' in window) {
-            try {
-              (window as any).gc();
-            } catch (error) {
-              // Silenciar erro
-            }
-          }
-          
-          // Verificar memória após a coleta de lixo
-          if (typeof performance !== 'undefined' && performance.memory) {
-            const memory = (performance as any).memory;
-            console.info(`[MemoryCheck] ${componentName} liberou ${Math.round(memory.usedJSHeapSize / (1024 * 1024))}MB após desmontagem`);
-          }
-        }, 1000); // Verificar 1 segundo após a desmontagem
+    const memory = (performance as any).memory;
+    if (!memory) return;
+    
+    const checkMemoryUsage = () => {
+      const usedHeapSize = memory.usedJSHeapSize / (1024 * 1024); // Em MB
+      if (usedHeapSize > warningThresholdMB) {
+        setMemoryWarning(true);
+      } else {
+        setMemoryWarning(false);
       }
     };
-  }, [componentName]);
-  
-  // Função para limpar referências e cancelar manejadores pendentes
-  const cleanupReferences = useCallback((refs: any[]) => {
-    if (!isMounted.current) return;
     
-    // Limpar todas as referências passadas
-    refs.forEach(ref => {
-      if (ref && typeof ref === 'object') {
-        if ('current' in ref) {
-          ref.current = null;
-        } else {
-          // Tentar limpar outros tipos de objetos
-          Object.keys(ref).forEach(key => {
-            ref[key] = null;
-          });
-        }
+    // Verificar a cada 5 segundos
+    const intervalId = setInterval(checkMemoryUsage, 5000);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [warningThresholdMB]);
+  
+  // Função para registrar limpezas
+  const registerCleanup = useCallback((cleanupFn: () => void) => {
+    cleanupFunctionsRef.current.push(cleanupFn);
+    return () => {
+      const index = cleanupFunctionsRef.current.indexOf(cleanupFn);
+      if (index !== -1) {
+        cleanupFunctionsRef.current.splice(index, 1);
+      }
+    };
+  }, []);
+  
+  // Funcionalidade de limpeza de emergência
+  const forceCleanup = useCallback(() => {
+    // Executar todas as funções de limpeza registradas
+    cleanupFunctionsRef.current.forEach(cleanup => {
+      try {
+        cleanup();
+      } catch (e) {
+        console.error('Erro ao executar limpeza de memória:', e);
       }
     });
     
-    // Cancelar qualquer verificação pendente
-    if (unmountHandler.current) {
-      clearTimeout(unmountHandler.current);
-      unmountHandler.current = null;
+    // Tentar forçar o garbage collector (com sintaxe especial não padronizada)
+    if (typeof window !== 'undefined' && 'gc' in window) {
+      try {
+        (window as any).gc();
+      } catch (e) {
+        // Silenciosamente ignorar se gc não estiver disponível
+      }
     }
+    
+    setMemoryWarning(false);
   }, []);
   
   return {
-    isMounted,
-    cleanupReferences
+    memoryWarning,
+    registerCleanup,
+    forceCleanup
   };
+}
+
+// Função de limpeza de cache de imagens
+export function clearImageCache() {
+  if (typeof window === 'undefined') return;
+  
+  // Tentar limpar o cache de serviços de worker
+  if ('caches' in window) {
+    try {
+      // Limpar caches relacionados a imagens
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames
+            .filter(cacheName => cacheName.includes('image'))
+            .map(cacheName => caches.delete(cacheName))
+        );
+      });
+    } catch (e) {
+      console.error('Erro ao limpar cache de imagens:', e);
+    }
+  }
+}
+
+// Função para liberar memória em situações críticas
+export function emergencyMemoryCleanup() {
+  // Limpar caches de imagens
+  clearImageCache();
+  
+  // Tentar limpar outros recursos
+  if (typeof window !== 'undefined') {
+    // Limpar todos os timeouts e intervals pendentes
+    const highestId = window.setTimeout(() => {}, 0);
+    for (let i = 0; i < highestId; i++) {
+      window.clearTimeout(i);
+      window.clearInterval(i);
+    }
+    
+    // Remover event listeners desnecessários
+    // (Isso deve ser feito com cuidado, apenas em componentes específicos)
+    
+    // Liberar memória de canvas não utilizados
+    const canvases = document.querySelectorAll('canvas');
+    canvases.forEach(canvas => {
+      const ctx = canvas.getContext('2d');
+      if (ctx && !canvas.getAttribute('data-keep')) {
+        // Limpar canvas e liberar contexto
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // @ts-ignore - Método não padronizado em alguns navegadores
+        if (ctx.reset) ctx.reset();
+      }
+    });
+  }
+}
+
+// Hook para monitorar e relatar uso de memória
+export function useMemoryUsage(reportInterval: number = 10000) {
+  const [memoryStats, setMemoryStats] = useState<{
+    totalJSHeapSize: number;
+    usedJSHeapSize: number;
+    jsHeapSizeLimit: number;
+    timestamp: number;
+  } | null>(null);
+  
+  useEffect(() => {
+    if (typeof performance === 'undefined' || !('memory' in performance)) {
+      return;
+    }
+    
+    const memory = (performance as any).memory;
+    if (!memory) return;
+    
+    const updateMemoryStats = () => {
+      setMemoryStats({
+        totalJSHeapSize: memory.totalJSHeapSize / (1024 * 1024), // MB
+        usedJSHeapSize: memory.usedJSHeapSize / (1024 * 1024), // MB
+        jsHeapSizeLimit: memory.jsHeapSizeLimit / (1024 * 1024), // MB
+        timestamp: Date.now(),
+      });
+    };
+    
+    updateMemoryStats();
+    const intervalId = setInterval(updateMemoryStats, reportInterval);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [reportInterval]);
+  
+  return memoryStats;
+}
+
+// Componente para mostrar alertas de uso excessivo de memória
+export function MemoryWarningBanner({ 
+  thresholdMB = 150,
+  autoCleanupThresholdMB = 200
+}: { 
+  thresholdMB?: number,
+  autoCleanupThresholdMB?: number
+}) {
+  const memoryStats = useMemoryUsage(5000);
+  const [showWarning, setShowWarning] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  
+  // Verificar se devemos mostrar o aviso
+  useEffect(() => {
+    if (!memoryStats) return;
+    
+    const usedMemory = memoryStats.usedJSHeapSize;
+    
+    if (usedMemory > thresholdMB) {
+      setShowWarning(true);
+    } else {
+      setShowWarning(false);
+    }
+    
+    // Auto-limpeza de emergência se exceder muito
+    if (usedMemory > autoCleanupThresholdMB) {
+      emergencyMemoryCleanup();
+    }
+  }, [memoryStats, thresholdMB, autoCleanupThresholdMB]);
+  
+  if (!showWarning) return null;
+  
+  return (
+    <div className="fixed bottom-4 right-4 z-50 max-w-sm bg-yellow-100 border-yellow-400 border text-yellow-800 rounded-lg shadow-lg">
+      <div className="p-3">
+        <div className="flex justify-between items-center">
+          <div className="font-medium">Alerta de Memória</div>
+          <button 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-yellow-700 hover:text-yellow-900"
+          >
+            {isCollapsed ? '▼' : '▲'}
+          </button>
+        </div>
+        
+        {!isCollapsed && memoryStats && (
+          <div className="mt-2 text-sm">
+            <div>Uso: {Math.round(memoryStats.usedJSHeapSize)} MB</div>
+            <div>Limite: {Math.round(memoryStats.jsHeapSizeLimit)} MB</div>
+            <div className="mt-2">
+              <button
+                onClick={() => emergencyMemoryCleanup()}
+                className="px-3 py-1 bg-yellow-200 hover:bg-yellow-300 rounded text-yellow-900"
+              >
+                Limpar Memória
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

@@ -16,6 +16,7 @@ import LoyaltyPage from "@/pages/client/LoyaltyPage";
 import AuthPage from "@/pages/admin/AuthPage";
 import DashboardPage from "@/pages/admin/DashboardPage";
 import AppointmentsPage from "@/pages/admin/AppointmentsPage";
+import CalendarPage from "@/pages/admin/CalendarPage";
 import ClientsPage from "@/pages/admin/ClientsPage";
 import LoyaltyManagementPage from "@/pages/admin/LoyaltyManagementPage";
 import ServicesPage from "@/pages/admin/ServicesPage";
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/admin/auth" component={AuthPage} />
       <ProtectedRoute path="/admin/dashboard" component={DashboardPage} />
       <ProtectedRoute path="/admin/appointments" component={AppointmentsPage} />
+      <ProtectedRoute path="/admin/calendar" component={CalendarPage} />
       <ProtectedRoute path="/admin/agendamentos/novo" component={AppointmentsPage} />
       <ProtectedRoute path="/admin/clients" component={ClientsPage} />
       <ProtectedRoute path="/admin/loyalty" component={LoyaltyManagementPage} />

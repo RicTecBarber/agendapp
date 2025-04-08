@@ -1,281 +1,413 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
-// Configuração padrão para detecção de dispositivos móveis
-const DEFAULT_MOBILE_BREAKPOINT = 768; // pixels
-const DEFAULT_TABLET_BREAKPOINT = 1024; // pixels
-const CONNECTION_CHECK_INTERVAL = 60000; // 1 minuto
+// Thresholds para detecção
+const MOBILE_WIDTH_THRESHOLD = 640; // Breakpoint para dispositivos móveis em pixels
+const LOW_MEMORY_THRESHOLD = 2048; // Memória disponível limite para detecção de dispositivos de baixo desempenho (em MB)
+const LOW_CORES_THRESHOLD = 4; // Número máximo de cores para considerarmos um dispositivo de baixo desempenho
+const SLOW_CONNECTION_THRESHOLD = 1.5; // Velocidade máxima de conexão para considerarmos lenta (em Mbps)
+
+// Tipos de dispositivo
+export type DeviceType = 'mobile' | 'tablet' | 'desktop';
+export type ConnectionType = 'slow' | 'medium' | 'fast' | 'unknown';
+export type PerformanceProfile = 'low' | 'medium' | 'high' | 'unknown';
 
 /**
- * Hook para verificar se o dispositivo é móvel baseado na largura da tela
+ * Hook principal para detectar dispositivos móveis
+ * Retorna true se o dispositivo atual for considerado móvel
  */
-export function useIsMobile(breakpoint = DEFAULT_MOBILE_BREAKPOINT) {
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+export function useMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
   
   useEffect(() => {
+    // Função para verificar se é dispositivo móvel
     const checkMobile = () => {
-      // Verificações para SSR
-      if (typeof window === 'undefined') return false;
-      
       // Verificar largura da tela
-      const screenWidth = window.innerWidth;
-      setIsMobile(screenWidth < breakpoint);
+      const isMobileWidth = window.innerWidth < MOBILE_WIDTH_THRESHOLD;
+      
+      // Verificar se há touch
+      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      
+      // Verificar user agent para dispositivos móveis
+      const mobileUserAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      );
+      
+      // Consideramos móvel se atender pelo menos dois critérios
+      const detectedAsMobile = 
+        (isMobileWidth && hasTouch) || 
+        (isMobileWidth && mobileUserAgent) || 
+        (hasTouch && mobileUserAgent);
+      
+      setIsMobile(detectedAsMobile);
     };
     
-    // Verificação inicial
+    // Verificar imediatamente e adicionar listener para resize
     checkMobile();
-    
-    // Adicionar listener para mudanças de tamanho da tela
     window.addEventListener('resize', checkMobile);
     
-    // Cleanup
-    return () => window.removeEventListener('resize', checkMobile);
-  }, [breakpoint]);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
   
   return isMobile;
 }
 
 /**
- * Hook para verificar se o dispositivo é um tablet
+ * Hook para detectar o tipo de dispositivo mais precisamente
+ * Categoriza entre mobile, tablet e desktop
  */
-export function useIsTablet(
-  mobileBreakpoint = DEFAULT_MOBILE_BREAKPOINT, 
-  tabletBreakpoint = DEFAULT_TABLET_BREAKPOINT
-) {
-  const [isTablet, setIsTablet] = useState<boolean>(false);
+export function useDeviceType(): DeviceType {
+  const [deviceType, setDeviceType] = useState<DeviceType>('desktop');
   
   useEffect(() => {
-    const checkTablet = () => {
-      // Verificações para SSR
-      if (typeof window === 'undefined') return false;
+    // Função para detectar o tipo de dispositivo
+    const detectDeviceType = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const aspectRatio = width / height;
       
-      // Verificar largura da tela
-      const screenWidth = window.innerWidth;
-      setIsTablet(screenWidth >= mobileBreakpoint && screenWidth < tabletBreakpoint);
+      // Verificar user agent para tablets específicos
+      const isTabletUserAgent = /iPad|Android(?!.*Mobile)|Tablet/i.test(navigator.userAgent);
+      
+      // Dispositivos com tela pequena são considerados móveis
+      if (width < 640) {
+        setDeviceType('mobile');
+        return;
+      }
+      
+      // Tablets geralmente têm largura entre 640px e 1024px
+      // ou uma proporção de aspecto próxima de 4:3
+      if (
+        (width >= 640 && width <= 1024 && aspectRatio < 1.4) || 
+        isTabletUserAgent
+      ) {
+        setDeviceType('tablet');
+        return;
+      }
+      
+      // Caso contrário, consideramos desktop
+      setDeviceType('desktop');
     };
     
-    // Verificação inicial
-    checkTablet();
+    detectDeviceType();
+    window.addEventListener('resize', detectDeviceType);
     
-    // Adicionar listener para mudanças de tamanho da tela
-    window.addEventListener('resize', checkTablet);
-    
-    // Cleanup
-    return () => window.removeEventListener('resize', checkTablet);
-  }, [mobileBreakpoint, tabletBreakpoint]);
+    return () => {
+      window.removeEventListener('resize', detectDeviceType);
+    };
+  }, []);
   
-  return isTablet;
+  return deviceType;
 }
 
 /**
- * Verifica parâmetros da conexão de rede do usuário
+ * Hook para detectar o tipo de conexão de internet do usuário
+ * Categoriza entre slow, medium e fast
  */
-export function useConnectionInfo() {
-  const [connectionType, setConnectionType] = useState<string | null>(null);
-  const [effectiveType, setEffectiveType] = useState<string | null>(null);
-  const [downlink, setDownlink] = useState<number | null>(null);
-  const [saveData, setSaveData] = useState<boolean>(false);
-  const [isLowEnd, setIsLowEnd] = useState<boolean>(false);
+export function useConnectionType(): ConnectionType {
+  const [connectionType, setConnectionType] = useState<ConnectionType>('unknown');
   
-  const updateConnectionInfo = useCallback(() => {
-    if (typeof navigator === 'undefined') return;
+  useEffect(() => {
+    // Tentar obter informações da conexão via Network Information API
+    const connection = navigator.connection || 
+                       (navigator as any).mozConnection || 
+                       (navigator as any).webkitConnection;
     
-    // Verificar a API Network Information 
-    if ('connection' in navigator) {
-      const conn = (navigator as any).connection;
-      if (conn) {
-        setConnectionType(conn.type || null);
-        setEffectiveType(conn.effectiveType || null);
-        setDownlink(conn.downlink || null);
-        setSaveData(!!conn.saveData);
-      }
-    }
-    
-    // Verificar RAM do dispositivo (disponível em alguns browsers)
-    if ('deviceMemory' in navigator) {
-      setIsLowEnd((navigator as any).deviceMemory < 4);
+    if (connection) {
+      // Função para atualizar o tipo de conexão
+      const updateConnectionType = () => {
+        // Verificar velocidade efetiva se disponível
+        if ('downlink' in connection) {
+          const downlink = connection.downlink; // Mbps
+          
+          if (downlink < SLOW_CONNECTION_THRESHOLD) {
+            setConnectionType('slow');
+          } else if (downlink < 5) {
+            setConnectionType('medium');
+          } else {
+            setConnectionType('fast');
+          }
+          return;
+        }
+        
+        // Fallback para effectiveType se disponível
+        if ('effectiveType' in connection) {
+          const effectiveType = connection.effectiveType;
+          
+          if (effectiveType === 'slow-2g' || effectiveType === '2g') {
+            setConnectionType('slow');
+          } else if (effectiveType === '3g') {
+            setConnectionType('medium');
+          } else if (effectiveType === '4g') {
+            setConnectionType('fast');
+          }
+          return;
+        }
+        
+        // Se não conseguimos determinar, usar tipo de conexão
+        if ('type' in connection) {
+          const type = connection.type;
+          
+          if (type === 'cellular' || type === 'none') {
+            setConnectionType('slow');
+          } else if (type === 'wifi' || type === 'ethernet') {
+            setConnectionType('fast');
+          } else {
+            setConnectionType('medium');
+          }
+          return;
+        }
+        
+        // Não conseguimos determinar
+        setConnectionType('unknown');
+      };
+      
+      // Configurar listeners para mudanças de conexão
+      updateConnectionType();
+      connection.addEventListener('change', updateConnectionType);
+      
+      return () => {
+        connection.removeEventListener('change', updateConnectionType);
+      };
+    } else {
+      // Fallback: tentar detectar com base em velocidade de carregamento
+      const startTime = performance.now();
+      
+      // Carregar um pequeno recurso para testar a velocidade
+      fetch('/api/barbershop-settings')
+        .then(() => {
+          const loadTime = performance.now() - startTime;
+          
+          // Determinar tipo de conexão com base no tempo de carregamento
+          if (loadTime > 1000) {
+            setConnectionType('slow');
+          } else if (loadTime > 300) {
+            setConnectionType('medium');
+          } else {
+            setConnectionType('fast');
+          }
+        })
+        .catch(() => {
+          // Se houver erro, assumir conexão lenta
+          setConnectionType('slow');
+        });
     }
   }, []);
   
+  return connectionType;
+}
+
+/**
+ * Hook para detecção da capacidade de performance do dispositivo
+ * Combina vários fatores para estimar o perfil de performance
+ */
+export function usePerformanceProfile(): PerformanceProfile {
+  const isMobile = useMobile();
+  const connectionType = useConnectionType();
+  const [performanceProfile, setPerformanceProfile] = useState<PerformanceProfile>('unknown');
+  
   useEffect(() => {
-    // Verificação inicial
-    updateConnectionInfo();
-    
-    // Configurar ouvinte para mudanças na conexão se o navegador suportar
-    if (typeof navigator !== 'undefined' && 'connection' in navigator) {
-      const conn = (navigator as any).connection;
+    // Função para detectar o perfil de performance
+    const detectPerformanceProfile = () => {
+      let score = 0;
       
-      if (conn && conn.addEventListener) {
-        conn.addEventListener('change', updateConnectionInfo);
+      // 1. Verificar memória disponível
+      if (typeof performance !== 'undefined' && 'memory' in performance) {
+        const memory = (performance as any).memory;
+        if (memory && memory.jsHeapSizeLimit) {
+          const totalMemoryMB = memory.jsHeapSizeLimit / (1024 * 1024);
+          
+          if (totalMemoryMB < LOW_MEMORY_THRESHOLD) {
+            // Dispositivo de baixa memória
+            score -= 2;
+          } else if (totalMemoryMB > 4096) {
+            // Dispositivo com bastante memória
+            score += 1;
+          }
+        }
+      }
+      
+      // 2. Verificar número de núcleos da CPU
+      if (navigator.hardwareConcurrency) {
+        const cores = navigator.hardwareConcurrency;
         
-        // Configurar intervalo de verificação como fallback
-        const intervalId = setInterval(updateConnectionInfo, CONNECTION_CHECK_INTERVAL);
+        if (cores <= LOW_CORES_THRESHOLD) {
+          // Poucos núcleos
+          score -= 1;
+        } else if (cores >= 8) {
+          // Muitos núcleos
+          score += 2;
+        }
+      }
+      
+      // 3. Considerar tipo de dispositivo
+      if (isMobile) {
+        score -= 1;
+      }
+      
+      // 4. Considerar tipo de conexão
+      if (connectionType === 'slow') {
+        score -= 1;
+      } else if (connectionType === 'fast') {
+        score += 1;
+      }
+      
+      // 5. Verificar se o dispositivo tem bateria (móvel)
+      if ('getBattery' in navigator) {
+        (navigator as any).getBattery().then((battery: any) => {
+          if (battery.charging === false && battery.level < 0.2) {
+            // Bateria baixa e não carregando - economizar recursos
+            score -= 1;
+            determineProfile(score);
+          }
+        });
+      }
+      
+      // Determinar perfil com base na pontuação
+      determineProfile(score);
+    };
+    
+    const determineProfile = (score: number) => {
+      if (score <= -2) {
+        setPerformanceProfile('low');
+      } else if (score >= 2) {
+        setPerformanceProfile('high');
+      } else {
+        setPerformanceProfile('medium');
+      }
+    };
+    
+    detectPerformanceProfile();
+  }, [isMobile, connectionType]);
+  
+  return performanceProfile;
+}
+
+/**
+ * Hook utilitário que indica se devemos aplicar otimizações de performance
+ * Retorna true para dispositivos que precisam de otimizações adicionais
+ */
+export function useShouldOptimize(): boolean {
+  const isMobile = useMobile();
+  const connectionType = useConnectionType();
+  const performanceProfile = usePerformanceProfile();
+  
+  // Memoizar o resultado para evitar recálculos desnecessários
+  const shouldOptimize = useMemo(() => {
+    // Sempre otimizar para dispositivos de baixo desempenho
+    if (performanceProfile === 'low') {
+      return true;
+    }
+    
+    // Otimizar para dispositivos móveis com conexão lenta
+    if (isMobile && connectionType === 'slow') {
+      return true;
+    }
+    
+    // Otimizar com base em flags específicas de navegadores
+    if (typeof navigator !== 'undefined') {
+      // Data saver mode
+      if ('connection' in navigator && (navigator as any).connection.saveData) {
+        return true;
+      }
+      
+      // Modo de desempenho reduzido (alguns navegadores)
+      if ('userAgentData' in navigator && (navigator as any).userAgentData?.mobile) {
+        return true;
+      }
+    }
+    
+    // Otimizar com base na memória disponível
+    if (typeof performance !== 'undefined' && 'memory' in performance) {
+      const memory = (performance as any).memory;
+      if (memory && memory.jsHeapSizeLimit) {
+        const totalMemoryMB = memory.jsHeapSizeLimit / (1024 * 1024);
+        if (totalMemoryMB < LOW_MEMORY_THRESHOLD) {
+          return true;
+        }
+      }
+    }
+    
+    // Não otimizar para outros casos
+    return false;
+  }, [isMobile, connectionType, performanceProfile]);
+  
+  return shouldOptimize;
+}
+
+/**
+ * Hook para detecção de modo escuro/claro do sistema
+ */
+export function usePrefersDarkMode(): boolean {
+  const [prefersDarkMode, setPrefersDarkMode] = useState(() => {
+    return typeof window !== 'undefined' 
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : false;
+  });
+  
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      setPrefersDarkMode(e.matches);
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
+  
+  return prefersDarkMode;
+}
+
+/**
+ * Hook que detecta se o dispositivo está em modo de economia de energia
+ */
+export function usePowerSaveMode(): boolean {
+  const [isPowerSaveMode, setIsPowerSaveMode] = useState(false);
+  
+  useEffect(() => {
+    if ('connection' in navigator) {
+      const connection = (navigator as any).connection;
+      
+      if ('saveData' in connection) {
+        setIsPowerSaveMode(connection.saveData);
         
+        const handleChange = () => {
+          setIsPowerSaveMode(connection.saveData);
+        };
+        
+        connection.addEventListener('change', handleChange);
         return () => {
-          conn.removeEventListener('change', updateConnectionInfo);
-          clearInterval(intervalId);
+          connection.removeEventListener('change', handleChange);
         };
       }
     }
     
-    // Fallback para navegadores sem API de conexão
-    const intervalId = setInterval(updateConnectionInfo, CONNECTION_CHECK_INTERVAL);
-    return () => clearInterval(intervalId);
-  }, [updateConnectionInfo]);
-  
-  return {
-    connectionType,
-    effectiveType,
-    downlink,
-    saveData,
-    isLowEnd,
-    isSlowConnection: effectiveType === 'slow-2g' || effectiveType === '2g' || effectiveType === '3g' || (downlink && downlink < 1.5)
-  };
-}
-
-/**
- * Hook para verificar se a aplicação deve usar otimizações para dispositivos móveis
- * Combina verificações de:
- * - Tamanho da tela (mobile/tablet)
- * - Memória do dispositivo
- * - Tipo e qualidade da conexão
- * - Modo de economia de dados
- */
-export function useShouldOptimize() {
-  const isMobile = useIsMobile();
-  const { 
-    isSlowConnection, 
-    saveData, 
-    isLowEnd 
-  } = useConnectionInfo();
-  
-  // Considerar otimizações se qualquer uma das condições for verdadeira
-  return isMobile || isSlowConnection || saveData || isLowEnd;
-}
-
-/**
- * Hook para verificar se o dispositivo tem tela touchscreen
- */
-export function useIsTouchDevice() {
-  const [isTouch, setIsTouch] = useState<boolean | null>(null);
-  
-  useEffect(() => {
-    // Verificações para SSR
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-      setIsTouch(null);
-      return;
+    // Tentar detectar pelo modo de baixa potência/economia de bateria
+    if ('getBattery' in navigator) {
+      (navigator as any).getBattery().then((battery: any) => {
+        const checkLowPower = () => {
+          // Assumimos modo de economia se bateria estiver baixa e não carregando
+          const isLowPower = battery.charging === false && battery.level < 0.2;
+          setIsPowerSaveMode(isLowPower);
+        };
+        
+        battery.addEventListener('levelchange', checkLowPower);
+        battery.addEventListener('chargingchange', checkLowPower);
+        
+        checkLowPower();
+        
+        return () => {
+          battery.removeEventListener('levelchange', checkLowPower);
+          battery.removeEventListener('chargingchange', checkLowPower);
+        };
+      });
     }
-    
-    // Verificar se é um dispositivo touch via matchMedia
-    if (window.matchMedia) {
-      setIsTouch(window.matchMedia('(hover: none), (pointer: coarse)').matches);
-      return;
-    }
-    
-    // Fallback - verificar userAgent
-    const touchUserAgents = /android|iphone|ipad|ipod|webos|windows phone/i;
-    setIsTouch(touchUserAgents.test(navigator.userAgent.toLowerCase()));
   }, []);
   
-  return isTouch;
-}
-
-/**
- * Hook que fornece funções adaptadas para diferentes tipos de dispositivos
- * como toques longos em dispositivos móveis versus hover em computadores
- */
-export function useDeviceAdaptiveControls() {
-  const isMobile = useIsMobile();
-  const isTouch = useIsTouchDevice();
-
-  // Mapeamento de eventos baseado no tipo de dispositivo
-  const getEventHandlers = (
-    onClick: () => void,
-    onHover?: () => void,
-    onLongPress?: () => void,
-    longPressDelay = 500
-  ) => {
-    if (isTouch) {
-      // Para dispositivos de toque
-      let timer: NodeJS.Timeout | null = null;
-      
-      return {
-        onClick,
-        onPointerDown: () => {
-          if (onLongPress) {
-            timer = setTimeout(() => {
-              onLongPress();
-            }, longPressDelay);
-          }
-        },
-        onPointerUp: () => {
-          if (timer) clearTimeout(timer);
-        },
-        onPointerLeave: () => {
-          if (timer) clearTimeout(timer);
-        },
-        onTouchStart: () => {
-          if ('vibrate' in navigator) {
-            // Feedback tátil sutil para iniciar o toque
-            navigator.vibrate(5);
-          }
-        },
-        onTouchEnd: () => {}
-      };
-    } else {
-      // Para dispositivos não-touch
-      return {
-        onClick,
-        onMouseEnter: onHover,
-        onFocus: onHover
-      };
-    }
-  };
-
-  return {
-    isMobile,
-    isTouch,
-    getEventHandlers
-  };
-}
-
-/**
- * Hook que disponibiliza diversas funções e utilidades
- * para otimização e adaptação em dispositivos móveis
- */
-export function useMobileOptimization() {
-  const isMobile = useIsMobile();
-  const { isSlowConnection } = useConnectionInfo();
-  const isLowPerformance = isMobile || isSlowConnection;
-  
-  // Função para gerar um atraso proporcional para carregamento progressivo
-  const getProgressiveDelay = (index: number, baseDelay = 100) => {
-    if (!isLowPerformance) return 0;
-    return Math.min(index * baseDelay, 2000); // Máximo de 2 segundos de atraso
-  };
-  
-  // Função para priorizar recursos críticos vs não-críticos
-  const shouldLoadResource = (priority: 'critical' | 'high' | 'medium' | 'low') => {
-    if (!isLowPerformance) return true;
-    
-    switch (priority) {
-      case 'critical':
-        return true;
-      case 'high':
-        return true;
-      case 'medium':
-        return !isSlowConnection;
-      case 'low':
-        return false; // Não carregar recursos de baixa prioridade em dispositivos lentos
-      default:
-        return true;
-    }
-  };
-  
-  return {
-    isMobile,
-    isLowPerformance,
-    isSlowConnection,
-    getProgressiveDelay,
-    shouldLoadResource
-  };
+  return isPowerSaveMode;
 }
