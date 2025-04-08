@@ -15,6 +15,7 @@ type AuthContextType = {
   loginMutation: any;
   logoutMutation: any;
   registerMutation: any;
+  refetchUser?: () => Promise<any>;
 };
 
 type LoginData = z.infer<typeof loginSchema>;
@@ -37,9 +38,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user,
     error,
     isLoading,
+    refetch: refetchUser
   } = useQuery<User | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    retry: 1,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    staleTime: 60 * 1000, // 1 minuto
   });
 
   const loginMutation = useMutation({
@@ -103,15 +110,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Adicionar a reatualização de dados do usuário no método de login
+  const loginMutationWithRefetch = {
+    ...loginMutation,
+    mutate: (credentials: LoginData) => {
+      loginMutation.mutate(credentials, {
+        onSuccess: () => {
+          refetchUser?.();
+        }
+      });
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user: user ?? null,
         isLoading,
         error,
-        loginMutation,
+        loginMutation: loginMutationWithRefetch,
         logoutMutation,
         registerMutation,
+        refetchUser,
       }}
     >
       {children}

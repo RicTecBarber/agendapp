@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { VirtualList } from '@/components/ui/virtual-list';
 import { useMobile, useShouldOptimize } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/use-auth';
 import { Appointment, Professional, User } from '@shared/schema';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon, X, AlertTriangle } from 'lucide-react';
@@ -81,25 +82,8 @@ const CalendarPage = () => {
   const isMobile = useMobile();
   const shouldOptimize = useShouldOptimize();
 
-  // Buscar dados do usuário
-  const { data: userData } = useQuery({
-    queryKey: ['/api/user'],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest('GET', '/api/user');
-        if (!response.ok) {
-          if (response.status === 401) {
-            return null;
-          }
-          throw new Error('Falha ao carregar usuário');
-        }
-        return await response.json() as User;
-      } catch (error) {
-        console.error('Erro ao buscar usuário:', error);
-        return null;
-      }
-    },
-  });
+  // Usar o hook de autenticação diretamente em vez de fazer query separada
+  const { user: userData, refetchUser } = useAuth();
 
   // Buscar todos os profissionais
   const { data: professionals = [], isLoading: isLoadingProfessionals } = useQuery({
@@ -343,8 +327,15 @@ const CalendarPage = () => {
       setCancelDialogOpen(false);
       setSelectedAppointment(null);
       
-      // Invalidar a query para recarregar os dados
-      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+      // Verificar autenticação antes de recarregar dados
+      refetchUser?.().then(() => {
+        // Invalidar a query para recarregar os dados
+        queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+      }).catch((error: Error) => {
+        console.error('Erro ao recarregar dados do usuário:', error);
+        // Se falhar, tenta recarregar mesmo assim
+        queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+      });
     },
     onError: (error: Error) => {
       toast({
