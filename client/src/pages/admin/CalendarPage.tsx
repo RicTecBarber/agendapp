@@ -171,7 +171,8 @@ const CalendarPage = () => {
 
   // Handler para mudança de profissional
   const handleProfessionalChange = useCallback((professionalId: string) => {
-    const id = parseInt(professionalId);
+    // Se for "all", define como undefined para mostrar todos
+    const id = professionalId === "all" ? undefined : parseInt(professionalId);
     setSelectedProfessionalId(id);
     
     // Atualizar o cache
@@ -312,14 +313,14 @@ const CalendarPage = () => {
               !showProfessionalSelector && "hidden" // Esconder se o usuário não for admin
             )}>
               <Select 
-                value={selectedProfessionalId?.toString()} 
+                value={selectedProfessionalId?.toString() || "all"} 
                 onValueChange={handleProfessionalChange}
               >
                 <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Selecione um profissional" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os profissionais</SelectItem>
+                  <SelectItem value="all">Todos os profissionais</SelectItem>
                   {professionals.map(prof => (
                     <SelectItem key={prof.id} value={prof.id.toString()}>
                       {prof.name}
