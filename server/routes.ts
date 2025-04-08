@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import express, { type Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -14,6 +14,7 @@ import {
 import { parseISO, format, addMinutes, isAfter } from "date-fns";
 import { setupAuth } from "./auth";
 import { z } from "zod";
+import path from "path";
 
 // Função para obter o offset do fuso horário configurado em horas
 function getTimezoneOffset(timezone: string): number {
@@ -37,6 +38,9 @@ function getTimezoneOffset(timezone: string): number {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Servir arquivos estáticos da pasta assets
+  app.use("/assets", express.static(path.join(process.cwd(), "client/src/assets")));
+  
   // Setup authentication
   setupAuth(app);
   

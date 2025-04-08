@@ -612,18 +612,18 @@ export class MemStorage implements IStorage {
     // Add barbershop settings
     this.barbershopSettings = {
       id: 1,
-      name: "AgendApp Serviços",
+      name: "AgendApp",
       address: "Avenida Paulista, 1000 - São Paulo, SP",
       phone: "(11) 98765-4321",
       email: "contato@agendapp.com",
-      logo_url: "https://images.unsplash.com/photo-1583334837046-34ede1126010?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&h=200&q=80",
+      logo_url: "/assets/logo.svg",
       timezone: "America/Sao_Paulo", // Fuso horário de São Paulo (UTC-3)
       open_time: "08:00",
       close_time: "20:00",
       open_days: [1, 2, 3, 4, 5, 6],
-      description: "O melhor sistema de agendamento para diversos tipos de serviços.",
-      instagram: "@agendapp.servicos",
-      facebook: "facebook.com/agendapp.servicos",
+      description: "Sistema completo de agendamento para salões, barbearias, spas e outros serviços.",
+      instagram: "@agendapp",
+      facebook: "facebook.com/agendapp",
       created_at: new Date(),
       updated_at: new Date()
     };
