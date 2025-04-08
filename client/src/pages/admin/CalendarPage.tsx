@@ -273,11 +273,8 @@ const CalendarPage = () => {
                     'bg-blue-50 border-blue-200'
                   )}
                 >
-                  <div className="font-medium flex justify-between">
+                  <div className="font-medium">
                     <span>{appointment.client_name}</span>
-                    {appointment.status !== 'cancelled' && (
-                      <span className="text-xs bg-primary/10 p-1 rounded text-primary">Clique para ações</span>
-                    )}
                   </div>
                   <div className="flex items-center mt-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3 mr-1" />
@@ -503,9 +500,6 @@ const CalendarPage = () => {
                       <div className="text-sm font-medium">
                         {formatAppointmentTime(appointment.appointment_date)}
                       </div>
-                      {appointment.status !== 'cancelled' && (
-                        <div className="text-xs text-primary mt-1">Clique para ações</div>
-                      )}
                     </div>
                   </div>
                 )}
