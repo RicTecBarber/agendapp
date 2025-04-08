@@ -1,18 +1,21 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, isSameDay, parseISO, isValid } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { VirtualList } from '@/components/ui/virtual-list';
 import { useMobile, useShouldOptimize } from '@/hooks/use-mobile';
 import { Appointment, Professional, User } from '@shared/schema';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon, X, AlertTriangle } from 'lucide-react';
 import { useLocalCache } from '@/hooks/use-cache';
 import { cn } from '@/lib/utils';
 import { useLocation } from 'wouter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { queryClient } from '@/lib/queryClient';
 
 // Funções utilitárias para formatação de datas e horas
 const formatAppointmentDate = (date: string | Date): string => {
@@ -39,6 +42,11 @@ const formatAppointmentTime = (date: string | Date): string => {
 
 const CalendarPage = () => {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  
+  // Estado para agendamento selecionado e modal
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   
   // Cache para armazenar a semana selecionada
   const cache = useLocalCache<{ selectedDate: string; selectedProfessionalId?: number }>({
@@ -256,15 +264,21 @@ const CalendarPage = () => {
               {(shouldOptimize ? dayAppointments.slice(0, 20) : dayAppointments)
                 .map((appointment: Appointment) => (
                 <div 
-                  key={appointment.id} 
+                  key={appointment.id}
+                  onClick={() => appointment.status !== 'cancelled' && handleSelectAppointment(appointment)}
                   className={cn(
-                    'p-2 rounded-md text-sm border',
+                    'p-2 rounded-md text-sm border cursor-pointer transition-colors hover:bg-muted/50',
                     appointment.status === 'confirmed' ? 'bg-green-50 border-green-200' :
                     appointment.status === 'cancelled' ? 'bg-red-50 border-red-200' :
                     'bg-blue-50 border-blue-200'
                   )}
                 >
-                  <div className="font-medium">{appointment.client_name}</div>
+                  <div className="font-medium flex justify-between">
+                    <span>{appointment.client_name}</span>
+                    {appointment.status !== 'cancelled' && (
+                      <span className="text-xs bg-primary/10 p-1 rounded text-primary">Clique para ações</span>
+                    )}
+                  </div>
                   <div className="flex items-center mt-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3 mr-1" />
                     {formatAppointmentTime(appointment.appointment_date)}
@@ -285,6 +299,58 @@ const CalendarPage = () => {
     );
   }, [appointmentsByDay, isLoading, shouldOptimize]);
 
+  // Mutation para cancelar agendamento
+  const cancelMutation = useMutation({
+    mutationFn: async (appointmentId: number) => {
+      const response = await fetch(`/api/appointments/${appointmentId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Falha ao cancelar o agendamento');
+      }
+      
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Agendamento cancelado",
+        description: "O agendamento foi cancelado com sucesso.",
+      });
+      
+      // Fechar o diálogo e limpar o agendamento selecionado
+      setCancelDialogOpen(false);
+      setSelectedAppointment(null);
+      
+      // Invalidar a query para recarregar os dados
+      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao cancelar",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Handler para selecionar um agendamento
+  const handleSelectAppointment = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setCancelDialogOpen(true);
+  };
+  
+  // Handler para cancelar um agendamento
+  const handleCancelAppointment = () => {
+    if (selectedAppointment) {
+      cancelMutation.mutate(selectedAppointment.id);
+    }
+  };
+  
   // Verificar se o usuário é admin ou profissional para mostrar ou não o seletor de profissional
   const showProfessionalSelector = currentUser?.role === 'admin';
 
@@ -408,12 +474,26 @@ const CalendarPage = () => {
                 renderItem={(appointment: Appointment) => (
                   <div 
                     key={appointment.id}
-                    className="p-4 border-b last:border-0 flex justify-between items-center"
+                    onClick={() => appointment.status !== 'cancelled' && handleSelectAppointment(appointment)}
+                    className={cn(
+                      "p-4 border-b last:border-0 flex justify-between items-center",
+                      appointment.status !== 'cancelled' && "cursor-pointer hover:bg-muted/50",
+                      appointment.status === 'cancelled' && "opacity-70"
+                    )}
                   >
                     <div>
                       <div className="font-medium">{appointment.client_name}</div>
                       <div className="text-sm text-muted-foreground">
                         {appointment.client_phone}
+                      </div>
+                      <div className={cn(
+                        "text-xs mt-1 rounded-full px-2 py-0.5 inline-block",
+                        appointment.status === 'confirmed' ? "bg-green-100 text-green-800" :
+                        appointment.status === 'cancelled' ? "bg-red-100 text-red-800" :
+                        "bg-blue-100 text-blue-800"
+                      )}>
+                        {appointment.status === 'confirmed' ? 'Confirmado' :
+                         appointment.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
                       </div>
                     </div>
                     <div className="text-right">
@@ -423,6 +503,9 @@ const CalendarPage = () => {
                       <div className="text-sm font-medium">
                         {formatAppointmentTime(appointment.appointment_date)}
                       </div>
+                      {appointment.status !== 'cancelled' && (
+                        <div className="text-xs text-primary mt-1">Clique para ações</div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -432,6 +515,51 @@ const CalendarPage = () => {
           </CardContent>
         </Card>
       )}
+      
+      {/* Modal de confirmação para cancelar agendamento */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar Agendamento</DialogTitle>
+            <DialogDescription>
+              Você tem certeza que deseja cancelar este agendamento?
+              {selectedAppointment && (
+                <div className="mt-4 p-3 bg-muted rounded-md">
+                  <div className="font-medium">{selectedAppointment.client_name}</div>
+                  <div className="text-sm mt-1">
+                    {formatAppointmentDateShort(selectedAppointment.appointment_date)} às {formatAppointmentTime(selectedAppointment.appointment_date)}
+                  </div>
+                  <div className="text-sm mt-1 text-muted-foreground">
+                    Telefone: {selectedAppointment.client_phone}
+                  </div>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+            >
+              Voltar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelAppointment}
+              disabled={cancelMutation.isPending}
+            >
+              {cancelMutation.isPending ? (
+                <>
+                  <span className="animate-spin mr-2">&#8987;</span>
+                  Cancelando...
+                </>
+              ) : (
+                'Cancelar Agendamento'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
