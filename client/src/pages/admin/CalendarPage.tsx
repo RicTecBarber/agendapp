@@ -15,7 +15,7 @@ import { useLocation } from 'wouter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 
 // Funções utilitárias para formatação de datas e horas
 const formatAppointmentDate = (date: string | Date): string => {
@@ -85,14 +85,19 @@ const CalendarPage = () => {
   const { data: userData } = useQuery({
     queryKey: ['/api/user'],
     queryFn: async () => {
-      const response = await fetch('/api/user');
-      if (!response.ok) {
-        if (response.status === 401) {
-          return null;
+      try {
+        const response = await apiRequest('GET', '/api/user');
+        if (!response.ok) {
+          if (response.status === 401) {
+            return null;
+          }
+          throw new Error('Falha ao carregar usuário');
         }
-        throw new Error('Falha ao carregar usuário');
+        return await response.json() as User;
+      } catch (error) {
+        console.error('Erro ao buscar usuário:', error);
+        return null;
       }
-      return response.json() as Promise<User>;
     },
   });
 
@@ -100,11 +105,16 @@ const CalendarPage = () => {
   const { data: professionals = [], isLoading: isLoadingProfessionals } = useQuery({
     queryKey: ['/api/professionals'],
     queryFn: async () => {
-      const response = await fetch('/api/professionals');
-      if (!response.ok) {
-        throw new Error('Falha ao carregar profissionais');
+      try {
+        const response = await apiRequest('GET', '/api/professionals');
+        if (!response.ok) {
+          throw new Error('Falha ao carregar profissionais');
+        }
+        return await response.json() as Professional[];
+      } catch (error) {
+        console.error('Erro ao buscar profissionais:', error);
+        return [];
       }
-      return response.json() as Promise<Professional[]>;
     },
   });
 
@@ -148,16 +158,28 @@ const CalendarPage = () => {
         url += `&professionalId=${selectedProfessionalId}`;
       }
       
-      const response = await fetch(url);
-      if (!response.ok) {
-        if (response.status === 403 || response.status === 401) {
-          console.log('Usuário não autenticado ou não autorizado');
-          return [];
+      try {
+        console.log('Buscando agendamentos:', url);
+        const response = await apiRequest('GET', url);
+        
+        if (!response.ok) {
+          if (response.status === 403 || response.status === 401) {
+            console.log('Usuário não autenticado ou não autorizado');
+            return [];
+          }
+          console.error('Erro ao buscar agendamentos:', response.statusText);
+          throw new Error('Falha ao carregar agendamentos');
         }
-        throw new Error('Falha ao carregar agendamentos');
+        
+        const data = await response.json();
+        console.log('Agendamentos recebidos:', data);
+        return data as Appointment[];
+      } catch (error) {
+        console.error('Erro ao buscar agendamentos:', error);
+        return [];
       }
-      return response.json() as Promise<Appointment[]>;
     },
+    refetchOnWindowFocus: false,
   });
 
   // Navegação entre semanas
@@ -299,13 +321,11 @@ const CalendarPage = () => {
   // Mutation para cancelar agendamento
   const cancelMutation = useMutation({
     mutationFn: async (appointmentId: number) => {
-      const response = await fetch(`/api/appointments/${appointmentId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'cancelled' }),
-      });
+      const response = await apiRequest(
+        'PUT', 
+        `/api/appointments/${appointmentId}/status`,
+        { status: 'cancelled' }
+      );
       
       if (!response.ok) {
         throw new Error('Falha ao cancelar o agendamento');

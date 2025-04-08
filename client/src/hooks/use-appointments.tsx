@@ -15,14 +15,24 @@ export function useAppointments(date?: Date) {
       const url = date 
         ? `/api/appointments?date=${format(date, "yyyy-MM-dd")}` 
         : "/api/appointments";
-      const res = await fetch(url, { credentials: "include" });
-      
-      if (!res.ok) {
-        throw new Error("Failed to fetch appointments");
+      try {
+        const res = await apiRequest("GET", url);
+        
+        if (!res.ok) {
+          console.error("Erro ao buscar agendamentos:", res.status, await res.text());
+          throw new Error("Falha ao buscar agendamentos");
+        }
+        
+        const data = await res.json();
+        console.log("Agendamentos recebidos:", data);
+        return data;
+      } catch (err) {
+        console.error("Erro na requisição de agendamentos:", err);
+        throw new Error("Falha ao buscar agendamentos");
       }
-      
-      return await res.json();
     },
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
   
   // Mutation to update appointment status
