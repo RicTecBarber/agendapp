@@ -1481,8 +1481,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderId = parseInt(req.params.id);
       const { status } = req.body;
       
-      if (!status || !['pending', 'paid', 'cancelled'].includes(status)) {
-        return res.status(400).json({ message: "Invalid status" });
+      // Corrigido para aceitar os status usados no frontend
+      if (!status || !['aberta', 'fechada', 'cancelada'].includes(status)) {
+        return res.status(400).json({ 
+          message: "Invalid status", 
+          detail: `Status '${status}' inválido. Use um dos valores: aberta, fechada, cancelada` 
+        });
       }
       
       const updatedOrder = await storage.updateOrderStatus(orderId, status);

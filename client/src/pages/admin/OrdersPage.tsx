@@ -56,7 +56,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { ShoppingCart, Search, Plus, ClipboardList, Check, X, CircleDollarSign } from "lucide-react";
+import { ShoppingCart, Search, Plus, ClipboardList, Check, X, CircleDollarSign, Package, Scissors } from "lucide-react";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -69,6 +69,7 @@ type OrderItem = {
   quantity: number;
   price: number;
   subtotal: number;
+  type?: 'product' | 'service';
 };
 
 type Order = {
@@ -260,21 +261,30 @@ function OrderDetail({ order }: { order: Order }) {
           <TableBody>
             {order.items.map((item) => (
               <TableRow key={item.id}>
-                <TableCell>{item.product_name}</TableCell>
-                <TableCell className="text-right">{item.quantity}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="py-1.5">
+                  <div className="flex items-center gap-1">
+                    {item.type === 'service' ? (
+                      <Scissors className="h-3 w-3 text-primary" />
+                    ) : (
+                      <Package className="h-3 w-3 text-slate-400" />
+                    )}
+                    <span className="truncate max-w-[150px] sm:max-w-none">{item.product_name}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right py-1.5">{item.quantity}</TableCell>
+                <TableCell className="text-right py-1.5">
                   R$ {item.price.toFixed(2)}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right py-1.5">
                   R$ {item.subtotal.toFixed(2)}
                 </TableCell>
               </TableRow>
             ))}
             <TableRow>
-              <TableCell colSpan={3} className="text-right font-semibold">
+              <TableCell colSpan={3} className="text-right font-semibold py-1.5">
                 Total
               </TableCell>
-              <TableCell className="text-right font-bold">
+              <TableCell className="text-right font-bold py-1.5">
                 R$ {order.total.toFixed(2)}
               </TableCell>
             </TableRow>
