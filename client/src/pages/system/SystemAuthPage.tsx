@@ -17,12 +17,14 @@ import {
 } from "@/components/ui/form";
 import { UserCog } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 type LoginData = z.infer<typeof loginSchema>;
 
 export default function SystemAuthPage() {
   const [, setLocation] = useLocation();
-  const { user, loginMutation, isSystemAdmin, refetchUser } = useAuth();
+  const { user, isSystemAdmin } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
   const { toast } = useToast();
 
@@ -61,28 +63,41 @@ export default function SystemAuthPage() {
     },
   });
 
-  const onLoginSubmit = (data: LoginData) => {
+  const onLoginSubmit = async (data: LoginData) => {
     console.log("Tentando fazer login com:", data);
-    loginMutation.mutate(data, {
-      onSuccess: (userData: any) => {
-        console.log("Login bem-sucedido, usuário:", userData);
-        if (userData?.isSystemAdmin) {
-          console.log("Usuário é um administrador do sistema");
-          // Usar navegação direta para a página intermediária
-          window.location.href = "/system/redirect";
-        } else {
-          console.log("Usuário não é um administrador do sistema");
-          toast({
-            title: "Acesso restrito",
-            description: "Estas credenciais não pertencem a um administrador do sistema",
-            variant: "destructive",
-          });
-        }
-      },
-      onError: (error: any) => {
-        console.error("Erro de login:", error);
+    setIsLoading(true);
+    
+    try {
+      // Usar a nova rota específica de login para administradores do sistema
+      const response = await apiRequest("POST", "/api/system/login", data);
+      const userData = await response.json();
+      
+      console.log("Login bem-sucedido, usuário:", userData);
+      
+      if (userData?.isSystemAdmin) {
+        console.log("Usuário é um administrador do sistema");
+        // Atualizar o estado do usuário (na próxima vez que a página for carregada)
+        setLoginSuccess(true);
+        // Usar navegação direta para a página do sistema
+        window.location.href = "/system/dashboard";
+      } else {
+        console.log("Usuário não é um administrador do sistema");
+        toast({
+          title: "Acesso restrito",
+          description: "Estas credenciais não pertencem a um administrador do sistema",
+          variant: "destructive",
+        });
       }
-    });
+    } catch (error: any) {
+      console.error("Erro de login:", error);
+      toast({
+        title: "Falha no login",
+        description: error.message || "Não foi possível fazer login. Verifique suas credenciais.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -133,9 +148,9 @@ export default function SystemAuthPage() {
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={loginMutation.isPending}
+                  disabled={isLoading}
                 >
-                  {loginMutation.isPending ? (
+                  {isLoading ? (
                     <div className="flex items-center">
                       <span className="animate-spin h-4 w-4 mr-2 border-2 border-b-transparent rounded-full"></span>
                       Entrando...

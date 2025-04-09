@@ -7,6 +7,7 @@ import WebSocket from 'ws';
 import { WebSocketServer } from 'ws';
 import { storage } from './storage';
 import { setupAuth } from './auth';
+import passport from 'passport';
 import {
   insertServiceSchema,
   insertProfessionalSchema,
@@ -1671,6 +1672,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Criar servidor HTTP e WebSocket
   // SYSTEM ROUTES (para gerenciamento de tenants e admins)
+  
+  // GET /api/system/check - Verificar se o usuário é um administrador do sistema
+  app.get("/api/system/check", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ isSystemAdmin: false, message: "Não autenticado" });
+      }
+      
+      // Verificar se o usuário tem a propriedade isSystemAdmin
+      if (req.user && ('isSystemAdmin' in req.user)) {
+        return res.json({ 
+          isSystemAdmin: true, 
+          user: {
+            id: req.user.id,
+            username: req.user.username,
+            name: req.user.name,
+            email: req.user.email
+          }
+        });
+      }
+      
+      return res.json({ isSystemAdmin: false });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao verificar status de administrador", error: error.message });
+    }
+  });
+  
+  // POST /api/system/login - Login como administrador do sistema (alias para /api/login)
+  app.post("/api/system/login", (req, res, next) => {
+    passport.authenticate("local", (err, user, info) => {
+      if (err) {
+        return next(err);
+      }
+      if (!user) {
+        return res.status(401).json({ message: info.message || "Falha na autenticação" });
+      }
+      
+      // Verificar se é um administrador do sistema
+      if (!('isSystemAdmin' in user)) {
+        return res.status(403).json({ message: "Credenciais não pertencem a um administrador do sistema" });
+      }
+      
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          return next(loginErr);
+        }
+        
+        // Don't send back the password hash
+        const { password, ...userWithoutPassword } = user;
+        return res.json(userWithoutPassword);
+      });
+    })(req, res, next);
+  });
   
   // GET /api/system/tenants - Obter todos os tenants
   app.get("/api/system/tenants", isSystemAdmin, async (req: Request, res: Response) => {

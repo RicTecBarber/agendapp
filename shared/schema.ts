@@ -10,6 +10,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   role: text("role").notNull().default("barber"), // 'admin' or 'barber'
+  tenant_id: integer("tenant_id"), // FK para o tenant (null para usuários do sistema)
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
@@ -23,6 +24,7 @@ export const services = pgTable("services", {
   description: text("description").notNull(),
   price: doublePrecision("price").notNull(),
   duration: integer("duration").notNull(), // in minutes
+  tenant_id: integer("tenant_id"), // FK para o tenant
 });
 
 export const insertServiceSchema = createInsertSchema(services).omit({ id: true });
@@ -36,6 +38,7 @@ export const professionals = pgTable("professionals", {
   description: text("description").notNull(),
   services_offered: json("services_offered").notNull().$type<number[]>(),
   avatar_url: text("avatar_url"),
+  tenant_id: integer("tenant_id"), // FK para o tenant
 });
 
 export const insertProfessionalSchema = createInsertSchema(professionals).omit({ id: true });
@@ -50,6 +53,7 @@ export const availability = pgTable("availability", {
   start_time: text("start_time").notNull(), // "HH:MM" format
   end_time: text("end_time").notNull(), // "HH:MM" format
   is_available: boolean("is_available").notNull().default(true),
+  tenant_id: integer("tenant_id"), // FK para o tenant
 });
 
 export const insertAvailabilitySchema = createInsertSchema(availability).omit({ id: true });
@@ -68,6 +72,7 @@ export const appointments = pgTable("appointments", {
   created_at: timestamp("created_at").notNull().defaultNow(),
   notify_whatsapp: boolean("notify_whatsapp").default(false),
   is_loyalty_reward: boolean("is_loyalty_reward").default(false),
+  tenant_id: integer("tenant_id"), // FK para o tenant
 });
 
 // Create base schema
@@ -97,6 +102,7 @@ export const clientRewards = pgTable("client_rewards", {
   free_services_used: integer("free_services_used").notNull().default(0),
   last_reward_at: timestamp("last_reward_at"),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
+  tenant_id: integer("tenant_id"), // FK para o tenant
 });
 
 export const insertClientRewardSchema = createInsertSchema(clientRewards).omit({ 
@@ -149,6 +155,7 @@ export const barbershopSettings = pgTable("barbershop_settings", {
   facebook: text("facebook"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
+  tenant_id: integer("tenant_id"), // FK para o tenant
 });
 
 export const insertBarbershopSettingsSchema = createInsertSchema(barbershopSettings).omit({ 
@@ -168,6 +175,7 @@ export const products = pgTable("products", {
   image_url: text("image_url"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
+  tenant_id: integer("tenant_id"), // FK para o tenant
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({ 
@@ -209,6 +217,7 @@ export const orders = pgTable("orders", {
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
+  tenant_id: integer("tenant_id"), // FK para o tenant
 });
 
 export const insertOrderSchema = createInsertSchema(orders).omit({ 
