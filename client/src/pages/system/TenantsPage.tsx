@@ -185,6 +185,7 @@ export default function TenantsPage() {
                       <TableHead className="w-[50px]">ID</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Slug</TableHead>
+                      <TableHead>Link de Acesso</TableHead>
                       <TableHead>URL Produção</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Data Criação</TableHead>
@@ -197,6 +198,22 @@ export default function TenantsPage() {
                         <TableCell className="font-medium">{tenant.id}</TableCell>
                         <TableCell>{tenant.name}</TableCell>
                         <TableCell>{tenant.slug}</TableCell>
+                        <TableCell>
+                          <a 
+                            href={`/?tenant=${tenant.slug}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center text-blue-600 hover:text-blue-800"
+                          >
+                            <span className="text-sm font-medium whitespace-nowrap">
+                              {`/?tenant=${tenant.slug}`}
+                            </span>
+                            <ExternalLink className="h-3 w-3 ml-1" />
+                          </a>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Adicione "?tenant=" + o slug à URL deste site
+                          </div>
+                        </TableCell>
                         <TableCell>
                           {tenant.production_url ? (
                             <a 
