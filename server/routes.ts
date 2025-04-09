@@ -5,10 +5,10 @@ import { createServer, type Server } from 'http';
 import WebSocket from 'ws';
 import { WebSocketServer } from 'ws';
 import { storage } from './storage';
-import { setupAuth } from './auth';
+import { setupAuth, hashPassword } from './auth';
 import passport from 'passport';
 import { 
-  isSystemAdmin, isAdmin, applyTenantId 
+  isSystemAdmin, isAdmin, applyTenantId, requireTenant 
 } from './middleware';
 import {
   insertServiceSchema,
@@ -290,33 +290,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/services - Create service (admin only)
-  app.post("/api/services", async (req: Request, res: Response) => {
+  app.post("/api/services", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-      
       const serviceData = insertServiceSchema.parse(req.body);
-      const service = await storage.createService(serviceData);
+      
+      // Aplicar tenant_id ao serviço
+      const dataWithTenant = applyTenantId(serviceData, req.tenantId);
+      
+      const service = await storage.createService(dataWithTenant);
       res.status(201).json(service);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid service data", errors: error.errors });
       } else {
+        console.error("Erro ao criar serviço:", error);
         res.status(500).json({ message: "Failed to create service" });
       }
     }
   });
 
   // PUT /api/services/:id - Update service (admin only)
-  app.put("/api/services/:id", async (req: Request, res: Response) => {
+  app.put("/api/services/:id", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
+      const serviceId = parseInt(req.params.id);
+      
+      // Verificar se o serviço existe e pertence ao tenant atual
+      const existingService = await storage.getService(serviceId);
+      if (!existingService || existingService.tenant_id !== req.tenantId) {
+        return res.status(404).json({ message: "Service not found or doesn't belong to this tenant" });
       }
       
-      const serviceId = parseInt(req.params.id);
-      const serviceData = req.body;
+      const serviceData = {
+        ...req.body,
+        tenant_id: req.tenantId // Manter o tenant_id
+      };
+      
       const updated = await storage.updateService(serviceId, serviceData);
       
       if (!updated) {
@@ -325,18 +333,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updated);
     } catch (error) {
+      console.error("Erro ao atualizar serviço:", error);
       res.status(500).json({ message: "Failed to update service" });
     }
   });
 
   // DELETE /api/services/:id - Delete service (admin only)
-  app.delete("/api/services/:id", async (req: Request, res: Response) => {
+  app.delete("/api/services/:id", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
+      const serviceId = parseInt(req.params.id);
+      
+      // Verificar se o serviço existe e pertence ao tenant atual
+      const existingService = await storage.getService(serviceId);
+      if (!existingService || existingService.tenant_id !== req.tenantId) {
+        return res.status(404).json({ message: "Service not found or doesn't belong to this tenant" });
       }
       
-      const serviceId = parseInt(req.params.id);
       const deleted = await storage.deleteService(serviceId);
       
       if (!deleted) {
@@ -345,6 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(200).json({ message: "Service deleted successfully" });
     } catch (error) {
+      console.error("Erro ao excluir serviço:", error);
       res.status(500).json({ message: "Failed to delete service" });
     }
   });
@@ -392,36 +405,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/professionals - Create professional (admin only)
-  app.post("/api/professionals", async (req: Request, res: Response) => {
+  app.post("/api/professionals", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-      
       const professionalData = insertProfessionalSchema.parse(req.body);
-      // Adicionar o tenant_id do contexto atual ao novo profissional
-      const professionalWithTenant = {
-        ...professionalData,
-        tenant_id: req.tenantId
-      };
-      const professional = await storage.createProfessional(professionalWithTenant);
+      
+      // Aplicar tenant_id ao profissional
+      const dataWithTenant = applyTenantId(professionalData, req.tenantId);
+      
+      const professional = await storage.createProfessional(dataWithTenant);
       res.status(201).json(professional);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid professional data", errors: error.errors });
       } else {
+        console.error("Erro ao criar profissional:", error);
         res.status(500).json({ message: "Failed to create professional" });
       }
     }
   });
 
   // PUT /api/professionals/:id - Update professional (admin only)
-  app.put("/api/professionals/:id", async (req: Request, res: Response) => {
+  app.put("/api/professionals/:id", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-      
       const professionalId = parseInt(req.params.id);
       
       // Verificar se o profissional existe e pertence ao tenant atual
@@ -443,6 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updated);
     } catch (error) {
+      console.error("Erro ao atualizar profissional:", error);
       res.status(500).json({ message: "Failed to update professional" });
     }
   });
@@ -461,12 +467,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/availability - Create availability (admin only)
-  app.post("/api/availability", async (req: Request, res: Response) => {
+  app.post("/api/availability", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-      
       // Validar os dados e adicionar o tenant_id
       const availabilityData = insertAvailabilitySchema.parse(req.body);
       
@@ -488,18 +490,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid availability data", errors: error.errors });
       } else {
+        console.error("Erro ao criar disponibilidade:", error);
         res.status(500).json({ message: "Failed to create availability" });
       }
     }
   });
 
   // PUT /api/availability/:id - Update availability (admin only)
-  app.put("/api/availability/:id", async (req: Request, res: Response) => {
+  app.put("/api/availability/:id", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-      
       const availabilityId = parseInt(req.params.id);
       
       // Verificar se a disponibilidade existe e pertence ao tenant atual
@@ -522,17 +521,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updated);
     } catch (error) {
+      console.error("Erro ao atualizar disponibilidade:", error);
       res.status(500).json({ message: "Failed to update availability" });
     }
   });
 
   // DELETE /api/availability/:id - Delete availability (admin only)
-  app.delete("/api/availability/:id", async (req: Request, res: Response) => {
+  app.delete("/api/availability/:id", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-      
       const availabilityId = parseInt(req.params.id);
       
       // Verificar se a disponibilidade existe e pertence ao tenant atual
@@ -549,6 +545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(200).json({ message: "Availability deleted successfully" });
     } catch (error) {
+      console.error("Erro ao excluir disponibilidade:", error);
       res.status(500).json({ message: "Failed to delete availability" });
     }
   });
@@ -910,7 +907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PUT /api/appointments/:id/status - Update appointment status
-  app.put("/api/appointments/:id/status", async (req: Request, res: Response) => {
+  app.put("/api/appointments/:id/status", requireTenant, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated()) {
         return res.status(403).json({ message: "Unauthorized" });
@@ -1157,11 +1154,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/loyalty/reward - Use reward (admin only)
-  app.post("/api/loyalty/reward", async (req: Request, res: Response) => {
+  app.post("/api/loyalty/reward", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
       
       const { phone } = req.body;
       
@@ -1682,19 +1676,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/products - Create product (admin only)
-  app.post("/api/products", async (req: Request, res: Response) => {
+  app.post("/api/products", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-      
       const productData = insertProductSchema.parse(req.body);
-      const product = await storage.createProduct(productData);
+      
+      // Aplicar tenant_id ao produto
+      const dataWithTenant = applyTenantId(productData, req.tenantId);
+      
+      const product = await storage.createProduct(dataWithTenant);
       res.status(201).json(product);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid product data", errors: error.errors });
       } else {
+        console.error("Erro ao criar produto:", error);
         res.status(500).json({ message: "Failed to create product" });
       }
     }
