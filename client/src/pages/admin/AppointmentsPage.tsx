@@ -114,7 +114,13 @@ const AppointmentsPage = () => {
     updateAppointmentStatus 
   } = useAppointments({ 
     date: dateFilter,
-    professionalIds: professionalFilter.includes("all") ? undefined : professionalFilter.map(id => parseInt(id))
+    // Se "all" estiver incluído, não filtrar por profissional (undefined)
+    // Caso contrário, converter os IDs para números
+    professionalIds: professionalFilter.includes("all") 
+      ? undefined 
+      : professionalFilter
+          .map(id => parseInt(id))
+          .filter(id => !isNaN(id)) // Remover qualquer ID inválido
   });
 
   // Get professionals for filter
@@ -509,12 +515,21 @@ const filteredAppointments = appointments?.filter((appointment: any) => {
                       id="professional-all"
                       checked={professionalFilter.includes("all")}
                       onChange={(e) => {
+                        // Quando "todos" é marcado, limpar qualquer filtro existente e usar apenas "all"
                         if (e.target.checked) {
                           console.log("Adicionando filtro para TODOS os profissionais");
                           setProfessionalFilter(["all"]);
-                        } else if (professionalFilter.length > 1) {
-                          console.log("Removendo filtro para TODOS os profissionais");
-                          setProfessionalFilter(professionalFilter.filter(id => id !== "all"));
+                          // Forçar recarregamento dos dados
+                          queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+                        } 
+                        // Se "todos" está sendo desmarcado e havia outros filtros
+                        else if (professionalFilter.length > 1) {
+                          // Remover apenas o "all" e manter os profissionais selecionados
+                          console.log("Removendo 'all' e mantendo filtros específicos");
+                          const specificFilters = professionalFilter.filter(id => id !== "all");
+                          setProfessionalFilter(specificFilters);
+                          // Forçar recarregamento dos dados
+                          queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
                         }
                       }}
                       className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
@@ -548,23 +563,37 @@ const filteredAppointments = appointments?.filter((appointment: any) => {
                           id={`professional-${professional.id}`}
                           checked={isChecked}
                           onChange={(e) => {
+                            // Se "todos" está selecionado e o usuário desmarca uma opção específica
                             if (professionalFilter.includes("all")) {
-                              // Se "todos" está selecionado e o usuário desmarca uma opção,
-                              // removemos "todos" e adicionamos cada profissional individualmente (exceto o atual)
                               if (!e.target.checked) {
+                                // Converter para uma seleção específica (todos exceto este)
                                 const otherPros = professionals
                                   .map((p: any) => p.id.toString())
                                   .filter((id: string) => id !== proId);
+                                
+                                console.log(`Removendo 'all' e selecionando todos exceto ${proId}`);
                                 setProfessionalFilter(otherPros);
+                                // Forçar atualização
+                                queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
                               }
                             } else {
-                              // Toggle normal para adição/remoção deste profissional
+                              // Modo de seleção específica
                               if (e.target.checked) {
+                                // Adicionar este profissional ao filtro
                                 if (!professionalFilter.includes(proId)) {
-                                  setProfessionalFilter([...professionalFilter, proId]);
+                                  const newFilter = [...professionalFilter, proId];
+                                  console.log(`Adicionando profissional ${proId}`, newFilter);
+                                  setProfessionalFilter(newFilter);
+                                  // Forçar atualização
+                                  queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
                                 }
                               } else {
-                                setProfessionalFilter(professionalFilter.filter(id => id !== proId));
+                                // Remover este profissional do filtro
+                                const newFilter = professionalFilter.filter(id => id !== proId);
+                                console.log(`Removendo profissional ${proId}`, newFilter);
+                                setProfessionalFilter(newFilter);
+                                // Forçar atualização
+                                queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
                               }
                             }
                           }}

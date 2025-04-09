@@ -16,17 +16,34 @@ export function useAppointments(options: AppointmentOptions = {}) {
   const { date, professionalIds, startDate, endDate } = options;
   
   // Construir a queryKey com base nos parâmetros fornecidos
+  // Usar uma chave base para todos os appointments, para facilitar a invalidação
   let queryKey: any[] = ["/api/appointments"];
   
-  // Adicionar cada filtro à queryKey
-  if (date) queryKey.push("date", format(date, "yyyy-MM-dd"));
+  // Adicionar sub-chaves para diferentes filtros
+  const filters: Record<string, any> = {};
+  
+  // Adicionar cada filtro ao objeto de filtros
+  if (date) filters.date = format(date, "yyyy-MM-dd");
+  
   // Incluir todos os IDs de profissionais, se houver
   if (professionalIds && professionalIds.length > 0) {
-    queryKey.push("professionals", professionalIds);
+    filters.professionals = professionalIds.map(id => Number(id)).sort(); // Ordenar para consistência
   }
+  
   if (startDate && endDate) {
-    queryKey.push("range", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"));
+    filters.range = {
+      start: format(startDate, "yyyy-MM-dd"),
+      end: format(endDate, "yyyy-MM-dd")
+    };
   }
+  
+  // Adicionar o objeto de filtros à queryKey se houver filtros
+  if (Object.keys(filters).length > 0) {
+    queryKey.push({ filters });
+  }
+  
+  // Log para depuração
+  console.log("Query key completa:", queryKey);
   
   const { data: appointments, isLoading, error } = useQuery({
     queryKey: queryKey,
@@ -41,10 +58,20 @@ export function useAppointments(options: AppointmentOptions = {}) {
       // Tratamento especial para professionalIds (array de IDs de profissionais)
       if (professionalIds && professionalIds.length > 0) {
         // Enviar cada ID como um parâmetro separado
-        professionalIds.forEach(id => {
-          params.append("professionalId[]", id.toString());
-        });
-        console.log(`Adicionando filtro para ${professionalIds.length} profissionais: ${professionalIds.join(', ')}`);
+        // Antes de enviar, certificar-se que são números e não strings
+        const processedIds = professionalIds.map(id => typeof id === 'string' ? parseInt(id) : id)
+          .filter(id => !isNaN(id));
+          
+        if (processedIds.length > 0) {
+          processedIds.forEach(id => {
+            params.append("professionalId[]", id.toString());
+          });
+          console.log(`Adicionando filtro para ${processedIds.length} profissionais: ${processedIds.join(', ')}`);
+        } else {
+          // Se após o processamento não restar nenhum ID válido, considerar como "todos"
+          params.append("professionalId", "all");
+          console.log("Nenhum ID de profissional válido encontrado, usando 'all'");
+        }
       } else {
         // Array vazio ou undefined significa "todos os profissionais"
         params.append("professionalId", "all");
