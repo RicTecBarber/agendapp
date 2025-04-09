@@ -1136,33 +1136,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const endDateFilter = req.query.endDate as string;
       // Verificar se professionalId existe e se não é uma string vazia
       const professionalIdParam = req.query.professionalId;
-      // Define como undefined se param for undefined, string vazia ou "undefined"
-      const professionalIdFilter = (professionalIdParam && 
-                                  professionalIdParam !== "" && 
-                                  professionalIdParam !== "undefined") 
-                                  ? parseInt(professionalIdParam as string) 
-                                  : null;
       
-      // Log detalhado dos filtros
-      console.log("Filtros recebidos:", { 
+      // Log detalhado dos filtros iniciais
+      console.log("Parâmetros recebidos:", { 
         dateFilter, 
         startDateFilter, 
         endDateFilter, 
         professionalIdParam,
-        professionalIdFilter,
-        professionalIdType: typeof professionalIdFilter
       });
       
       let appointments: any[] = [];
       
-      // Se tiver um filtro de profissional válido, usar o método específico
-      if (professionalIdFilter !== null && !isNaN(professionalIdFilter)) {
-        console.log(`Usando método específico para buscar agendamentos do profissional ${professionalIdFilter}`);
-        appointments = await storage.getAppointmentsByProfessionalId(professionalIdFilter);
-      } else {
-        // Caso contrário, obter todos os agendamentos
-        console.log("Buscando todos os agendamentos sem filtro de profissional");
-        appointments = await storage.getAllAppointments();
+      // Sempre buscar todos os agendamentos primeiro
+      console.log("Buscando todos os agendamentos");
+      appointments = await storage.getAllAppointments();
+      console.log(`Total de agendamentos encontrados: ${appointments.length}`);
+      
+      // Verificar se existe um filtro válido de profissional
+      if (professionalIdParam && 
+          professionalIdParam !== "" && 
+          professionalIdParam !== "undefined" && 
+          professionalIdParam !== "all") {
+          
+        const professionalIdFilter = parseInt(professionalIdParam as string);
+        
+        if (!isNaN(professionalIdFilter)) {
+          console.log(`Filtrando para o profissional ID: ${professionalIdFilter}`);
+          
+          // Não buscar de novo, apenas filtrar os que já foram buscados
+          const originalCount = appointments.length;
+          appointments = appointments.filter(a => Number(a.professional_id) === professionalIdFilter);
+          
+          console.log(`Agendamentos após filtro: ${appointments.length} de ${originalCount}`);
+        }
       }
       
       console.log(`Total de agendamentos antes de filtrar por data: ${appointments.length}`);
@@ -1197,33 +1203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Aplicar filtro de profissional se fornecido na query
-      if (professionalIdFilter) {
-        console.log(`Filtrando por profissional ID: ${professionalIdFilter}`);
-        console.log(`Total de agendamentos antes do filtro: ${appointments.length}`);
-        
-        // Verificar os IDs dos profissionais disponíveis
-        const professionalIds: number[] = [];
-        appointments.forEach(a => {
-          if (!professionalIds.includes(a.professional_id)) {
-            professionalIds.push(a.professional_id);
-          }
-        });
-        console.log(`IDs de profissionais nos agendamentos: ${professionalIds.join(', ')}`);
-        
-        // Aplicar filtro com verificação explícita dos tipos
-        appointments = appointments.filter(a => {
-          const isProfessionalMatch = Number(a.professional_id) === Number(professionalIdFilter);
-          if (isProfessionalMatch) {
-            console.log(`Agendamento compatível: ${a.id} - Prof ID: ${a.professional_id}`);
-          }
-          return isProfessionalMatch;
-        });
-        
-        console.log(`Total de agendamentos após filtro: ${appointments.length}`);
-      }
-      // Ou aplicar filtro se o usuário for um profissional (barber)
-      else if (req.user?.role === "barber") {
+      // Aplicar filtro se o usuário for um profissional (barber) e não filtrou por nenhum profissional específico
+      if (req.user?.role === "barber" && !req.query.professionalId) {
         const user = await storage.getUserByUsername(req.user.username);
         const professional = (await storage.getAllProfessionals()).find(
           p => p.name === user?.name
