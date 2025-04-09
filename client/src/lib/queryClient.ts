@@ -78,6 +78,8 @@ function getDefaultQueryOptions(): Partial<DefaultOptions> {
       refetchInterval: false,
       refetchOnWindowFocus: !shouldOptimize, // Desativar refetch em foco para dispositivos lentos
       staleTime: staleTime,
+      // cacheTime: DEFAULT_CACHE_TIME, - O nome dessa propriedade mudou na v5 do tanstack query
+      refetchOnMount: false, // Não refetchar automaticamente ao montar o componente
       retry: (failureCount, error) => {
         // Limitar retentativas em dispositivos lentos
         if (shouldOptimize && failureCount >= 1) return false;

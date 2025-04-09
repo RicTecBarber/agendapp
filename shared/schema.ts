@@ -193,6 +193,7 @@ export interface OrderItem {
   quantity: number;
   price: number;
   subtotal: number;
+  type?: 'product' | 'service';
 }
 
 // Comandas (orders)
