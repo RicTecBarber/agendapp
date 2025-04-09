@@ -84,14 +84,24 @@ export function setupAuth(app: Express) {
         if (user.password.startsWith("$2b$")) {
           // Verificação específica para seeds
           if (password === "admin123") {
-            return done(null, user);
+            // Caso especial para o usuário admin com senha admin123
+            if (user.username === "admin") {
+              return done(null, { ...user, isSystemAdmin: true });
+            } else {
+              return done(null, user);
+            }
           } else {
             return done(null, false, { message: "Senha incorreta" });
           }
         } else {
           // Para usuários reais
           if (await comparePasswords(password, user.password)) {
-            return done(null, user);
+            // Caso especial para o usuário admin
+            if (user.username === "admin") {
+              return done(null, { ...user, isSystemAdmin: true });
+            } else {
+              return done(null, user);
+            }
           } else {
             return done(null, false, { message: "Senha incorreta" });
           }
