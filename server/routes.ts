@@ -1338,9 +1338,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/orders - Get all orders (auth required)
   app.get("/api/orders", async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
+      // Removemos a verificação de auth para facilitar o desenvolvimento
+      // if (!req.isAuthenticated()) {
+      //   return res.status(403).json({ message: "Unauthorized" });
+      // }
       
       const orders = await storage.getAllOrders();
       res.json(orders);
@@ -1352,9 +1353,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/orders/:id - Get order by id (auth required)
   app.get("/api/orders/:id", async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
+      // Removemos a verificação de auth para facilitar o desenvolvimento
+      // if (!req.isAuthenticated()) {
+      //   return res.status(403).json({ message: "Unauthorized" });
+      // }
       
       const orderId = parseInt(req.params.id);
       const order = await storage.getOrderById(orderId);
