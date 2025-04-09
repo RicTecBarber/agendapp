@@ -146,6 +146,11 @@ function CreateOrderPage() {
     const action = params.get('action');
     const orderId = params.get('orderId');
     
+    console.log("Configuração inicial da página com parâmetros", {
+      appointmentId, clientName, clientPhone, serviceId, 
+      serviceName, servicePrice, action, orderId
+    });
+    
     // Verificar se estamos adicionando itens a uma comanda existente
     const addingItems = action === 'add_items' && orderId;
     if (addingItems) {
@@ -205,70 +210,6 @@ function CreateOrderPage() {
             description: `${serviceName} adicionado automaticamente à comanda`,
             variant: "default"
           });
-        } else if (appointmentId && !addingItems) {
-          // Se temos appointmentId mas não temos dados completos do serviço,
-          // buscar detalhes do agendamento da API e adicionar o serviço
-          
-          // Buscar detalhes do agendamento para adicionar o serviço
-          const fetchAppointmentDetails = async () => {
-            try {
-              console.log(`Buscando detalhes do agendamento #${appointmentId}`);
-              const res = await fetch(`/api/appointments/${appointmentId}`);
-              
-              if (!res.ok) {
-                throw new Error("Erro ao buscar detalhes do agendamento");
-              }
-              
-              const appointmentData = await res.json();
-              console.log("Detalhes do agendamento:", appointmentData);
-              
-              if (appointmentData && appointmentData.service_id) {
-                // Buscar detalhes do serviço
-                const serviceRes = await fetch(`/api/services/${appointmentData.service_id}`);
-                
-                if (!serviceRes.ok) {
-                  throw new Error("Erro ao buscar detalhes do serviço");
-                }
-                
-                const serviceData = await serviceRes.json();
-                console.log("Detalhes do serviço:", serviceData);
-                
-                if (serviceData) {
-                  // Adicionar o serviço à comanda
-                  const newItem: OrderItem = {
-                    id: idCounter,
-                    product_id: serviceData.id,
-                    product_name: `${serviceData.name} (Serviço)`,
-                    quantity: 1,
-                    price: serviceData.price,
-                    subtotal: serviceData.price,
-                    type: 'service' // Marcar explicitamente como serviço
-                  };
-                  
-                  setCartItems([newItem]);
-                  setIdCounter(prevCounter => prevCounter + 1);
-                  
-                  // Definir a aba ativa para 'services' para melhor contexto visual
-                  setActiveTab('services');
-                  
-                  toast({
-                    title: "Serviço adicionado",
-                    description: `${serviceData.name} adicionado automaticamente à comanda`,
-                    variant: "default"
-                  });
-                }
-              }
-            } catch (error) {
-              console.error("Erro ao buscar detalhes do agendamento:", error);
-              toast({
-                title: "Erro ao buscar serviço",
-                description: "Não foi possível adicionar o serviço agendado automaticamente. Por favor, adicione manualmente.",
-                variant: "destructive"
-              });
-            }
-          };
-          
-          fetchAppointmentDetails();
         }
       }
     }
