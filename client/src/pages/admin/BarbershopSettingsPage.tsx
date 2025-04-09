@@ -89,9 +89,12 @@ export default function BarbershopSettingsPage() {
     // Usar o getQueryFn padrão configurado no setup do queryClient
   });
   
-  // Observar erros para detectar problemas de tenant
+  // Observar erros para detectar problemas de tenant e definir um valor padrão
   React.useEffect(() => {
-    if (error) {
+    // Se não tiver um parâmetro de tenant e for um admin do sistema, mostra o erro
+    if (!tenantParam && isSystemAdmin) {
+      setTenantError("Para acessar esta página, você precisa especificar um tenant válido usando o parâmetro ?tenant=SLUG");
+    } else if (error) {
       console.error("Erro ao carregar configurações:", error);
       
       // Verificar se é um erro de tenant não identificado
@@ -100,7 +103,7 @@ export default function BarbershopSettingsPage() {
         setTenantError("Para acessar esta página, você precisa especificar um tenant válido usando o parâmetro ?tenant=SLUG");
       }
     }
-  }, [error]);
+  }, [error, tenantParam, isSystemAdmin]);
   
   // Handle query error
   React.useEffect(() => {
@@ -142,19 +145,28 @@ export default function BarbershopSettingsPage() {
 
   // Atualizar valores do formulário quando as configurações são carregadas
   React.useEffect(() => {
-    if (settings) {
-      // Para administradores do sistema, adicione o campo tenant_url
-      const updatedSettings = { ...settings };
-      if (isSystemAdmin && tenantParam) {
-        const clientUrl = `${window.location.origin}/?tenant=${tenantParam}`;
-        const adminUrl = `${window.location.origin}/admin/auth?tenant=${tenantParam}`;
+    if (isSystemAdmin) {
+      // Para administradores do sistema, sempre gere os URLs mesmo se não houver configurações carregadas
+      const tenantSlug = tenantParam || 'teste'; // Usa um valor default se não tiver tenant na URL
+      const clientUrl = `${window.location.origin}/?tenant=${tenantSlug}`;
+      const adminUrl = `${window.location.origin}/admin/auth?tenant=${tenantSlug}`;
+      
+      // Se temos configurações, atualize-as; caso contrário, atualize o formulário diretamente
+      if (settings) {
+        const updatedSettings = { ...settings };
         updatedSettings.tenant_url = clientUrl;
-        
-        // Adicionamos também URLs específicas para clientes e administradores
         updatedSettings.client_url = clientUrl;
         updatedSettings.admin_url = adminUrl;
+        form.reset(updatedSettings);
+      } else {
+        // Se não temos configurações, definimos apenas os urls
+        form.setValue('client_url', clientUrl);
+        form.setValue('admin_url', adminUrl);
+        form.setValue('tenant_url', clientUrl);
       }
-      form.reset(updatedSettings);
+    } else if (settings) {
+      // Para usuários regulares, apenas resete o formulário com as configurações
+      form.reset(settings);
     }
   }, [settings, form, isSystemAdmin, tenantParam]);
 
@@ -298,7 +310,7 @@ export default function BarbershopSettingsPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* Seção específica para administradores do sistema */}
-              {isSystemAdmin && tenantParam && (
+              {isSystemAdmin && (
                 <div className="mb-6 border p-4 rounded-lg bg-blue-50 border-blue-200">
                   <h3 className="text-md font-medium mb-3 text-blue-800">Links de Acesso ao Tenant</h3>
                   
