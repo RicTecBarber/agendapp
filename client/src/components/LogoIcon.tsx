@@ -1,33 +1,83 @@
 import React from 'react';
 
-const LogoIcon: React.FC<{ className?: string }> = ({ className = "h-8 w-8" }) => {
+interface LogoIconProps {
+  className?: string;
+  showText?: boolean;
+  textClassName?: string;
+}
+
+const LogoIcon: React.FC<LogoIconProps> = ({ 
+  className = "h-8 w-8", 
+  showText = false,
+  textClassName = "text-xl font-display font-bold ml-2 text-white"
+}) => {
   return (
-    <svg 
-      width="200" 
-      height="200" 
-      viewBox="0 0 200 200" 
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
-      <defs>
-        <linearGradient x1="0%" y1="0%" x2="100%" y2="100%" id="agendapp-gradient">
-          <stop stopColor="#2563EB" offset="0%"></stop>
-          <stop stopColor="#3B82F6" offset="100%"></stop>
-        </linearGradient>
-      </defs>
-      <g stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-        <circle fill="url(#agendapp-gradient)" cx="100" cy="100" r="90"></circle>
-        <g transform="translate(50.000000, 50.000000)" fill="#FFFFFF">
-          <path d="M50,0 C77.6142375,0 100,22.3857625 100,50 C100,77.6142375 77.6142375,100 50,100 C22.3857625,100 0,77.6142375 0,50 C0,22.3857625 22.3857625,0 50,0 Z M50,20 C33.4314575,20 20,33.4314575 20,50 C20,66.5685425 33.4314575,80 50,80 C66.5685425,80 80,66.5685425 80,50 C80,33.4314575 66.5685425,20 50,20 Z" fillOpacity="0.3"></path>
-          <rect x="45" y="0" width="10" height="30" rx="5"></rect>
-          <rect x="45" y="70" width="10" height="30" rx="5"></rect>
-          <rect x="70" y="45" width="30" height="10" rx="5"></rect>
-          <rect x="0" y="45" width="30" height="10" rx="5"></rect>
-          <path d="M50,30 C61.045695,30 70,38.954305 70,50 C70,61.045695 61.045695,70 50,70 C38.954305,70 30,61.045695 30,50 C30,38.954305 38.954305,30 50,30 Z" fillOpacity="0.6"></path>
-          <polygon points="48 40 58 50 48 60 46 58 54 50 46 42"></polygon>
+    <>
+      <svg 
+        viewBox="0 0 200 200" 
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+      >
+        <defs>
+          <linearGradient id="neon-blue-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#00FFFF" />
+            <stop offset="100%" stopColor="#0080FF" />
+          </linearGradient>
+          <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="5" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+        <g stroke="none" strokeWidth="0" fill="none" fillRule="evenodd">
+          {/* Calendario com cantos arredondados */}
+          <rect 
+            x="40" 
+            y="45" 
+            width="120" 
+            height="120" 
+            rx="20" 
+            stroke="url(#neon-blue-gradient)" 
+            strokeWidth="10" 
+            filter="url(#neon-glow)"
+          />
+          
+          {/* Pinos superiores do calendário */}
+          <rect 
+            x="65" 
+            y="25" 
+            width="15" 
+            height="30" 
+            rx="7.5" 
+            fill="url(#neon-blue-gradient)" 
+            filter="url(#neon-glow)" 
+          />
+          
+          <rect 
+            x="120" 
+            y="25" 
+            width="15" 
+            height="30" 
+            rx="7.5" 
+            fill="url(#neon-blue-gradient)" 
+            filter="url(#neon-glow)"
+          />
+          
+          {/* Marca de verificação dentro do calendário */}
+          <path 
+            d="M70,110 L90,130 L140,80" 
+            stroke="url(#neon-blue-gradient)" 
+            strokeWidth="15" 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            filter="url(#neon-glow)"
+          />
         </g>
-      </g>
-    </svg>
+      </svg>
+      
+      {showText && (
+        <span className={textClassName}>Agendapp</span>
+      )}
+    </>
   );
 };
 

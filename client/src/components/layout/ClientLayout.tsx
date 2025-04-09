@@ -29,8 +29,7 @@ const ClientLayout = ({ children, title }: ClientLayoutProps) => {
         <div className="container mx-auto px-4 py-6 flex justify-between items-center">
           <Link href="/">
             <a className="flex items-center">
-              <LogoIcon className="h-10 w-10" />
-              <h1 className="ml-2 text-2xl font-display font-bold text-white">AgendApp</h1>
+              <LogoIcon className="h-10 w-10" showText={true} />
             </a>
           </Link>
           <button 

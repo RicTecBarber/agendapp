@@ -25,8 +25,7 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
         <aside className="w-64 bg-primary text-white h-screen fixed inset-y-0 left-0 overflow-y-auto">
           <div className="px-6 py-6">
             <div className="flex items-center mb-8">
-              <LogoIcon className="h-8 w-8 mr-2" />
-              <h1 className="text-xl font-display font-bold">AgendApp</h1>
+              <LogoIcon className="h-8 w-8" showText={true} textClassName="text-xl font-display font-bold" />
             </div>
             
             <nav className="space-y-1">
