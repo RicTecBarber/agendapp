@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Loader2, AlertCircle, ArrowLeft, Copy } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenant } from "@/hooks/use-tenant";
 import { useLocation } from "wouter";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -57,8 +58,10 @@ const barbershopSettingsSchema = z.object({
   facebook: z.string().nullable().optional(),
   tenant_id: z.number().optional(), // Campo opcional para armazenar o ID do tenant
   id: z.number().optional(), // ID das configurações (importante para atualizações)
-  // Campo para exibir URL do tenant (apenas visível para administradores do sistema)
+  // Campos para exibir URLs do tenant (apenas visíveis para administradores do sistema)
   tenant_url: z.string().optional(),
+  client_url: z.string().optional(),
+  admin_url: z.string().optional(),
 });
 
 type BarbershopSettingsFormData = z.infer<typeof barbershopSettingsSchema>;
@@ -77,11 +80,8 @@ export default function BarbershopSettingsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [tenantError, setTenantError] = useState<string | null>(null);
   const { user, isSystemAdmin } = useAuth();
+  const { tenant: tenantParam, getTenantFromUrl } = useTenant();
   const [location] = useLocation();
-  
-  // Verificar se temos um tenant na URL
-  const searchParams = new URLSearchParams(window.location.search);
-  const tenantParam = searchParams.get('tenant');
   
   // Buscar configurações da barbearia
   const { data: settings, isLoading, error } = useQuery<any, Error>({
@@ -146,7 +146,13 @@ export default function BarbershopSettingsPage() {
       // Para administradores do sistema, adicione o campo tenant_url
       const updatedSettings = { ...settings };
       if (isSystemAdmin && tenantParam) {
-        updatedSettings.tenant_url = `${window.location.origin}/?tenant=${tenantParam}`;
+        const clientUrl = `${window.location.origin}/?tenant=${tenantParam}`;
+        const adminUrl = `${window.location.origin}/admin/auth?tenant=${tenantParam}`;
+        updatedSettings.tenant_url = clientUrl;
+        
+        // Adicionamos também URLs específicas para clientes e administradores
+        updatedSettings.client_url = clientUrl;
+        updatedSettings.admin_url = adminUrl;
       }
       form.reset(updatedSettings);
     }
@@ -294,13 +300,15 @@ export default function BarbershopSettingsPage() {
               {/* Seção específica para administradores do sistema */}
               {isSystemAdmin && tenantParam && (
                 <div className="mb-6 border p-4 rounded-lg bg-blue-50 border-blue-200">
-                  <h3 className="text-md font-medium mb-3 text-blue-800">Acesso ao Tenant</h3>
+                  <h3 className="text-md font-medium mb-3 text-blue-800">Links de Acesso ao Tenant</h3>
+                  
+                  {/* Link para clientes */}
                   <FormField
                     control={form.control}
-                    name="tenant_url"
+                    name="client_url"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-blue-700">URL do Tenant (use este link para acessar)</FormLabel>
+                      <FormItem className="mb-4">
+                        <FormLabel className="text-blue-700">Link para Clientes</FormLabel>
                         <div className="flex">
                           <FormControl>
                             <Input 
@@ -317,7 +325,7 @@ export default function BarbershopSettingsPage() {
                               navigator.clipboard.writeText(field.value || '');
                               toast({
                                 title: "URL copiada",
-                                description: "Link do tenant copiado para a área de transferência",
+                                description: "Link para clientes copiado para a área de transferência",
                               });
                             }}
                           >
@@ -326,7 +334,45 @@ export default function BarbershopSettingsPage() {
                           </Button>
                         </div>
                         <FormDescription>
-                          Compartilhe este link com os administradores da barbearia para que eles possam acessar seu ambiente.
+                          Compartilhe este link com os clientes para que eles possam acessar o sistema.
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Link para administradores */}
+                  <FormField
+                    control={form.control}
+                    name="admin_url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-blue-700">Link para Administradores</FormLabel>
+                        <div className="flex">
+                          <FormControl>
+                            <Input 
+                              value={field.value} 
+                              readOnly 
+                              className="bg-white font-mono text-sm"
+                            />
+                          </FormControl>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="ml-2"
+                            onClick={() => {
+                              navigator.clipboard.writeText(field.value || '');
+                              toast({
+                                title: "URL copiada",
+                                description: "Link para administradores copiado para a área de transferência",
+                              });
+                            }}
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copiar
+                          </Button>
+                        </div>
+                        <FormDescription>
+                          Compartilhe este link com os administradores da barbearia para que eles possam acessar o painel administrativo.
                         </FormDescription>
                       </FormItem>
                     )}
@@ -596,11 +642,11 @@ export default function BarbershopSettingsPage() {
                   <Button 
                     type="button"
                     variant="outline"
-                    onClick={() => window.location.href = "/system/tenants"}
+                    onClick={() => window.history.back()}
                     className="flex items-center gap-1"
                   >
                     <ArrowLeft className="h-4 w-4" />
-                    Voltar para Tenants
+                    Voltar
                   </Button>
                 )}
                 
