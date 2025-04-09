@@ -21,6 +21,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: number): Promise<boolean>;
   
   // Service operations
@@ -209,6 +210,28 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, user);
     return user;
+  }
+  
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) {
+      return undefined;
+    }
+    
+    // Sanitizar os dados
+    if (userData.permissions && Array.isArray(userData.permissions)) {
+      // Garantir que permissions é do tipo string[]
+      userData.permissions = userData.permissions.map(String);
+    }
+    
+    const updatedUser = { 
+      ...existingUser, 
+      ...userData,
+      updated_at: new Date() 
+    };
+    
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
   
   async deleteUser(id: number): Promise<boolean> {
