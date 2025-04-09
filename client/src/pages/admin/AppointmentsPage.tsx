@@ -114,7 +114,7 @@ const AppointmentsPage = () => {
     updateAppointmentStatus 
   } = useAppointments({ 
     date: dateFilter,
-    professionalId: professionalFilter !== "all" ? parseInt(professionalFilter) : undefined
+    professionalIds: professionalFilter !== "all" ? [parseInt(professionalFilter)] : undefined
   });
 
   // Get professionals for filter

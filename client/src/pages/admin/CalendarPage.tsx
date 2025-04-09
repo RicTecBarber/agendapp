@@ -10,12 +10,14 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAppointments } from '@/hooks/use-appointments';
 import { Appointment, Professional, User } from '@shared/schema';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon, X, AlertTriangle, ShoppingCart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon, Users as UsersIcon, X, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { useLocalCache } from '@/hooks/use-cache';
 import { cn } from '@/lib/utils';
 import { useLocation } from 'wouter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 
@@ -56,10 +58,14 @@ const CalendarPage = () => {
     cacheName: 'calendar-state',
   });
 
-  // Estado para controlar o profissional selecionado
-  const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | undefined>(() => {
+  // Estado para controlar os profissionais selecionados (array de IDs)
+  const [selectedProfessionalIds, setSelectedProfessionalIds] = useState<number[]>(() => {
     const cachedState = cache.getItem('selected-week');
-    return cachedState?.selectedProfessionalId;
+    // Se existe um ID no cache, transformar em array
+    if (cachedState?.selectedProfessionalId !== undefined) {
+      return [cachedState.selectedProfessionalId];
+    }
+    return []; // Array vazio significa todos os profissionais
   });
 
   // Estado para o usuário atual
@@ -113,14 +119,15 @@ const CalendarPage = () => {
         const matchingProfessional = professionals.find(p => p.name === userData.name);
         if (matchingProfessional) {
           setUserProfessionalId(matchingProfessional.id);
-          // Apenas atualizamos o profissional selecionado se ele não estiver definido ou se o selecionado não for o do usuário
-          if (!selectedProfessionalId || (userProfessionalId && selectedProfessionalId !== userProfessionalId)) {
-            setSelectedProfessionalId(matchingProfessional.id);
+          // Apenas atualizamos o profissional selecionado se não houver nenhum selecionado ou se o do usuário não estiver na lista
+          if (selectedProfessionalIds.length === 0 || 
+              (userProfessionalId && !selectedProfessionalIds.includes(userProfessionalId))) {
+            setSelectedProfessionalIds([matchingProfessional.id]);
           }
         }
       }
     }
-  }, [userData, professionals, userProfessionalId, selectedProfessionalId]);
+  }, [userData, professionals, userProfessionalId, selectedProfessionalIds]);
 
   // Calcular os dias da semana baseado na data selecionada
   const weekDays = useMemo(() => {
@@ -141,7 +148,7 @@ const CalendarPage = () => {
   } = useAppointments({
     startDate: weekDays[0],
     endDate: weekDays[6],
-    professionalId: selectedProfessionalId
+    professionalIds: selectedProfessionalIds.length > 0 ? selectedProfessionalIds : undefined
   });
   
   // Registrar erros se ocorrerem
@@ -158,26 +165,60 @@ const CalendarPage = () => {
         ? addDays(current, -7) 
         : addDays(current, 7);
       
-      // Salvar no cache
+      // Salvar no cache - armazenamos apenas o primeiro ID da lista se houver algum
+      // (por compatibilidade com código legado)
       cache.setItem('selected-week', { 
         selectedDate: newDate.toISOString(),
-        selectedProfessionalId
+        selectedProfessionalId: selectedProfessionalIds.length > 0 ? selectedProfessionalIds[0] : undefined
       });
       
       return newDate;
     });
-  }, [cache, selectedProfessionalId]);
+  }, [cache, selectedProfessionalIds]);
 
-  // Handler para mudança de profissional
-  const handleProfessionalChange = useCallback((professionalId: string) => {
-    // Se for "all", define como undefined para mostrar todos
-    const id = professionalId === "all" ? undefined : parseInt(professionalId);
-    setSelectedProfessionalId(id);
+  // Handler para toggle de profissional selecionado
+  const toggleProfessional = useCallback((professionalId: number, isChecked: boolean) => {
+    setSelectedProfessionalIds(current => {
+      let newSelection: number[];
+      
+      if (isChecked) {
+        // Adicionar o profissional à lista se não estiver
+        newSelection = [...current, professionalId];
+      } else {
+        // Remover o profissional da lista
+        newSelection = current.filter(id => id !== professionalId);
+      }
+      
+      // Atualizar o cache - armazenamos apenas o primeiro ID (compatibilidade)
+      cache.setItem('selected-week', {
+        selectedDate: selectedDate.toISOString(),
+        selectedProfessionalId: newSelection.length > 0 ? newSelection[0] : undefined
+      });
+      
+      return newSelection;
+    });
+  }, [cache, selectedDate]);
+  
+  // Selecionar todos os profissionais
+  const selectAllProfessionals = useCallback(() => {
+    const allIds = professionals.map(p => p.id);
+    setSelectedProfessionalIds(allIds);
     
     // Atualizar o cache
     cache.setItem('selected-week', {
       selectedDate: selectedDate.toISOString(),
-      selectedProfessionalId: id
+      selectedProfessionalId: allIds.length > 0 ? allIds[0] : undefined
+    });
+  }, [professionals, cache, selectedDate]);
+  
+  // Desmarcar todos os profissionais
+  const deselectAllProfessionals = useCallback(() => {
+    setSelectedProfessionalIds([]);
+    
+    // Atualizar o cache
+    cache.setItem('selected-week', {
+      selectedDate: selectedDate.toISOString(),
+      selectedProfessionalId: undefined
     });
   }, [cache, selectedDate]);
 
@@ -377,29 +418,70 @@ const CalendarPage = () => {
           <h1 className="text-2xl font-bold">Calendário de Agendamentos</h1>
         </div>
 
-        {/* Seletor de profissional */}
+        {/* Seletor múltiplo de profissionais (checkboxes) */}
         <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-4">
           {professionals.length > 0 && (
             <div className={cn(
               "w-full sm:w-auto",
               !showProfessionalSelector && "hidden" // Esconder se o usuário não for admin
             )}>
-              <Select 
-                value={selectedProfessionalId?.toString() || "all"} 
-                onValueChange={handleProfessionalChange}
-              >
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Selecione um profissional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os profissionais</SelectItem>
-                  {professionals.map((prof: Professional) => (
-                    <SelectItem key={prof.id} value={prof.id.toString()}>
-                      {prof.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-full sm:w-[200px]"
+                    size="sm"
+                  >
+                    <UsersIcon className="h-4 w-4 mr-2" />
+                    {selectedProfessionalIds.length === 0 
+                      ? "Todos os profissionais" 
+                      : `${selectedProfessionalIds.length} selecionado${selectedProfessionalIds.length > 1 ? 's' : ''}`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center pb-2 border-b">
+                      <h4 className="font-medium text-sm">Filtrar profissionais</h4>
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={selectAllProfessionals}
+                        >
+                          Selecionar todos
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={deselectAllProfessionals}
+                        >
+                          Limpar
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1 pt-1">
+                      {professionals.map((prof: Professional) => (
+                        <div key={prof.id} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`professional-${prof.id}`}
+                            checked={selectedProfessionalIds.includes(prof.id)}
+                            onCheckedChange={(checked) => toggleProfessional(prof.id, !!checked)}
+                          />
+                          <label 
+                            htmlFor={`professional-${prof.id}`}
+                            className="text-sm cursor-pointer flex-1 py-1"
+                          >
+                            {prof.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           )}
 

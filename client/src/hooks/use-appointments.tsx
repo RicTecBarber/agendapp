@@ -6,21 +6,24 @@ import { format } from "date-fns";
 
 interface AppointmentOptions {
   date?: Date;
-  professionalId?: number;
+  professionalIds?: number[]; // Múltiplos profissionais
   startDate?: Date;
   endDate?: Date;
 }
 
 export function useAppointments(options: AppointmentOptions = {}) {
   const { toast } = useToast();
-  const { date, professionalId, startDate, endDate } = options;
+  const { date, professionalIds, startDate, endDate } = options;
   
   // Construir a queryKey com base nos parâmetros fornecidos
   let queryKey: any[] = ["/api/appointments"];
   
   // Adicionar cada filtro à queryKey
   if (date) queryKey.push("date", format(date, "yyyy-MM-dd"));
-  if (professionalId !== undefined) queryKey.push("professionalId", professionalId.toString());
+  // Incluir todos os IDs de profissionais, se houver
+  if (professionalIds && professionalIds.length > 0) {
+    queryKey.push("professionals", professionalIds);
+  }
   if (startDate && endDate) {
     queryKey.push("range", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"));
   }
@@ -35,14 +38,15 @@ export function useAppointments(options: AppointmentOptions = {}) {
         params.append("date", format(date, "yyyy-MM-dd"));
       }
       
-      // Tratamento especial para professionalId
-      if (professionalId !== undefined) {
-        // Garantir que mesmo o valor 0 seja enviado
-        params.append("professionalId", professionalId.toString());
-        console.log(`Adicionando filtro de profissional: ${professionalId}`);
+      // Tratamento especial para professionalIds (array de IDs de profissionais)
+      if (professionalIds && professionalIds.length > 0) {
+        // Enviar cada ID como um parâmetro separado
+        professionalIds.forEach(id => {
+          params.append("professionalId[]", id.toString());
+        });
+        console.log(`Adicionando filtro para ${professionalIds.length} profissionais: ${professionalIds.join(', ')}`);
       } else {
-        // Quando undefined, estamos pedindo "todos os profissionais"
-        // Explicitamente enviar "all" para o servidor saber que queremos todos
+        // Array vazio ou undefined significa "todos os profissionais"
         params.append("professionalId", "all");
         console.log("Adicionando filtro para TODOS os profissionais");
       }
@@ -61,7 +65,7 @@ export function useAppointments(options: AppointmentOptions = {}) {
         console.log("Parâmetros completos:", {
           url,
           date: date ? format(date, "yyyy-MM-dd") : null,
-          professionalId: professionalId !== undefined ? professionalId : 'não definido',
+          professionalIds: professionalIds || [],
           startDate: startDate ? format(startDate, "yyyy-MM-dd") : null,
           endDate: endDate ? format(endDate, "yyyy-MM-dd") : null,
           queryKey
@@ -76,9 +80,9 @@ export function useAppointments(options: AppointmentOptions = {}) {
         
         const data = await res.json();
         
-        // Filtrar localmente os resultados para profissional (segurança extra)
-        const filteredData = professionalId !== undefined 
-          ? data.filter((a: any) => Number(a.professional_id) === Number(professionalId))
+        // Filtrar localmente os resultados para profissionais selecionados (segurança extra)
+        const filteredData = professionalIds && professionalIds.length > 0
+          ? data.filter((a: any) => professionalIds.includes(Number(a.professional_id)))
           : data;
         
         console.log(`Agendamentos recebidos: ${data.length}, filtrados localmente: ${filteredData.length}`);
