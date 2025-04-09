@@ -95,12 +95,19 @@ export const isSystemAdmin = (req: Request, res: Response, next: NextFunction) =
 
 /**
  * Middleware para verificar se o usuário é um administrador (pode ser de qualquer tenant)
+ * ou um administrador do sistema
  */
 export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Não autenticado" });
   }
   
+  // Permite acesso se for administrador do sistema
+  if ('isSystemAdmin' in req.user && req.user.isSystemAdmin) {
+    return next();
+  }
+  
+  // Ou se for um administrador de tenant normal
   if (req.user?.role !== 'admin') {
     return res.status(403).json({ message: "Acesso permitido apenas para administradores" });
   }
