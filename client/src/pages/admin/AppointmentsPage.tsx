@@ -634,6 +634,18 @@ const AppointmentsPage = () => {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Ações</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
+                                {/* Opção de Criar Comanda disponível para todos os status */}
+                                <DropdownMenuItem
+                                  className="text-orange-600"
+                                  onClick={() => navigateToCreateOrder(appointment)}
+                                >
+                                  <ShoppingCart className="h-4 w-4 mr-2" />
+                                  Criar comanda
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSeparator />
+                                
+                                {/* Outras ações específicas de status */}
                                 {appointment.status === "scheduled" && (
                                   <>
                                     <DropdownMenuItem
@@ -662,22 +674,13 @@ const AppointmentsPage = () => {
                                   </DropdownMenuItem>
                                 )}
                                 {appointment.status === "completed" && (
-                                  <>
-                                    <DropdownMenuItem
-                                      className="text-blue-600"
-                                      onClick={() => handleStatusChange(appointment, "scheduled")}
-                                    >
-                                      <Clock className="h-4 w-4 mr-2" />
-                                      Reverter para agendado
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      className="text-orange-600"
-                                      onClick={() => navigateToCreateOrder(appointment)}
-                                    >
-                                      <ShoppingCart className="h-4 w-4 mr-2" />
-                                      Criar comanda
-                                    </DropdownMenuItem>
-                                  </>
+                                  <DropdownMenuItem
+                                    className="text-blue-600"
+                                    onClick={() => handleStatusChange(appointment, "scheduled")}
+                                  >
+                                    <Clock className="h-4 w-4 mr-2" />
+                                    Reverter para agendado
+                                  </DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
