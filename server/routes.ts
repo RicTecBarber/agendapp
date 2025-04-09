@@ -518,7 +518,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Verificar se há timestamp especial LOCAL para processar
         let appointmentDate: Date;
-        let appointmentData: InsertAppointment;
+        let processedAppointmentData: InsertAppointment;
         
         if (typeof appointmentData.appointment_date === 'string' && 
             appointmentData.appointment_date.endsWith('LOCAL')) {
@@ -535,28 +535,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Data do agendamento interpretada como: ${appointmentDate.toISOString()}`);
           
           // Criar novo objeto com a data processada
-          appointmentData = {
+          processedAppointmentData = {
             ...req.body,
             appointment_date: appointmentDate
           };
         } else {
           // Usar processamento padrão
-          appointmentData = insertAppointmentSchema.parse(req.body);
-          appointmentDate = new Date(appointmentData.appointment_date);
+          processedAppointmentData = insertAppointmentSchema.parse(req.body);
+          appointmentDate = new Date(processedAppointmentData.appointment_date);
         }
         
         // Verificar se a data é válida
         if (isNaN(appointmentDate.getTime())) {
           return res.status(400).json({ 
             message: "Invalid appointment date", 
-            received: appointmentData.appointment_date 
+            received: processedAppointmentData.appointment_date 
           });
         }
         
         console.log(`Data final do agendamento: ${appointmentDate.toISOString()}`);
         
         // Verificar se o horário já está agendado
-        const professionalId = appointmentData.professional_id;
+        const professionalId = processedAppointmentData.professional_id;
         const appointments = await storage.getAppointmentsByProfessionalId(professionalId);
         
         // Filtrar agendamentos na mesma data e hora
@@ -582,13 +582,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Criar o agendamento
-        const appointment = await storage.createAppointment(appointmentData);
+        const appointment = await storage.createAppointment(processedAppointmentData);
         
         // Se marcado como resgate de fidelidade, registrar o uso da recompensa
-        if (appointmentData.is_loyalty_reward) {
+        if (processedAppointmentData.is_loyalty_reward) {
           try {
-            await storage.useReward(appointmentData.client_phone);
-            console.log(`Recompensa de fidelidade utilizada para ${appointmentData.client_phone}`);
+            await storage.useReward(processedAppointmentData.client_phone);
+            console.log(`Recompensa de fidelidade utilizada para ${processedAppointmentData.client_phone}`);
           } catch (err) {
             // Não impedir o agendamento se o registro de recompensa falhar
             console.error("Erro ao registrar uso de recompensa:", err);
@@ -601,7 +601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ 
             message: "Invalid appointment data", 
             errors: error.errors,
-            received: appointmentData
+            received: processedAppointmentData
           });
         }
         throw error;
