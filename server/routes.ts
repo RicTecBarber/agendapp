@@ -1501,8 +1501,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized" });
       }
       
+      console.log("Recebido PUT /api/orders/:id/items com:", { params: req.params, body: req.body });
+      
       const orderId = parseInt(req.params.id);
-      const { items } = req.body;
+      const { items, total_amount } = req.body;
       
       // Verificar se a comanda existe
       const existingOrder = await storage.getOrderById(orderId);
@@ -1515,17 +1517,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Items must be an array" });
       }
       
-      // Calcular o novo total com base nos itens
-      let totalAmount = 0;
-      items.forEach(item => {
-        const subtotal = (item.price || 0) * (item.quantity || 1);
-        totalAmount += subtotal;
+      // Calcular o novo total com base nos itens se não foi fornecido
+      let finalTotalAmount = total_amount;
+      if (!finalTotalAmount) {
+        finalTotalAmount = 0;
+        items.forEach(item => {
+          const subtotal = (item.price || 0) * (item.quantity || 1);
+          finalTotalAmount += subtotal;
+        });
+      }
+      
+      console.log("Atualizando comanda com:", { 
+        orderId, 
+        items: items.length, 
+        total_amount: finalTotalAmount 
       });
       
       // Atualizar a comanda com os novos itens e total
       const updatedOrderData = {
         items: items,
-        total_amount: totalAmount
+        total: finalTotalAmount // Usa o campo 'total' no backend
       };
       
       const updatedOrder = await storage.updateOrder(orderId, updatedOrderData);

@@ -373,7 +373,27 @@ function CreateOrderPage() {
       if (!user) {
         throw new Error("Você precisa estar autenticado para adicionar itens à comanda");
       }
-      const res = await apiRequest("PUT", `/api/orders/${orderId}/items`, { items, total });
+      console.log("Enviando itens para a comanda:", { orderId, items, total_amount: total });
+      
+      // Garantir que todos os itens tenham a propriedade type
+      const validatedItems = items.map(item => {
+        if (!item.type) {
+          // Se não tiver type, assumir 'product' como padrão
+          return { ...item, type: 'product' };
+        }
+        return item;
+      });
+      
+      const res = await apiRequest("PUT", `/api/orders/${orderId}/items`, { 
+        items: validatedItems, 
+        total_amount: total // Backend espera total_amount, não total
+      });
+      
+      if (!res.ok) {
+        console.error("Erro ao adicionar itens:", await res.text());
+        throw new Error(`Erro ao adicionar itens: ${res.status}`);
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -385,6 +405,7 @@ function CreateOrderPage() {
       navigate("/admin/orders");
     },
     onError: (error: Error) => {
+      console.error("Erro na mutação:", error);
       toast({
         title: "Erro ao adicionar itens",
         description: error.message,
