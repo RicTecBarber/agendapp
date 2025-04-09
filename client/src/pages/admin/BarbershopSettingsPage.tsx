@@ -85,20 +85,8 @@ export default function BarbershopSettingsPage() {
   
   // Buscar configurações da barbearia
   const { data: settings, isLoading, error } = useQuery<any, Error>({
-    queryKey: ["/api/barbershop-settings"],
-    queryFn: async ({ queryKey }) => {
-      // Adiciona o parâmetro tenant à URL, se existir
-      const url = tenantParam
-        ? `/api/barbershop-settings?tenant=${tenantParam}`
-        : `/api/barbershop-settings`;
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error("Falha ao buscar configurações da barbearia");
-      }
-      
-      return response.json();
-    }
+    queryKey: ["/api/barbershop-settings", tenantParam],
+    // Usar o getQueryFn padrão configurado no setup do queryClient
   });
   
   // Observar erros para detectar problemas de tenant
@@ -185,7 +173,7 @@ export default function BarbershopSettingsPage() {
         title: "Configurações criadas com sucesso",
         description: "As configurações da barbearia foram salvas.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/barbershop-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/barbershop-settings", tenantParam] });
       setIsCreating(false);
     },
     onError: (error) => {
@@ -223,7 +211,7 @@ export default function BarbershopSettingsPage() {
         title: "Configurações atualizadas com sucesso",
         description: "As alterações foram salvas com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/barbershop-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/barbershop-settings", tenantParam] });
     },
     onError: (error) => {
       toast({
