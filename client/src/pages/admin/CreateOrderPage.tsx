@@ -450,14 +450,28 @@ function CreateOrderPage() {
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader className="pb-0">
-                <Tabs defaultValue="products" value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="products">Produtos</TabsTrigger>
-                    <TabsTrigger value="services">Serviços</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <div className="mb-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant={activeTab === 'products' ? 'default' : 'outline'} 
+                      onClick={() => setActiveTab('products')}
+                      className="w-full"
+                    >
+                      <Package className="h-4 w-4 mr-2" />
+                      Produtos
+                    </Button>
+                    <Button 
+                      variant={activeTab === 'services' ? 'default' : 'outline'} 
+                      onClick={() => setActiveTab('services')}
+                      className="w-full"
+                    >
+                      <Scissors className="h-4 w-4 mr-2" />
+                      Serviços
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4 pt-6">
+              <CardContent className="space-y-4 pt-0">
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="flex-1 relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -491,8 +505,8 @@ function CreateOrderPage() {
                   )}
                 </div>
 
-                <TabsContent value="products" className="mt-0">
-                  {loadingProducts ? (
+                {activeTab === 'products' ? (
+                  loadingProducts ? (
                     <div className="flex justify-center items-center h-32">
                       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
                     </div>
@@ -546,11 +560,9 @@ function CreateOrderPage() {
                         </div>
                       )}
                     </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="services" className="mt-0">
-                  {loadingServices ? (
+                  )
+                ) : (
+                  loadingServices ? (
                     <div className="flex justify-center items-center h-32">
                       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
                     </div>
@@ -591,8 +603,8 @@ function CreateOrderPage() {
                         </div>
                       )}
                     </div>
-                  )}
-                </TabsContent>
+                  )
+                )}
               </CardContent>
             </Card>
           </div>
