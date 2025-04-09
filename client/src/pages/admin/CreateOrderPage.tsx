@@ -178,8 +178,9 @@ function CreateOrderPage() {
           });
         }
         
-        // Adicionar o serviço principal ao carrinho automaticamente (apenas para novas comandas)
+        // Verificar se temos os parâmetros do serviço
         if (serviceId && serviceName && servicePrice && !addingItems) {
+          // Adicionar o serviço principal ao carrinho automaticamente
           const price = parseFloat(servicePrice);
           const newItem: OrderItem = {
             id: idCounter,
@@ -197,6 +198,53 @@ function CreateOrderPage() {
             title: "Serviço adicionado",
             description: `${serviceName} adicionado automaticamente à comanda`,
           });
+        } else if (!addingItems) {
+          // Se não temos os parâmetros do serviço, buscar as informações do agendamento
+          const fetchAppointmentDetails = async () => {
+            try {
+              // Buscar detalhes do agendamento
+              const appointmentResponse = await fetch(`/api/appointments/${appointmentId}`);
+              if (!appointmentResponse.ok) {
+                throw new Error("Erro ao buscar detalhes do agendamento");
+              }
+              
+              const appointmentData = await appointmentResponse.json();
+              
+              // Buscar detalhes do serviço associado ao agendamento
+              const serviceResponse = await fetch(`/api/services/${appointmentData.service_id}`);
+              if (!serviceResponse.ok) {
+                throw new Error("Erro ao buscar detalhes do serviço");
+              }
+              
+              const serviceData = await serviceResponse.json();
+              
+              // Adicionar o serviço ao carrinho
+              const newItem: OrderItem = {
+                id: idCounter,
+                product_id: serviceData.id,
+                product_name: `${serviceData.name} (Serviço)`,
+                quantity: 1,
+                price: serviceData.price,
+                subtotal: serviceData.price,
+              };
+              
+              setCartItems([newItem]);
+              setIdCounter(prevCounter => prevCounter + 1);
+              
+              toast({
+                title: "Serviço adicionado",
+                description: `${serviceData.name} adicionado automaticamente à comanda`,
+              });
+            } catch (error: any) {
+              toast({
+                title: "Erro ao carregar serviço",
+                description: error.message,
+                variant: "destructive",
+              });
+            }
+          };
+          
+          fetchAppointmentDetails();
         }
       }
     }

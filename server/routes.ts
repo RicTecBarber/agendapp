@@ -1073,6 +1073,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/appointments/:id - Get appointment details by ID
+  app.get("/api/appointments/:id", async (req: Request, res: Response) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      
+      if (isNaN(appointmentId)) {
+        return res.status(400).json({ message: "Invalid appointment ID" });
+      }
+      
+      // Buscar detalhes do agendamento
+      const appointment = await storage.getAppointmentById(appointmentId);
+      
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      
+      res.json(appointment);
+    } catch (error) {
+      console.error("Error fetching appointment details:", error);
+      res.status(500).json({ message: "Failed to fetch appointment details" });
+    }
+  });
+
   // PUT /api/appointments/:id/status - Update appointment status (auth required)
   app.put("/api/appointments/:id/status", async (req: Request, res: Response) => {
     try {
