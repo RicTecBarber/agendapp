@@ -1511,7 +1511,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar se a comanda existe
       const existingOrder = await storage.getOrderById(orderId);
       if (!existingOrder) {
-        return res.status(404).json({ message: "Order not found" });
+        console.error(`Comanda ${orderId} não encontrada para adicionar itens. Todas as comandas existentes:`, 
+                      await storage.getAllOrders());
+        return res.status(404).json({ 
+          message: "Comanda não encontrada", 
+          detail: `A comanda com ID ${orderId} não existe. Isto pode ocorrer se o servidor foi reiniciado e os dados em memória foram perdidos.` 
+        });
       }
       
       // Validar a estrutura dos itens

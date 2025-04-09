@@ -98,6 +98,13 @@ function CreateOrderPage() {
   const [activeTab, setActiveTab] = useState<string>("products");
   const [cartItems, setCartItems] = useState<OrderItem[]>([]);
   const [idCounter, setIdCounter] = useState(1);
+  // Não precisamos realmente de um estado cartTotal separado, pois podemos calculá-lo diretamente
+  // dos itens do carrinho, mas mantemos o setCartTotal como uma função para compatibilidade
+  const setCartTotal = (newTotal: number) => {
+    // Função vazia, já que não estamos realmente usando um estado separado para o total
+    console.log("setCartTotal chamada com:", newTotal);
+    // O cartTotal é calculado automaticamente a partir dos itens do carrinho
+  };
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
