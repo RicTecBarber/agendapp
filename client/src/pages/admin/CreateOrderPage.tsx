@@ -822,6 +822,7 @@ function CreateOrderPage() {
                           <Select
                             onValueChange={field.onChange}
                             defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -831,10 +832,10 @@ function CreateOrderPage() {
                             <SelectContent>
                               {paymentMethods.map((method: any) => (
                                 <SelectItem
-                                  key={method.value}
-                                  value={method.value}
+                                  key={method.id}
+                                  value={method.id}
                                 >
-                                  {method.label}
+                                  {method.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
