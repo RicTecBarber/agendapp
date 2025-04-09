@@ -68,7 +68,8 @@ export default function SystemAuthPage() {
         console.log("Login bem-sucedido, usuário:", userData);
         if (userData?.isSystemAdmin) {
           console.log("Usuário é um administrador do sistema");
-          setLoginSuccess(true);
+          // Usar navegação direta para a página intermediária
+          window.location.href = "/system/redirect";
         } else {
           console.log("Usuário não é um administrador do sistema");
           toast({

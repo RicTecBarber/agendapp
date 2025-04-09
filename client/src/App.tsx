@@ -35,6 +35,7 @@ import SystemDashboardPage from "@/pages/system/SystemDashboardPage";
 import TenantsPage from "@/pages/system/TenantsPage";
 import EditTenantPage from "@/pages/system/EditTenantPage";
 import SystemAdminsPage from "@/pages/system/SystemAdminsPage";
+import SystemLoginRedirect from "@/pages/system/SystemLoginRedirect";
 
 function Router() {
   return (
@@ -66,6 +67,7 @@ function Router() {
       
       {/* System Admin Routes */}
       <Route path="/system/auth" component={SystemAuthPage} />
+      <Route path="/system/redirect" component={SystemLoginRedirect} />
       <SystemAdminRoute path="/system/dashboard" component={SystemDashboardPage} />
       <SystemAdminRoute path="/system/tenants" component={TenantsPage} />
       <SystemAdminRoute path="/system/tenants/:id" component={EditTenantPage} />
