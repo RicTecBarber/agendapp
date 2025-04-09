@@ -352,7 +352,7 @@ const CalendarPage = () => {
         clientName: selectedAppointment.client_name,
         clientPhone: selectedAppointment.client_phone
       });
-      setLocation(`/admin/nova-comanda?${queryParams.toString()}`);
+      setLocation(`/admin/orders/new?${queryParams.toString()}`);
       setCancelDialogOpen(false);
     }
   };

@@ -123,6 +123,30 @@ function CreateOrderPage() {
     },
   });
 
+  // Efeito para preencher dados do cliente a partir dos parâmetros da URL
+  useEffect(() => {
+    // Verificar se há parâmetros na URL
+    const params = new URLSearchParams(window.location.search);
+    const appointmentId = params.get('appointmentId');
+    const clientName = params.get('clientName');
+    const clientPhone = params.get('clientPhone');
+
+    // Se temos os dados do cliente na URL, preencher o formulário
+    if (clientName && clientPhone) {
+      orderForm.setValue('client_name', clientName);
+      orderForm.setValue('client_phone', clientPhone);
+      
+      // Se temos um appointmentId, adicionar ao formulário
+      if (appointmentId) {
+        orderForm.setValue('appointment_id', parseInt(appointmentId));
+        toast({
+          title: "Dados do cliente carregados",
+          description: `Comanda vinculada ao agendamento #${appointmentId}`,
+        });
+      }
+    }
+  }, [orderForm, toast]);
+
   // Buscar produtos
   const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ["/api/products"],
