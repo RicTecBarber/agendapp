@@ -250,11 +250,50 @@ const CalendarPage = () => {
     return grouped;
   }, [appointments, weekDays]);
 
+  // Define uma lista de cores para profissionais diferentes
+  const professionalColors = useMemo(() => [
+    { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-800', indicator: 'bg-indigo-400' },
+    { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-800', indicator: 'bg-pink-400' },
+    { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', indicator: 'bg-amber-400' },
+    { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-800', indicator: 'bg-emerald-400' },
+    { bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-800', indicator: 'bg-sky-400' },
+    { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', indicator: 'bg-orange-400' },
+    { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-800', indicator: 'bg-violet-400' },
+    { bg: 'bg-lime-50', border: 'border-lime-200', text: 'text-lime-800', indicator: 'bg-lime-400' },
+  ], []);
+
+  // Mapear profissionais para cores
+  const professionalColorMap = useMemo(() => {
+    const colorMap = new Map<number, any>();
+    
+    // Se apenas um profissional está selecionado, usar cores padrão do estado
+    if (selectedProfessionalIds.length <= 1) {
+      return colorMap;
+    }
+    
+    // Caso contrário, atribuir uma cor para cada profissional
+    professionals.forEach((prof, index) => {
+      // Usar cores cíclicas se houver mais profissionais que cores
+      const colorIndex = index % professionalColors.length;
+      colorMap.set(prof.id, professionalColors[colorIndex]);
+    });
+    
+    return colorMap;
+  }, [professionals, selectedProfessionalIds, professionalColors]);
+
+  // Obter o profissional pelo ID
+  const getProfessionalById = useCallback((professionalId: number) => {
+    return professionals.find(p => p.id === professionalId);
+  }, [professionals]);
+
   // Renderizar um dia da semana
   const renderDay = useCallback((day: Date) => {
     const dayKey = format(day, 'yyyy-MM-dd');
     const dayAppointments = appointmentsByDay.get(dayKey) || [];
     const isToday = isSameDay(day, new Date());
+    
+    // Determinar se estamos usando cores específicas de profissionais
+    const useMultiProfColors = selectedProfessionalIds.length > 1;
     
     return (
       <Card 
@@ -294,26 +333,66 @@ const CalendarPage = () => {
             <div className="space-y-2">
               {/* Renderiza no máximo 20 agendamentos se estiver otimizando */}
               {(shouldOptimize ? dayAppointments.slice(0, 20) : dayAppointments)
-                .map((appointment: Appointment) => (
-                <div 
-                  key={appointment.id}
-                  onClick={() => appointment.status !== 'cancelled' && handleSelectAppointment(appointment)}
-                  className={cn(
+                .map((appointment: Appointment) => {
+                  // Obter profissional para este agendamento
+                  const professional = getProfessionalById(appointment.professional_id);
+                  const profName = professional?.name || '';
+                  
+                  // Obter iniciais do profissional (até 2 caracteres)
+                  const initials = profName
+                    .split(' ')
+                    .map(name => name.charAt(0))
+                    .join('')
+                    .substring(0, 2)
+                    .toUpperCase();
+                    
+                  // Determinar as cores a usar (cores fixas de estado ou cores de múltiplos profissionais)
+                  const profColors = useMultiProfColors 
+                    ? professionalColorMap.get(appointment.professional_id)
+                    : null;
+                    
+                  const baseClasses = cn(
                     'p-2 rounded-md text-sm border cursor-pointer transition-colors hover:bg-muted/50',
-                    appointment.status === 'confirmed' ? 'bg-green-50 border-green-200' :
+                    // Se o agendamento estiver cancelado, sempre usar cores de cancelamento
                     appointment.status === 'cancelled' ? 'bg-red-50 border-red-200' :
-                    'bg-blue-50 border-blue-200'
-                  )}
-                >
-                  <div className="font-medium">
-                    <span>{appointment.client_name}</span>
-                  </div>
-                  <div className="flex items-center mt-1 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {formatAppointmentTime(appointment.appointment_date)}
-                  </div>
-                </div>
-              ))}
+                    // Se estamos usando cores específicas de profissionais, use-as
+                    useMultiProfColors && profColors
+                      ? `${profColors.bg} ${profColors.border}`
+                      : // Caso contrário, usar cores padrão baseadas no estado
+                        (appointment.status === 'confirmed' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200')
+                  );
+                  
+                  return (
+                    <div 
+                      key={appointment.id}
+                      onClick={() => appointment.status !== 'cancelled' && handleSelectAppointment(appointment)}
+                      className={baseClasses}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium">
+                          <span>{appointment.client_name}</span>
+                        </div>
+                        
+                        {/* Exibir badge com inicial do profissional quando múltiplos estão selecionados */}
+                        {useMultiProfColors && profColors && (
+                          <div 
+                            className={cn(
+                              "rounded-full w-5 h-5 flex items-center justify-center text-white text-xs font-medium",
+                              profColors.indicator
+                            )}
+                            title={profName}
+                          >
+                            {initials}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center mt-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {formatAppointmentTime(appointment.appointment_date)}
+                      </div>
+                    </div>
+                  );
+                })}
               
               {/* Indicador de "mais agendamentos" */}
               {shouldOptimize && dayAppointments.length > 20 && (
@@ -326,7 +405,7 @@ const CalendarPage = () => {
         </CardContent>
       </Card>
     );
-  }, [appointmentsByDay, isLoading, shouldOptimize]);
+  }, [appointmentsByDay, isLoading, shouldOptimize, selectedProfessionalIds, professionalColorMap, getProfessionalById]);
 
   // Mutation para cancelar agendamento
   const cancelMutation = useMutation({
