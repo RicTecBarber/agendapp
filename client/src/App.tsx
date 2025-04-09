@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { SystemAdminRoute } from "@/lib/system-admin-route";
+import { TenantProvider } from "@/hooks/use-tenant";
 
 // Client Pages
 import ClientHomePage from "@/pages/client/ClientHomePage";
@@ -84,8 +85,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
-        <Toaster />
+        <TenantProvider>
+          <Router />
+          <Toaster />
+        </TenantProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenant } from "@/hooks/use-tenant";
 import { LogOut, Home, Calendar, CalendarRange, Users, DollarSign, Scissors, Settings, UserPlus, UserCircle, ShoppingCart, Package } from "lucide-react";
 import LogoIcon from "../../components/LogoIcon";
 
@@ -11,32 +12,14 @@ interface AdminLayoutProps {
 
 const AdminLayout = ({ children, title }: AdminLayoutProps) => {
   const { user, logoutMutation } = useAuth();
+  const { getUrlWithTenant, redirectWithTenant } = useTenant();
   const [location] = useLocation();
-  
-  // Função para preservar o parâmetro tenant em todos os links
-  const getUrlWithTenant = (path: string) => {
-    const url = new URL(window.location.href);
-    const tenant = url.searchParams.get('tenant');
-    
-    if (tenant) {
-      return `${path}?tenant=${tenant}`;
-    }
-    
-    return path;
-  };
   
   const handleLogout = () => {
     logoutMutation.mutate();
     
-    // Preservar o parâmetro tenant ao fazer logout
-    const url = new URL(window.location.href);
-    const tenant = url.searchParams.get('tenant');
-    
-    if (tenant) {
-      window.location.href = `/?tenant=${tenant}`;
-    } else {
-      window.location.href = "/";
-    }
+    // Redirecionar para a página inicial preservando o tenant
+    redirectWithTenant('/');
   };
   
   return (
