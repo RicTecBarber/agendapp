@@ -225,3 +225,37 @@ export const paymentMethods = [
   { value: "pix", label: "PIX" },
   { value: "transferencia", label: "Transferência Bancária" }
 ];
+
+// Sistema de Tenants/Clientes
+export const tenants = pgTable("tenants", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(), // URL amigável para o tenant (ex: cliente1, cliente2)
+  active: boolean("active").notNull().default(true),
+  production_url: text("production_url"), // URL de produção do tenant
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertTenantSchema = createInsertSchema(tenants).omit({ 
+  id: true, created_at: true, updated_at: true 
+});
+export type InsertTenant = z.infer<typeof insertTenantSchema>;
+export type Tenant = typeof tenants.$inferSelect;
+
+// Administradores do Sistema (Super usuários)
+export const systemAdmins = pgTable("system_admins", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertSystemAdminSchema = createInsertSchema(systemAdmins).omit({ 
+  id: true, created_at: true, updated_at: true 
+});
+export type InsertSystemAdmin = z.infer<typeof insertSystemAdminSchema>;
+export type SystemAdmin = typeof systemAdmins.$inferSelect;

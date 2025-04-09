@@ -1,15 +1,18 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import { Express, Request } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
+import { User as SelectUser, SystemAdmin } from "@shared/schema";
+
+// Tipo para representar tanto usuários comuns quanto administradores do sistema
+type AuthUser = SelectUser | (SystemAdmin & { isSystemAdmin: true });
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User extends AuthUser {}
   }
 }
 
@@ -47,21 +50,46 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        // Primeiro, tenta autenticar como um usuário normal
         const user = await storage.getUserByUsername(username);
+        
+        // Se não encontrar como usuário normal, tenta como administrador do sistema
         if (!user) {
-          return done(null, false, { message: "Usuário não encontrado" });
+          const systemAdmin = await storage.getSystemAdminByUsername(username);
+          
+          if (!systemAdmin) {
+            return done(null, false, { message: "Usuário não encontrado" });
+          }
+          
+          // Verificar senha do administrador do sistema
+          if (systemAdmin.password.startsWith("$2b$")) {
+            // Verificação específica para seeds
+            if (password === "admin123") {
+              // Adiciona uma flag para identificar que é um admin do sistema
+              return done(null, { ...systemAdmin, isSystemAdmin: true });
+            } else {
+              return done(null, false, { message: "Senha incorreta" });
+            }
+          } else {
+            // Para admins reais
+            if (await comparePasswords(password, systemAdmin.password)) {
+              return done(null, { ...systemAdmin, isSystemAdmin: true });
+            } else {
+              return done(null, false, { message: "Senha incorreta" });
+            }
+          }
         }
         
-        // For the seed users who have bcrypt hashes
+        // Verificação de senha para usuário normal
         if (user.password.startsWith("$2b$")) {
-          // This is a hardcoded check just for seed users
+          // Verificação específica para seeds
           if (password === "admin123") {
             return done(null, user);
           } else {
             return done(null, false, { message: "Senha incorreta" });
           }
         } else {
-          // For real users
+          // Para usuários reais
           if (await comparePasswords(password, user.password)) {
             return done(null, user);
           } else {
@@ -74,11 +102,33 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id: number, done) => {
+  passport.serializeUser((user: any, done) => {
+    // Serializar diferentemente se for um admin do sistema
+    if (user.isSystemAdmin) {
+      done(null, { id: user.id, isSystemAdmin: true });
+    } else {
+      done(null, { id: user.id, isSystemAdmin: false });
+    }
+  });
+  
+  passport.deserializeUser(async (serialized: { id: number, isSystemAdmin: boolean }, done) => {
     try {
-      const user = await storage.getUser(id);
-      done(null, user);
+      // Deserializar corretamente com base no tipo de usuário
+      if (serialized.isSystemAdmin) {
+        const systemAdmin = await storage.getSystemAdmin(serialized.id);
+        if (systemAdmin) {
+          done(null, { ...systemAdmin, isSystemAdmin: true });
+        } else {
+          done(new Error('System admin not found'));
+        }
+      } else {
+        const user = await storage.getUser(serialized.id);
+        if (user) {
+          done(null, user);
+        } else {
+          done(new Error('User not found'));
+        }
+      }
     } catch (err) {
       done(err);
     }

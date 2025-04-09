@@ -16,7 +16,11 @@ import {
   insertBarbershopSettingsSchema,
   insertProductSchema,
   insertOrderSchema,
-  type InsertAppointment
+  insertTenantSchema,
+  insertSystemAdminSchema,
+  type InsertAppointment,
+  type InsertTenant,
+  type InsertSystemAdmin
 } from '@shared/schema';
 
 // Função auxiliar para calcular o offset de fuso horário
@@ -44,6 +48,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     next();
   });
+  
+  // Middleware para verificar se o usuário é um administrador do sistema
+  const isSystemAdmin = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    // Verificar se o usuário tem a propriedade isSystemAdmin
+    if (!req.user || !('isSystemAdmin' in req.user)) {
+      return res.status(403).json({ error: "Acesso negado" });
+    }
+    
+    next();
+  };
   
   // Middleware para logging
   app.use((req, res, next) => {
@@ -1652,6 +1670,201 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Criar servidor HTTP e WebSocket
+  // SYSTEM ROUTES (para gerenciamento de tenants e admins)
+  
+  // GET /api/system/tenants - Obter todos os tenants
+  app.get("/api/system/tenants", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const tenants = await storage.getAllTenants();
+      res.json(tenants);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar tenants", error: error.message });
+    }
+  });
+
+  // GET /api/system/tenants/:id - Obter tenant por ID
+  app.get("/api/system/tenants/:id", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const tenant = await storage.getTenant(id);
+      
+      if (!tenant) {
+        return res.status(404).json({ message: "Tenant não encontrado" });
+      }
+      
+      res.json(tenant);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar tenant", error: error.message });
+    }
+  });
+
+  // POST /api/system/tenants - Criar novo tenant
+  app.post("/api/system/tenants", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      // Validar dados
+      const tenantData = insertTenantSchema.parse(req.body);
+      
+      // Verificar se o slug já existe
+      const existingTenant = await storage.getTenantBySlug(tenantData.slug);
+      if (existingTenant) {
+        return res.status(400).json({ message: "Slug já está em uso por outro tenant" });
+      }
+      
+      // Criar tenant
+      const tenant = await storage.createTenant(tenantData);
+      res.status(201).json(tenant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Erro ao criar tenant", error: error.message });
+      }
+    }
+  });
+
+  // PUT /api/system/tenants/:id - Atualizar tenant
+  app.put("/api/system/tenants/:id", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const tenantData = req.body;
+      
+      // Verificar se o tenant existe
+      const existingTenant = await storage.getTenant(id);
+      if (!existingTenant) {
+        return res.status(404).json({ message: "Tenant não encontrado" });
+      }
+      
+      // Verificar se o slug já existe (caso esteja sendo alterado)
+      if (tenantData.slug && tenantData.slug !== existingTenant.slug) {
+        const tenantWithSlug = await storage.getTenantBySlug(tenantData.slug);
+        if (tenantWithSlug && tenantWithSlug.id !== id) {
+          return res.status(400).json({ message: "Slug já está em uso por outro tenant" });
+        }
+      }
+      
+      // Atualizar tenant
+      const updated = await storage.updateTenant(id, tenantData);
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar tenant", error: error.message });
+    }
+  });
+
+  // POST /api/system/tenants/:id/activate - Ativar tenant
+  app.post("/api/system/tenants/:id/activate", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Verificar se o tenant existe
+      const existingTenant = await storage.getTenant(id);
+      if (!existingTenant) {
+        return res.status(404).json({ message: "Tenant não encontrado" });
+      }
+      
+      // Ativar tenant
+      const updated = await storage.activateTenant(id);
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao ativar tenant", error: error.message });
+    }
+  });
+
+  // POST /api/system/tenants/:id/deactivate - Desativar tenant
+  app.post("/api/system/tenants/:id/deactivate", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Verificar se o tenant existe
+      const existingTenant = await storage.getTenant(id);
+      if (!existingTenant) {
+        return res.status(404).json({ message: "Tenant não encontrado" });
+      }
+      
+      // Desativar tenant
+      const updated = await storage.deactivateTenant(id);
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao desativar tenant", error: error.message });
+    }
+  });
+
+  // DELETE /api/system/tenants/:id - Excluir tenant
+  app.delete("/api/system/tenants/:id", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Verificar se o tenant existe
+      const existingTenant = await storage.getTenant(id);
+      if (!existingTenant) {
+        return res.status(404).json({ message: "Tenant não encontrado" });
+      }
+      
+      // Excluir tenant
+      await storage.deleteTenant(id);
+      res.status(200).json({ message: "Tenant excluído com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir tenant", error: error.message });
+    }
+  });
+
+  // GET /api/system/admins - Obter todos os administradores do sistema
+  app.get("/api/system/admins", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const admins = await storage.getAllSystemAdmins();
+      res.json(admins);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar administradores", error: error.message });
+    }
+  });
+
+  // POST /api/system/admins - Criar novo administrador do sistema
+  app.post("/api/system/admins", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      // Validar dados
+      const adminData = insertSystemAdminSchema.parse(req.body);
+      
+      // Verificar se o username já existe
+      const existingAdmin = await storage.getSystemAdminByUsername(adminData.username);
+      if (existingAdmin) {
+        return res.status(400).json({ message: "Nome de usuário já está em uso" });
+      }
+      
+      // Criar administrador
+      const admin = await storage.createSystemAdmin(adminData);
+      res.status(201).json(admin);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Erro ao criar administrador", error: error.message });
+      }
+    }
+  });
+
+  // DELETE /api/system/admins/:id - Excluir administrador do sistema
+  app.delete("/api/system/admins/:id", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Não permitir excluir a si mesmo
+      if (req.user && req.user.id === id) {
+        return res.status(400).json({ message: "Você não pode excluir seu próprio usuário" });
+      }
+      
+      // Verificar se o administrador existe
+      const existingAdmin = await storage.getSystemAdmin(id);
+      if (!existingAdmin) {
+        return res.status(404).json({ message: "Administrador não encontrado" });
+      }
+      
+      // Excluir administrador
+      await storage.deleteSystemAdmin(id);
+      res.status(200).json({ message: "Administrador excluído com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir administrador", error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Configurar WebSocket para atualizações em tempo real
@@ -1715,5 +1928,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 30000);
 
+  // ===== FIM DAS APIS DO SISTEMA ===== 
+  
+  // PUT /api/system/admins/:id - Atualizar administrador do sistema
+  app.put("/api/system/admins/:id", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const adminData = req.body;
+      
+      // Verificar se o admin existe
+      const existingAdmin = await storage.getSystemAdmin(id);
+      if (!existingAdmin) {
+        return res.status(404).json({ message: "Administrador não encontrado" });
+      }
+      
+      // Se estiver atualizando o username, verificar se já existe outro admin com esse username
+      if (adminData.username && adminData.username !== existingAdmin.username) {
+        const adminWithUsername = await storage.getSystemAdminByUsername(adminData.username);
+        if (adminWithUsername && adminWithUsername.id !== id) {
+          return res.status(400).json({ message: "Já existe um administrador com esse username" });
+        }
+      }
+      
+      const updatedAdmin = await storage.updateSystemAdmin(id, adminData);
+      res.json(updatedAdmin);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar administrador", error: String(error) });
+    }
+  });
+  
+  // DELETE /api/system/admins/:id - Excluir administrador do sistema
+  app.delete("/api/system/admins/:id", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Verificar se o admin existe
+      const existingAdmin = await storage.getSystemAdmin(id);
+      if (!existingAdmin) {
+        return res.status(404).json({ message: "Administrador não encontrado" });
+      }
+      
+      await storage.deleteSystemAdmin(id);
+      res.status(200).json({ message: "Administrador excluído com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir administrador", error: String(error) });
+    }
+  });
+  
   return httpServer;
 }

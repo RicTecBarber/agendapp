@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { SystemAdminRoute } from "@/lib/system-admin-route";
 
 // Client Pages
 import ClientHomePage from "@/pages/client/ClientHomePage";
@@ -27,6 +28,13 @@ import BarbershopSettingsPage from "@/pages/admin/BarbershopSettingsPage";
 import ProductsPage from "@/pages/admin/ProductsPage";
 import OrdersPage from "@/pages/admin/OrdersPage";
 import CreateOrderPage from "@/pages/admin/CreateOrderPage";
+
+// System Admin Pages
+import SystemAuthPage from "@/pages/system/SystemAuthPage";
+import SystemDashboardPage from "@/pages/system/SystemDashboardPage";
+import TenantsPage from "@/pages/system/TenantsPage";
+import EditTenantPage from "@/pages/system/EditTenantPage";
+import SystemAdminsPage from "@/pages/system/SystemAdminsPage";
 
 function Router() {
   return (
@@ -55,6 +63,14 @@ function Router() {
       <ProtectedRoute path="/admin/products" component={ProductsPage} />
       <ProtectedRoute path="/admin/orders" component={OrdersPage} />
       <ProtectedRoute path="/admin/orders/new" component={CreateOrderPage} />
+      
+      {/* System Admin Routes */}
+      <Route path="/system/auth" component={SystemAuthPage} />
+      <SystemAdminRoute path="/system/dashboard" component={SystemDashboardPage} />
+      <SystemAdminRoute path="/system/tenants" component={TenantsPage} />
+      <SystemAdminRoute path="/system/tenants/:id" component={EditTenantPage} />
+      <SystemAdminRoute path="/system/tenants/new" component={EditTenantPage} />
+      <SystemAdminRoute path="/system/admins" component={SystemAdminsPage} />
       
       {/* Fallback Route */}
       <Route component={NotFound} />

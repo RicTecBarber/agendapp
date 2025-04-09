@@ -82,6 +82,24 @@ export interface IStorage {
   updateOrderStatus(id: number, status: string): Promise<Order | undefined>;
   updateOrder(id: number, orderData: Partial<Order>): Promise<Order | undefined>;
   
+  // Tenant (Cliente) operations
+  getAllTenants(): Promise<Tenant[]>;
+  getTenant(id: number): Promise<Tenant | undefined>;
+  getTenantBySlug(slug: string): Promise<Tenant | undefined>;
+  createTenant(tenant: InsertTenant): Promise<Tenant>;
+  updateTenant(id: number, tenant: Partial<InsertTenant>): Promise<Tenant | undefined>;
+  activateTenant(id: number): Promise<Tenant | undefined>;
+  deactivateTenant(id: number): Promise<Tenant | undefined>;
+  deleteTenant(id: number): Promise<boolean>;
+  
+  // System Admin operations
+  getAllSystemAdmins(): Promise<SystemAdmin[]>;
+  getSystemAdmin(id: number): Promise<SystemAdmin | undefined>;
+  getSystemAdminByUsername(username: string): Promise<SystemAdmin | undefined>;
+  createSystemAdmin(admin: InsertSystemAdmin): Promise<SystemAdmin>;
+  updateSystemAdmin(id: number, admin: Partial<InsertSystemAdmin>): Promise<SystemAdmin | undefined>;
+  deleteSystemAdmin(id: number): Promise<boolean>;
+  
   // SessionStore for auth
   sessionStore: session.Store;
 }
@@ -97,6 +115,8 @@ export class MemStorage implements IStorage {
   private barbershopSettings: BarbershopSettings | undefined;
   private products: Map<number, Product>;
   private orders: Map<number, Order>;
+  private tenants: Map<number, Tenant>;
+  private systemAdmins: Map<number, SystemAdmin>;
   
   // Cache para melhorar desempenho
   private _appointmentsByDateCache: Map<string, Appointment[]>;
@@ -112,6 +132,8 @@ export class MemStorage implements IStorage {
   private clientRewardIdCounter: number;
   private productIdCounter: number;
   private orderIdCounter: number;
+  private tenantIdCounter: number;
+  private systemAdminIdCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -122,6 +144,8 @@ export class MemStorage implements IStorage {
     this.clientRewards = new Map();
     this.products = new Map();
     this.orders = new Map();
+    this.tenants = new Map();
+    this.systemAdmins = new Map();
     
     // Inicializar caches
     this._appointmentsByDateCache = new Map();
@@ -135,6 +159,8 @@ export class MemStorage implements IStorage {
     this.clientRewardIdCounter = 1;
     this.productIdCounter = 1;
     this.orderIdCounter = 1;
+    this.tenantIdCounter = 1;
+    this.systemAdminIdCounter = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
@@ -788,6 +814,139 @@ export class MemStorage implements IStorage {
     return updatedOrder;
   }
   
+  // Tenant operations
+  async getAllTenants(): Promise<Tenant[]> {
+    return Array.from(this.tenants.values());
+  }
+  
+  async getTenant(id: number): Promise<Tenant | undefined> {
+    return this.tenants.get(id);
+  }
+  
+  async getTenantBySlug(slug: string): Promise<Tenant | undefined> {
+    return Array.from(this.tenants.values()).find(
+      tenant => tenant.slug === slug
+    );
+  }
+  
+  async createTenant(tenantData: InsertTenant): Promise<Tenant> {
+    const id = this.tenantIdCounter++;
+    const now = new Date();
+    
+    const tenant: Tenant = {
+      ...tenantData,
+      id,
+      active: tenantData.active ?? true,
+      created_at: now,
+      updated_at: now
+    };
+    
+    this.tenants.set(id, tenant);
+    return tenant;
+  }
+  
+  async updateTenant(id: number, tenantData: Partial<InsertTenant>): Promise<Tenant | undefined> {
+    const existingTenant = this.tenants.get(id);
+    if (!existingTenant) {
+      return undefined;
+    }
+    
+    const updatedTenant = { 
+      ...existingTenant,
+      ...tenantData,
+      updated_at: new Date()
+    };
+    
+    this.tenants.set(id, updatedTenant);
+    return updatedTenant;
+  }
+  
+  async activateTenant(id: number): Promise<Tenant | undefined> {
+    const existingTenant = this.tenants.get(id);
+    if (!existingTenant) {
+      return undefined;
+    }
+    
+    const updatedTenant = {
+      ...existingTenant,
+      active: true,
+      updated_at: new Date()
+    };
+    
+    this.tenants.set(id, updatedTenant);
+    return updatedTenant;
+  }
+  
+  async deactivateTenant(id: number): Promise<Tenant | undefined> {
+    const existingTenant = this.tenants.get(id);
+    if (!existingTenant) {
+      return undefined;
+    }
+    
+    const updatedTenant = {
+      ...existingTenant,
+      active: false,
+      updated_at: new Date()
+    };
+    
+    this.tenants.set(id, updatedTenant);
+    return updatedTenant;
+  }
+  
+  async deleteTenant(id: number): Promise<boolean> {
+    return this.tenants.delete(id);
+  }
+  
+  // System Admin operations
+  async getAllSystemAdmins(): Promise<SystemAdmin[]> {
+    return Array.from(this.systemAdmins.values());
+  }
+  
+  async getSystemAdmin(id: number): Promise<SystemAdmin | undefined> {
+    return this.systemAdmins.get(id);
+  }
+  
+  async getSystemAdminByUsername(username: string): Promise<SystemAdmin | undefined> {
+    return Array.from(this.systemAdmins.values()).find(
+      admin => admin.username === username
+    );
+  }
+  
+  async createSystemAdmin(adminData: InsertSystemAdmin): Promise<SystemAdmin> {
+    const id = this.systemAdminIdCounter++;
+    const now = new Date();
+    
+    const admin: SystemAdmin = {
+      ...adminData,
+      id,
+      created_at: now,
+      updated_at: now
+    };
+    
+    this.systemAdmins.set(id, admin);
+    return admin;
+  }
+  
+  async updateSystemAdmin(id: number, adminData: Partial<InsertSystemAdmin>): Promise<SystemAdmin | undefined> {
+    const existingAdmin = this.systemAdmins.get(id);
+    if (!existingAdmin) {
+      return undefined;
+    }
+    
+    const updatedAdmin = {
+      ...existingAdmin,
+      ...adminData,
+      updated_at: new Date()
+    };
+    
+    this.systemAdmins.set(id, updatedAdmin);
+    return updatedAdmin;
+  }
+  
+  async deleteSystemAdmin(id: number): Promise<boolean> {
+    return this.systemAdmins.delete(id);
+  }
+  
   private seedInitialData() {
     // Add barbershop settings
     this.barbershopSettings = {
@@ -807,6 +966,53 @@ export class MemStorage implements IStorage {
       created_at: new Date(),
       updated_at: new Date()
     };
+    
+    // Criar um administrador do sistema
+    this.createSystemAdmin({
+      username: "superadmin",
+      password: "$2b$10$3euPcmQFCiblsZeEu5s7p.9NjT3nWm.TnECVXwxjZ6I.hkQQr1vD.", // "admin123"
+      name: "Super Administrador",
+      email: "superadmin@agendapp.com",
+      role: "super_admin",
+      is_active: true
+    });
+    
+    // Criar alguns tenants de exemplo
+    this.createTenant({
+      name: "Barbearia do João",
+      slug: "barbearia-joao",
+      domain: "barbeariajoao.agendapp.com",
+      contact_name: "João Silva",
+      contact_email: "joao@barbeariajoao.com",
+      contact_phone: "(11) 98765-4321",
+      plan: "basic",
+      is_active: true,
+      logo_url: "/assets/tenants/joao-logo.png"
+    });
+    
+    this.createTenant({
+      name: "Salão da Maria",
+      slug: "salao-maria",
+      domain: "salaomaria.agendapp.com",
+      contact_name: "Maria Oliveira",
+      contact_email: "maria@salaomaria.com",
+      contact_phone: "(11) 91234-5678",
+      plan: "premium",
+      is_active: true,
+      logo_url: "/assets/tenants/maria-logo.png"
+    });
+    
+    this.createTenant({
+      name: "Barbearia Vintage",
+      slug: "barbearia-vintage",
+      domain: "vintage.agendapp.com",
+      contact_name: "Carlos Mendes",
+      contact_email: "carlos@vintage.com",
+      contact_phone: "(11) 97890-1234",
+      plan: "enterprise",
+      is_active: false,
+      logo_url: "/assets/tenants/vintage-logo.png"
+    });
     
     // Add an admin user
     this.createUser({

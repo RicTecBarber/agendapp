@@ -3,15 +3,19 @@ import {
   useQuery,
   useMutation,
 } from "@tanstack/react-query";
-import { User, loginSchema } from "@shared/schema";
+import { User, SystemAdmin, loginSchema } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
+// Tipo que representa um usuário autenticado (pode ser um usuário normal ou um administrador do sistema)
+type AuthUser = (User | (SystemAdmin & { isSystemAdmin: true })) & { role?: string };
+
 type AuthContextType = {
-  user: User | null;
+  user: AuthUser | null;
   isLoading: boolean;
   error: Error | null;
+  isSystemAdmin: boolean;
   loginMutation: any;
   logoutMutation: any;
   registerMutation: any;
@@ -39,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error,
     isLoading,
     refetch: refetchUser
-  } = useQuery<User | null, Error>({
+  } = useQuery<AuthUser | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     retry: 1,
@@ -49,17 +53,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: 60 * 1000, // 1 minuto
   });
 
+  // Verifica se o usuário é um administrador do sistema
+  const isSystemAdmin = !!user?.isSystemAdmin;
+
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/login", credentials);
       return await res.json();
     },
-    onSuccess: (user: User) => {
+    onSuccess: (user: AuthUser) => {
       queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Login realizado com sucesso",
-        description: `Bem-vindo, ${user.name}`,
-      });
+      
+      // Mensagem personalizada para administradores do sistema
+      if (user.isSystemAdmin) {
+        toast({
+          title: "Login realizado com sucesso",
+          description: `Bem-vindo ao painel de administração do sistema, ${user.name}`,
+        });
+      } else {
+        toast({
+          title: "Login realizado com sucesso",
+          description: `Bem-vindo, ${user.name}`,
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -128,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: user ?? null,
         isLoading,
         error,
+        isSystemAdmin,
         loginMutation: loginMutationWithRefetch,
         logoutMutation,
         registerMutation,
