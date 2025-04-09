@@ -8,30 +8,12 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -59,7 +41,8 @@ import {
   Plus, 
   Trash2, 
   AlertCircle,
-  ArrowLeftIcon 
+  ArrowLeft as ArrowLeftIcon,
+  Scissors,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -71,6 +54,14 @@ type Product = {
   stock_quantity: number;
   category: string;
   image_url: string | null;
+};
+
+type Service = {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  duration: number;
 };
 
 type OrderItem = {
@@ -98,13 +89,10 @@ const orderFormSchema = z.object({
   appointment_id: z.number().optional().nullable(),
 });
 
-const searchClientSchema = z.object({
-  searchTerm: z.string().min(3, "Digite pelo menos 3 caracteres")
-});
-
 function CreateOrderPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("products");
   const [cartItems, setCartItems] = useState<OrderItem[]>([]);
   const [idCounter, setIdCounter] = useState(1);
   const { toast } = useToast();
@@ -212,6 +200,18 @@ function CreateOrderPage() {
     }
   });
 
+  // Buscar serviços
+  const { data: services = [], isLoading: loadingServices } = useQuery({
+    queryKey: ["/api/services"],
+    queryFn: async () => {
+      const response = await fetch("/api/services");
+      if (!response.ok) {
+        throw new Error("Erro ao buscar serviços");
+      }
+      return response.json();
+    }
+  });
+
   // Buscar categorias de produtos
   const { data: categories = [] } = useQuery({
     queryKey: ["/api/products/categories"],
@@ -236,7 +236,7 @@ function CreateOrderPage() {
     }
   });
 
-  // Filtrar produtos
+  // Filtrar produtos com base na pesquisa e categoria
   const filteredProducts = products.filter((product: Product) => {
     // Filtrar por termo de busca
     const searchMatch =
@@ -250,36 +250,43 @@ function CreateOrderPage() {
     return searchMatch && categoryMatch;
   });
 
+  // Filtrar serviços com base na pesquisa
+  const filteredServices = services.filter((service: Service) => 
+    service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (service.description && service.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   // Adicionar produto ao carrinho
-  const addToCart = (product: Product) => {
+  const addToCart = (item: Product | Service, isService = false) => {
     const existingItemIndex = cartItems.findIndex(
-      (item) => item.product_id === product.id
+      (cartItem) => cartItem.product_id === item.id && 
+                    (isService ? cartItem.product_name.includes("(Serviço)") : !cartItem.product_name.includes("(Serviço)"))
     );
 
     if (existingItemIndex >= 0) {
-      // Se o produto já estiver no carrinho, incrementa a quantidade
+      // Se o item já estiver no carrinho, incrementa a quantidade
       const updatedItems = [...cartItems];
       updatedItems[existingItemIndex].quantity++;
       updatedItems[existingItemIndex].subtotal =
-        updatedItems[existingItemIndex].quantity * product.price;
+        updatedItems[existingItemIndex].quantity * item.price;
       setCartItems(updatedItems);
     } else {
-      // Se for um produto novo, adiciona ao carrinho
+      // Se for um item novo, adiciona ao carrinho
       const newItem: OrderItem = {
         id: idCounter,
-        product_id: product.id,
-        product_name: product.name,
+        product_id: item.id,
+        product_name: isService ? `${item.name} (Serviço)` : item.name,
         quantity: 1,
-        price: product.price,
-        subtotal: product.price,
+        price: item.price,
+        subtotal: item.price,
       };
       setCartItems([...cartItems, newItem]);
       setIdCounter(idCounter + 1);
     }
 
     toast({
-      title: "Produto adicionado",
-      description: `${product.name} adicionado ao carrinho`,
+      title: isService ? "Serviço adicionado" : "Produto adicionado",
+      description: `${item.name} adicionado ao carrinho`,
     });
   };
 
@@ -335,8 +342,6 @@ function CreateOrderPage() {
   // Mutation para adicionar itens a uma comanda existente
   const addItemsToOrderMutation = useMutation({
     mutationFn: async ({ orderId, items, total }: { orderId: number, items: OrderItem[], total: number }) => {
-      // Criar um endpoint especial para adicionar itens a uma comanda existente
-      // Na implementação atual, podemos usar o mesmo endpoint de atualização de status para adicionar itens
       const res = await apiRequest("PUT", `/api/orders/${orderId}/items`, { items, total });
       return await res.json();
     },
@@ -441,102 +446,153 @@ function CreateOrderPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Coluna da esquerda: Produtos */}
+          {/* Coluna da esquerda: Produtos e Serviços */}
           <div className="lg:col-span-2 space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Adicionar Produtos</CardTitle>
-                <CardDescription>
-                  Selecione os produtos para adicionar à comanda
-                </CardDescription>
+              <CardHeader className="pb-0">
+                <Tabs defaultValue="products" value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="products">Produtos</TabsTrigger>
+                    <TabsTrigger value="services">Serviços</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-6">
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="flex-1 relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar produtos..."
+                      placeholder={`Buscar ${activeTab === 'products' ? 'produtos' : 'serviços'}...`}
                       className="pl-9"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
-                  <Select
-                    value={selectedCategory}
-                    onValueChange={setSelectedCategory}
-                  >
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue placeholder="Categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as categorias</SelectItem>
-                      {categories.map((category: any) => (
-                        <SelectItem
-                          key={category.value}
-                          value={category.value}
-                        >
-                          {category.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {activeTab === 'products' && (
+                    <Select
+                      value={selectedCategory}
+                      onValueChange={setSelectedCategory}
+                    >
+                      <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as categorias</SelectItem>
+                        {categories.map((category: any) => (
+                          <SelectItem
+                            key={category.value}
+                            value={category.value}
+                          >
+                            {category.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
-                {loadingProducts ? (
-                  <div className="flex justify-center items-center h-32">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {filteredProducts.map((product: Product) => (
-                      <Card
-                        key={product.id}
-                        className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => addToCart(product)}
-                      >
-                        <div className="relative h-32 bg-gray-100">
-                          {product.image_url ? (
-                            <img
-                              src={product.image_url}
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full">
-                              <Package className="h-16 w-16 text-gray-300" />
-                            </div>
-                          )}
-                          {product.stock_quantity <= 0 && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold">
-                              ESGOTADO
-                            </div>
-                          )}
-                        </div>
-                        <CardContent className="p-3">
-                          <div className="font-medium truncate">{product.name}</div>
-                          <div className="flex justify-between items-center mt-1">
-                            <span className="text-sm text-muted-foreground">
-                              Estoque: {product.stock_quantity}
-                            </span>
-                            <span className="font-semibold">
-                              R$ {product.price.toFixed(2)}
-                            </span>
+                <TabsContent value="products" className="mt-0">
+                  {loadingProducts ? (
+                    <div className="flex justify-center items-center h-32">
+                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {filteredProducts.map((product: Product) => (
+                        <Card
+                          key={product.id}
+                          className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => addToCart(product)}
+                        >
+                          <div className="relative h-32 bg-gray-100">
+                            {product.image_url ? (
+                              <img
+                                src={product.image_url}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center h-full">
+                                <Package className="h-16 w-16 text-gray-300" />
+                              </div>
+                            )}
+                            {product.stock_quantity <= 0 && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold">
+                                ESGOTADO
+                              </div>
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
+                          <CardContent className="p-3">
+                            <div className="font-medium truncate">{product.name}</div>
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-sm text-muted-foreground">
+                                Estoque: {product.stock_quantity}
+                              </span>
+                              <span className="font-semibold">
+                                R$ {product.price.toFixed(2)}
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                      
+                      {filteredProducts.length === 0 && !loadingProducts && (
+                        <div className="col-span-full text-center py-8">
+                          <Package className="mx-auto h-12 w-12 text-gray-400" />
+                          <h3 className="mt-4 text-lg font-medium">Nenhum produto encontrado</h3>
+                          <p className="mt-2 text-sm text-gray-500">
+                            Tente ajustar os critérios de busca ou categoria.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </TabsContent>
 
-                {filteredProducts.length === 0 && !loadingProducts && (
-                  <div className="text-center py-8">
-                    <Package className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-4 text-lg font-medium">Nenhum produto encontrado</h3>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Tente ajustar os critérios de busca ou categoria.
-                    </p>
-                  </div>
-                )}
+                <TabsContent value="services" className="mt-0">
+                  {loadingServices ? (
+                    <div className="flex justify-center items-center h-32">
+                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {filteredServices.map((service: Service) => (
+                        <Card
+                          key={service.id}
+                          className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => addToCart(service, true)}
+                        >
+                          <div className="relative h-32 bg-gray-100">
+                            <div className="flex items-center justify-center h-full bg-gradient-to-r from-primary/20 to-primary/10">
+                              <Scissors className="h-16 w-16 text-primary/60" />
+                            </div>
+                          </div>
+                          <CardContent className="p-3">
+                            <div className="font-medium truncate">{service.name}</div>
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-sm text-muted-foreground">
+                                Duração: {service.duration} min
+                              </span>
+                              <span className="font-semibold">
+                                R$ {service.price.toFixed(2)}
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                      
+                      {filteredServices.length === 0 && !loadingServices && (
+                        <div className="col-span-full text-center py-8">
+                          <Scissors className="mx-auto h-12 w-12 text-gray-400" />
+                          <h3 className="mt-4 text-lg font-medium">Nenhum serviço encontrado</h3>
+                          <p className="mt-2 text-sm text-gray-500">
+                            Tente ajustar os critérios de busca.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </TabsContent>
               </CardContent>
             </Card>
           </div>
@@ -558,7 +614,7 @@ function CreateOrderPage() {
                   <div className="text-center py-6">
                     <ShoppingCart className="mx-auto h-12 w-12 text-gray-400" />
                     <p className="mt-4 text-sm text-muted-foreground">
-                      Seu carrinho está vazio. Adicione produtos clicando nos cards.
+                      Seu carrinho está vazio. Adicione produtos ou serviços clicando nos cards.
                     </p>
                   </div>
                 ) : (
@@ -740,7 +796,7 @@ function CreateOrderPage() {
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>Atenção</AlertTitle>
                         <AlertDescription>
-                          Adicione pelo menos um produto ao carrinho para finalizar a comanda.
+                          Adicione pelo menos um produto ou serviço ao carrinho para finalizar a comanda.
                         </AlertDescription>
                       </Alert>
                     )}
