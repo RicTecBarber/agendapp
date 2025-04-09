@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,31 +16,57 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { UserCog } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type LoginData = z.infer<typeof loginSchema>;
 
 export default function SystemAuthPage() {
   const [, setLocation] = useLocation();
-  const { user, loginMutation, isSystemAdmin } = useAuth();
+  const { user, loginMutation, isSystemAdmin, refetchUser } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("login");
+  const { toast } = useToast();
 
-  // Redirecionar para o dashboard do sistema se já estiver autenticado como admin do sistema
-  if (user && isSystemAdmin) {
-    setLocation("/system/dashboard");
-    return null;
-  }
+  // Efeito para redirecionar após login bem-sucedido
+  useEffect(() => {
+    if (user && user.isSystemAdmin) {
+      console.log("Usuário logado como admin do sistema:", user);
+      setLocation("/system/dashboard");
+    } else if (user) {
+      // Se estiver logado mas não for admin do sistema
+      toast({
+        title: "Acesso restrito",
+        description: "Você não tem permissão para acessar a área do sistema",
+        variant: "destructive",
+      });
+    }
+  }, [user, isSystemAdmin, setLocation, toast]);
 
   // Formulário de login
   const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
-      password: "",
+      username: "admin",
+      password: "admin123",
     },
   });
 
   const onLoginSubmit = (data: LoginData) => {
-    loginMutation.mutate(data);
+    console.log("Tentando fazer login com:", data);
+    loginMutation.mutate(data, {
+      onSuccess: (userData: any) => {
+        console.log("Login bem-sucedido, usuário:", userData);
+        refetchUser?.().then((result) => {
+          console.log("Dados do usuário após refetch:", result);
+          // Forçar navegação após login bem-sucedido
+          if (userData?.isSystemAdmin) {
+            window.location.href = "/system/dashboard";
+          }
+        });
+      },
+      onError: (error: any) => {
+        console.error("Erro de login:", error);
+      }
+    });
   };
 
   return (
