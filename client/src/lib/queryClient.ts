@@ -207,6 +207,37 @@ export async function apiRequest(
     }
   }
   
+  // Adicionar parâmetro de tenant automaticamente em todas as requisições se não estiver presente
+  let finalUrl = url;
+  try {
+    // Verificar se já temos um parâmetro tenant na URL
+    const urlObj = new URL(url, window.location.origin);
+    const hasTenanParam = urlObj.searchParams.has('tenant');
+    
+    if (!hasTenanParam) {
+      // Tentar obter o tenant da URL atual
+      const currentUrl = new URL(window.location.href);
+      const tenantParam = currentUrl.searchParams.get('tenant');
+      
+      // Se tivermos um tenant na URL atual, adicione-o à URL da requisição
+      if (tenantParam) {
+        urlObj.searchParams.append('tenant', tenantParam);
+        finalUrl = urlObj.toString();
+        console.log(`Adicionando tenant automaticamente à requisição: ${finalUrl}`);
+      } else {
+        // Verificar se temos um tenant armazenado no localStorage como fallback
+        const lastTenant = localStorage.getItem('lastTenant');
+        if (lastTenant) {
+          urlObj.searchParams.append('tenant', lastTenant);
+          finalUrl = urlObj.toString();
+          console.log(`Usando tenant do localStorage: ${finalUrl}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Erro ao processar URL com tenant:", error);
+  }
+  
   // Lógica de retry com exponential backoff
   let lastError: any;
   
@@ -217,7 +248,7 @@ export async function apiRequest(
       const timeoutId = setTimeout(() => controller.abort(), timeout);
       const signal = abortSignal || controller.signal;
       
-      const res = await fetch(url, {
+      const res = await fetch(finalUrl, {
         method,
         headers: {
           ...(data ? { "Content-Type": "application/json" } : {}),
@@ -267,7 +298,37 @@ export const getQueryFn: <T>(options: {
     const shouldUseCache = isLowPerformance && typeof window !== 'undefined' && 'caches' in window;
     
     // URL a ser buscada
-    const url = queryKey[0] as string;
+    let url = queryKey[0] as string;
+    
+    // Adicionar parâmetro de tenant automaticamente se não estiver presente
+    try {
+      // Verificar se já temos um parâmetro tenant na URL
+      const urlObj = new URL(url, window.location.origin);
+      const hasTenanParam = urlObj.searchParams.has('tenant');
+      
+      if (!hasTenanParam) {
+        // Tentar obter o tenant da URL atual
+        const currentUrl = new URL(window.location.href);
+        const tenantParam = currentUrl.searchParams.get('tenant');
+        
+        // Se tivermos um tenant na URL atual, adicione-o à URL da requisição
+        if (tenantParam) {
+          urlObj.searchParams.append('tenant', tenantParam);
+          url = urlObj.toString();
+          console.log(`QueryFn: Adicionando tenant automaticamente à requisição: ${url}`);
+        } else {
+          // Verificar se temos um tenant armazenado no localStorage como fallback
+          const lastTenant = localStorage.getItem('lastTenant');
+          if (lastTenant) {
+            urlObj.searchParams.append('tenant', lastTenant);
+            url = urlObj.toString();
+            console.log(`QueryFn: Usando tenant do localStorage: ${url}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao processar URL com tenant em QueryFn:", error);
+    }
     
     // Em dispositivos de baixo desempenho, tentar buscar do cache primeiro
     if (shouldUseCache) {
