@@ -98,9 +98,10 @@ export default function EditTenantPage() {
       }
       return await res.json();
     },
-    onSuccess: () => {
-      // Invalidar query de listagem para forçar atualização
-      queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
+    onSuccess: async () => {
+      // Invalidar e refetch imediato dos dados para garantir que a lista esteja atualizada
+      await queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/system/tenants"] });
       
       toast({
         title: "Tenant criado",
@@ -127,8 +128,11 @@ export default function EditTenantPage() {
       }
       return await res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
+    onSuccess: async () => {
+      // Invalidar e refetch imediato dos dados para garantir que a lista esteja atualizada
+      await queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/system/tenants"] });
+      
       toast({
         title: "Tenant atualizado",
         description: "Tenant atualizado com sucesso",

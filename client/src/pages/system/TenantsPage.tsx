@@ -115,9 +115,11 @@ export default function TenantsPage() {
       const res = await apiRequest("POST", endpoint);
       return await res.json();
     },
-    onSuccess: () => {
-      // Invalidar cache para atualizar a lista
-      queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
+    onSuccess: async () => {
+      // Invalidar e refetch imediato dos dados para garantir que a lista esteja atualizada
+      await queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/system/tenants"] });
+      
       toast({
         title: "Tenant atualizado",
         description: "Status do tenant alterado com sucesso",
@@ -142,8 +144,11 @@ export default function TenantsPage() {
       }
       return await res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
+    onSuccess: async () => {
+      // Invalidar e refetch imediato dos dados para garantir que a lista esteja atualizada
+      await queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/system/tenants"] });
+      
       toast({
         title: "Tenant excluído",
         description: "Tenant excluído com sucesso",
