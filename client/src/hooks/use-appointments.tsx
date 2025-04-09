@@ -35,10 +35,16 @@ export function useAppointments(options: AppointmentOptions = {}) {
         params.append("date", format(date, "yyyy-MM-dd"));
       }
       
+      // Tratamento especial para professionalId
       if (professionalId !== undefined) {
         // Garantir que mesmo o valor 0 seja enviado
         params.append("professionalId", professionalId.toString());
         console.log(`Adicionando filtro de profissional: ${professionalId}`);
+      } else {
+        // Quando undefined, estamos pedindo "todos os profissionais"
+        // Explicitamente enviar "all" para o servidor saber que queremos todos
+        params.append("professionalId", "all");
+        console.log("Adicionando filtro para TODOS os profissionais");
       }
       
       if (startDate && endDate) {

@@ -1152,11 +1152,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       appointments = await storage.getAllAppointments();
       console.log(`Total de agendamentos encontrados: ${appointments.length}`);
       
-      // Verificar se existe um filtro válido de profissional
-      if (professionalIdParam && 
+      // Verificar o parâmetro professionalId
+      // Caso especial para "all" - não filtrar, mostrar todos
+      if (professionalIdParam && professionalIdParam === "all") {
+        console.log("Parâmetro 'all' explicitamente enviado - mostrando TODOS os profissionais");
+        // Não aplicar filtro de profissional
+      } 
+      // Se tiver um ID específico, filtrar por ele
+      else if (professionalIdParam && 
           professionalIdParam !== "" && 
-          professionalIdParam !== "undefined" && 
-          professionalIdParam !== "all") {
+          professionalIdParam !== "undefined") {
           
         const professionalIdFilter = parseInt(professionalIdParam as string);
         
