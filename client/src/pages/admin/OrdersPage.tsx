@@ -289,6 +289,7 @@ function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [, navigate] = useLocation();
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -406,7 +407,7 @@ function OrdersPage() {
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex flex-col gap-2">
                   <Button
                     variant="outline"
                     className="w-full"
@@ -414,6 +415,15 @@ function OrdersPage() {
                   >
                     Ver Detalhes
                   </Button>
+                  {order.status === "aberta" && (
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => navigate(`/admin/orders/create?action=add_items&orderId=${order.id}&clientName=${encodeURIComponent(order.client_name)}&clientPhone=${encodeURIComponent(order.client_phone)}`)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Adicionar Itens
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             ))}
