@@ -423,7 +423,7 @@ const AppointmentsPage = () => {
       servicePrice: service ? service.price.toString() : '0',
       paymentMethod: 'dinheiro' // Método de pagamento padrão
     });
-    navigate(`/admin/orders/new?${queryParams.toString()}`);
+    navigate(`/admin/orders/create?${queryParams.toString()}`);
   };
 
   // Get status badge styles
