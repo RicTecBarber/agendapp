@@ -23,23 +23,34 @@ type LoginData = z.infer<typeof loginSchema>;
 export default function SystemAuthPage() {
   const [, setLocation] = useLocation();
   const { user, loginMutation, isSystemAdmin, refetchUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>("login");
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const { toast } = useToast();
 
-  // Efeito para redirecionar após login bem-sucedido
+  console.log("Render: Current user state:", user);
+  console.log("isSystemAdmin:", isSystemAdmin);
+
+  // Redirecionamento direto após login bem-sucedido
   useEffect(() => {
-    if (user && user.isSystemAdmin) {
-      console.log("Usuário logado como admin do sistema:", user);
-      setLocation("/system/dashboard");
+    if (loginSuccess) {
+      window.location.href = "/system/dashboard";
+    }
+  }, [loginSuccess]);
+
+  // Verificar se já está logado ao carregar a página
+  useEffect(() => {
+    if (user && isSystemAdmin) {
+      console.log("Usuário já está logado como admin:", user);
+      window.location.href = "/system/dashboard";
     } else if (user) {
       // Se estiver logado mas não for admin do sistema
+      console.log("Usuário logado, mas não é admin do sistema:", user);
       toast({
         title: "Acesso restrito",
         description: "Você não tem permissão para acessar a área do sistema",
         variant: "destructive",
       });
     }
-  }, [user, isSystemAdmin, setLocation, toast]);
+  }, [user, isSystemAdmin, toast]);
 
   // Formulário de login
   const loginForm = useForm<LoginData>({
@@ -55,13 +66,17 @@ export default function SystemAuthPage() {
     loginMutation.mutate(data, {
       onSuccess: (userData: any) => {
         console.log("Login bem-sucedido, usuário:", userData);
-        refetchUser?.().then((result) => {
-          console.log("Dados do usuário após refetch:", result);
-          // Forçar navegação após login bem-sucedido
-          if (userData?.isSystemAdmin) {
-            window.location.href = "/system/dashboard";
-          }
-        });
+        if (userData?.isSystemAdmin) {
+          console.log("Usuário é um administrador do sistema");
+          setLoginSuccess(true);
+        } else {
+          console.log("Usuário não é um administrador do sistema");
+          toast({
+            title: "Acesso restrito",
+            description: "Estas credenciais não pertencem a um administrador do sistema",
+            variant: "destructive",
+          });
+        }
       },
       onError: (error: any) => {
         console.error("Erro de login:", error);
