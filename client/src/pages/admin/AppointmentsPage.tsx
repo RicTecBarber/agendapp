@@ -187,27 +187,34 @@ const AppointmentsPage = () => {
     },
   });
 
-  // Filter appointments by tab only - professional filtering is now handled on backend
-  const filteredAppointments = appointments?.filter((appointment: any) => {
-    // Filter by tab (date range)
-    if (selectedTab === "today" && !isToday(parseISO(appointment.appointment_date))) {
-      return false;
-    }
-    if (selectedTab === "tomorrow" && !isTomorrow(parseISO(appointment.appointment_date))) {
-      return false;
-    }
-    if (selectedTab === "week" && !isThisWeek(parseISO(appointment.appointment_date), { weekStartsOn: 1 })) {
-      return false;
-    }
-    if (selectedTab === "month" && !isThisMonth(parseISO(appointment.appointment_date))) {
-      return false;
-    }
-    
-    // Não precisa mais filtrar por profissional, já está sendo feito na API
-    // Os profissionais são filtrados pelo hook useAppointments
-    
-    return true;
-  }) || [];
+  // Não precisamos mais filtrar os profissionais porque isso já está sendo 
+// feito pela API através do hook useAppointments. Apenas filtramos por data/período
+const filteredAppointments = appointments?.filter((appointment: any) => {
+  // Garantir que o appointment tenha uma data válida
+  if (!appointment.appointment_date) {
+    console.warn('Agendamento sem data:', appointment);
+    return false;
+  }
+  
+  // Converter a string de data para objeto Date
+  const appointmentDate = parseISO(appointment.appointment_date);
+  
+  // Filter by tab (date range)
+  if (selectedTab === "today" && !isToday(appointmentDate)) {
+    return false;
+  }
+  if (selectedTab === "tomorrow" && !isTomorrow(appointmentDate)) {
+    return false;
+  }
+  if (selectedTab === "week" && !isThisWeek(appointmentDate, { weekStartsOn: 1 })) {
+    return false;
+  }
+  if (selectedTab === "month" && !isThisMonth(appointmentDate)) {
+    return false;
+  }
+  
+  return true;
+}) || [];
 
   // Change appointment status handler
   const handleStatusChange = (appointment: any, newStatus: string) => {

@@ -80,14 +80,11 @@ export function useAppointments(options: AppointmentOptions = {}) {
         
         const data = await res.json();
         
-        // Filtrar localmente os resultados para profissionais selecionados (segurança extra)
-        const filteredData = professionalIds && professionalIds.length > 0
-          ? data.filter((a: any) => professionalIds.includes(Number(a.professional_id)))
-          : data;
+        // O filtro já acontece no servidor, não precisamos refiltrá-lo aqui
+        // Isso pode estar causando agendamentos perdidos por inconsistências de tipos
+        console.log(`Agendamentos recebidos: ${data.length}`);
         
-        console.log(`Agendamentos recebidos: ${data.length}, filtrados localmente: ${filteredData.length}`);
-        
-        return filteredData;
+        return data;
       } catch (err) {
         console.error("Erro na requisição de agendamentos:", err);
         throw new Error("Falha ao buscar agendamentos");
