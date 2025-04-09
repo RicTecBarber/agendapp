@@ -199,8 +199,15 @@ function CreateOrderPage() {
             description: `${serviceName} adicionado automaticamente à comanda`,
           });
         } else if (!addingItems) {
+          // Variável para controlar se a função já foi executada
+          let wasFetched = false;
+          
           // Se não temos os parâmetros do serviço, buscar as informações do agendamento
           const fetchAppointmentDetails = async () => {
+            // Prevenção para evitar múltiplas chamadas
+            if (wasFetched) return;
+            wasFetched = true;
+            
             try {
               // Buscar detalhes do agendamento
               const appointmentResponse = await fetch(`/api/appointments/${appointmentId}`);
@@ -218,23 +225,32 @@ function CreateOrderPage() {
               
               const serviceData = await serviceResponse.json();
               
-              // Adicionar o serviço ao carrinho
-              const newItem: OrderItem = {
-                id: idCounter,
-                product_id: serviceData.id,
-                product_name: `${serviceData.name} (Serviço)`,
-                quantity: 1,
-                price: serviceData.price,
-                subtotal: serviceData.price,
-              };
+              // Verificar se já existe algum item no carrinho com esse ID de serviço
+              const existingItem = cartItems.find(item => 
+                item.product_id === serviceData.id && 
+                item.product_name.includes("(Serviço)")
+              );
               
-              setCartItems([newItem]);
-              setIdCounter(prevCounter => prevCounter + 1);
-              
-              toast({
-                title: "Serviço adicionado",
-                description: `${serviceData.name} adicionado automaticamente à comanda`,
-              });
+              // Só adicionar se não existir o item
+              if (!existingItem) {
+                // Adicionar o serviço ao carrinho
+                const newItem: OrderItem = {
+                  id: idCounter,
+                  product_id: serviceData.id,
+                  product_name: `${serviceData.name} (Serviço)`,
+                  quantity: 1,
+                  price: serviceData.price,
+                  subtotal: serviceData.price,
+                };
+                
+                setCartItems([newItem]);
+                setIdCounter(prevCounter => prevCounter + 1);
+                
+                toast({
+                  title: "Serviço adicionado",
+                  description: `${serviceData.name} adicionado automaticamente à comanda`,
+                });
+              }
             } catch (error: any) {
               toast({
                 title: "Erro ao carregar serviço",
@@ -244,7 +260,8 @@ function CreateOrderPage() {
             }
           };
           
-          fetchAppointmentDetails();
+          // Executar apenas uma vez
+          setTimeout(fetchAppointmentDetails, 0);
         }
       }
     }
