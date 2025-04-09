@@ -99,6 +99,9 @@ export default function EditTenantPage() {
       return await res.json();
     },
     onSuccess: () => {
+      // Invalidar query de listagem para forçar atualização
+      queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
+      
       toast({
         title: "Tenant criado",
         description: "Tenant criado com sucesso",

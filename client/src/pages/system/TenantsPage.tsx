@@ -108,6 +108,7 @@ export default function TenantsPage() {
   // Mutation para ativar/desativar tenant
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      // active = true significa que queremos ativar o tenant
       const endpoint = active
         ? `/api/system/tenants/${id}/activate`
         : `/api/system/tenants/${id}/deactivate`;
@@ -115,6 +116,7 @@ export default function TenantsPage() {
       return await res.json();
     },
     onSuccess: () => {
+      // Invalidar cache para atualizar a lista
       queryClient.invalidateQueries({ queryKey: ["/api/system/tenants"] });
       toast({
         title: "Tenant atualizado",
