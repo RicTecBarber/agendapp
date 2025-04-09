@@ -1780,6 +1780,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Falha ao atualizar status da comanda" });
     }
   });
+  
+  // Endpoint para adicionar itens a uma comanda existente
+  app.put("/api/orders/:id/items", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const orderId = parseInt(req.params.id);
+      const { items } = req.body;
+      
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Itens são obrigatórios" });
+      }
+      
+      // Buscar comanda existente
+      const existingOrder = await storage.getOrderById(orderId);
+      
+      if (!existingOrder) {
+        return res.status(404).json({ message: "Comanda não encontrada" });
+      }
+      
+      if (existingOrder.status !== "aberta") {
+        return res.status(400).json({ message: "Apenas comandas abertas podem receber novos itens" });
+      }
+      
+      // Calcular total dos novos itens
+      const newItemsTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      
+      // Combinar itens existentes com novos itens
+      const combinedItems = [...existingOrder.items];
+      
+      // Adicionar novos itens, combinando aqueles que são do mesmo produto
+      for (const newItem of items) {
+        // Verificar se o item já existe na comanda
+        const existingItemIndex = combinedItems.findIndex(
+          item => item.product_id === newItem.product_id
+        );
+        
+        if (existingItemIndex >= 0) {
+          // Se o produto já existe, atualizar a quantidade e subtotal
+          combinedItems[existingItemIndex].quantity += newItem.quantity;
+          combinedItems[existingItemIndex].subtotal += newItem.subtotal;
+        } else {
+          // Se é um novo produto, adicionar ao array
+          combinedItems.push({
+            ...newItem,
+            id: existingOrder.items.length + combinedItems.length + 1 // Gerar ID sequencial
+          });
+        }
+      }
+      
+      // Calcular novo total
+      const newTotal = existingOrder.total + newItemsTotal;
+      
+      // Atualizar comanda com os novos itens e total
+      const updatedOrder = await storage.updateOrder(orderId, {
+        ...existingOrder,
+        items: combinedItems,
+        total: newTotal,
+        updated_at: new Date().toISOString()
+      });
+      
+      res.json(updatedOrder);
+    } catch (error) {
+      console.error("Erro ao adicionar itens à comanda:", error);
+      res.status(500).json({ message: "Falha ao adicionar itens à comanda" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

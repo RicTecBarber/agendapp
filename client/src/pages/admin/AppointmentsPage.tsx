@@ -410,12 +410,20 @@ const AppointmentsPage = () => {
   
   // Navigate to create order page with appointment details
   const navigateToCreateOrder = (appointment: any) => {
+    // Encontrar o serviço correspondente ao agendamento
+    const service = Array.isArray(services) ? 
+      services.find((s: any) => s.id === appointment.service_id) : null;
+    
     const queryParams = new URLSearchParams({
       appointmentId: appointment.id.toString(),
       clientName: appointment.client_name,
-      clientPhone: appointment.client_phone
+      clientPhone: appointment.client_phone,
+      serviceId: appointment.service_id.toString(),
+      serviceName: service ? service.name : '',
+      servicePrice: service ? service.price.toString() : '0',
+      paymentMethod: 'dinheiro' // Método de pagamento padrão
     });
-    navigate(`/admin/nova-comanda?${queryParams.toString()}`);
+    navigate(`/admin/orders/new?${queryParams.toString()}`);
   };
 
   // Get status badge styles

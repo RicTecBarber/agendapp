@@ -80,6 +80,7 @@ export interface IStorage {
   getOrdersByClientPhone(clientPhone: string): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: number, status: string): Promise<Order | undefined>;
+  updateOrder(id: number, orderData: Partial<Order>): Promise<Order | undefined>;
   
   // SessionStore for auth
   sessionStore: session.Store;
@@ -772,6 +773,17 @@ export class MemStorage implements IStorage {
       updated_at: new Date()
     };
     
+    this.orders.set(id, updatedOrder);
+    return updatedOrder;
+  }
+  
+  async updateOrder(id: number, orderData: Partial<Order>): Promise<Order | undefined> {
+    const existingOrder = this.orders.get(id);
+    if (!existingOrder) {
+      return undefined;
+    }
+    
+    const updatedOrder = { ...existingOrder, ...orderData };
     this.orders.set(id, updatedOrder);
     return updatedOrder;
   }

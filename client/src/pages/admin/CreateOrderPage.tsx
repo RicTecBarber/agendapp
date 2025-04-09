@@ -123,29 +123,82 @@ function CreateOrderPage() {
     },
   });
 
+  // Estado para controlar se estamos adicionando itens a uma comanda existente
+  const [isAddingToExistingOrder, setIsAddingToExistingOrder] = useState(false);
+  const [existingOrderId, setExistingOrderId] = useState<number | null>(null);
+  
   // Efeito para preencher dados do cliente a partir dos parâmetros da URL
+  // e adicionar o serviço principal ao carrinho
   useEffect(() => {
     // Verificar se há parâmetros na URL
     const params = new URLSearchParams(window.location.search);
     const appointmentId = params.get('appointmentId');
     const clientName = params.get('clientName');
     const clientPhone = params.get('clientPhone');
+    const serviceId = params.get('serviceId');
+    const serviceName = params.get('serviceName');
+    const servicePrice = params.get('servicePrice');
+    const paymentMethod = params.get('paymentMethod');
+    const action = params.get('action');
+    const orderId = params.get('orderId');
+    
+    // Verificar se estamos adicionando itens a uma comanda existente
+    const addingItems = action === 'add_items' && orderId;
+    if (addingItems) {
+      setIsAddingToExistingOrder(true);
+      setExistingOrderId(parseInt(orderId));
+      
+      // Atualizar título da página no Toast
+      toast({
+        title: "Adicionar itens à comanda",
+        description: `Adicionando itens à comanda #${orderId}`,
+      });
+    }
 
     // Se temos os dados do cliente na URL, preencher o formulário
     if (clientName && clientPhone) {
       orderForm.setValue('client_name', clientName);
       orderForm.setValue('client_phone', clientPhone);
       
+      // Configurar método de pagamento padrão se fornecido
+      if (paymentMethod) {
+        orderForm.setValue('payment_method', paymentMethod);
+      }
+      
       // Se temos um appointmentId, adicionar ao formulário
       if (appointmentId) {
         orderForm.setValue('appointment_id', parseInt(appointmentId));
-        toast({
-          title: "Dados do cliente carregados",
-          description: `Comanda vinculada ao agendamento #${appointmentId}`,
-        });
+        
+        if (!addingItems) { // Exibir toast apenas se não estiver adicionando itens
+          toast({
+            title: "Dados do cliente carregados",
+            description: `Comanda vinculada ao agendamento #${appointmentId}`,
+          });
+        }
+        
+        // Adicionar o serviço principal ao carrinho automaticamente (apenas para novas comandas)
+        if (serviceId && serviceName && servicePrice && !addingItems) {
+          const price = parseFloat(servicePrice);
+          const newItem: OrderItem = {
+            id: idCounter,
+            product_id: parseInt(serviceId),
+            product_name: `${serviceName} (Serviço)`,
+            quantity: 1,
+            price: price,
+            subtotal: price,
+          };
+          
+          setCartItems([newItem]);
+          setIdCounter(prevCounter => prevCounter + 1);
+          
+          toast({
+            title: "Serviço adicionado",
+            description: `${serviceName} adicionado automaticamente à comanda`,
+          });
+        }
       }
     }
-  }, [orderForm, toast]);
+  }, [orderForm, toast, idCounter]);
 
   // Buscar produtos
   const { data: products = [], isLoading: loadingProducts } = useQuery({
@@ -278,8 +331,33 @@ function CreateOrderPage() {
       });
     },
   });
+  
+  // Mutation para adicionar itens a uma comanda existente
+  const addItemsToOrderMutation = useMutation({
+    mutationFn: async ({ orderId, items, total }: { orderId: number, items: OrderItem[], total: number }) => {
+      // Criar um endpoint especial para adicionar itens a uma comanda existente
+      // Na implementação atual, podemos usar o mesmo endpoint de atualização de status para adicionar itens
+      const res = await apiRequest("PUT", `/api/orders/${orderId}/items`, { items, total });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Itens adicionados",
+        description: "Os itens foram adicionados à comanda com sucesso",
+      });
+      navigate("/admin/orders");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao adicionar itens",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
-  // Enviar comanda
+  // Enviar comanda ou adicionar itens a uma comanda existente
   const handleCreateOrder = (orderData: z.infer<typeof orderFormSchema>) => {
     if (cartItems.length === 0) {
       toast({
@@ -290,6 +368,17 @@ function CreateOrderPage() {
       return;
     }
 
+    // Se estamos adicionando itens a uma comanda existente
+    if (isAddingToExistingOrder && existingOrderId) {
+      addItemsToOrderMutation.mutate({
+        orderId: existingOrderId,
+        items: cartItems,
+        total: cartTotal,
+      });
+      return;
+    }
+
+    // Caso contrário, criar uma nova comanda
     const orderPayload = {
       ...orderData,
       items: cartItems,
@@ -344,7 +433,11 @@ function CreateOrderPage() {
           <Button variant="outline" size="icon" onClick={() => navigate("/admin/orders")}>
             <ArrowLeftIcon className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold">Nova Comanda</h1>
+          <h1 className="text-3xl font-bold">
+            {isAddingToExistingOrder 
+              ? `Adicionar Itens à Comanda #${existingOrderId}` 
+              : "Nova Comanda"}
+          </h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -628,13 +721,15 @@ function CreateOrderPage() {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={cartItems.length === 0 || createOrderMutation.isPending}
+                      disabled={cartItems.length === 0 || createOrderMutation.isPending || addItemsToOrderMutation.isPending}
                     >
-                      {createOrderMutation.isPending ? (
+                      {createOrderMutation.isPending || addItemsToOrderMutation.isPending ? (
                         <div className="flex items-center gap-2">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                           <span>Processando...</span>
                         </div>
+                      ) : isAddingToExistingOrder ? (
+                        "Adicionar Itens à Comanda"
                       ) : (
                         "Finalizar Comanda"
                       )}

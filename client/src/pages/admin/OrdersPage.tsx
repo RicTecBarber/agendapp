@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 import {
   Card,
   CardContent,
@@ -121,6 +122,7 @@ function getPaymentMethodLabel(method: string): string {
 function OrderDetail({ order }: { order: Order }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
@@ -145,6 +147,22 @@ function OrderDetail({ order }: { order: Order }) {
 
   const handleUpdateStatus = (status: string) => {
     updateStatusMutation.mutate({ id: order.id, status });
+  };
+  
+  // Função para navegar para a página de adição de itens
+  const navigateToAddItems = () => {
+    // Criamos um objeto com os parâmetros necessários para preencher a página de nova comanda
+    // com os dados da comanda existente, mas permitindo adicionar novos itens
+    const queryParams = new URLSearchParams({
+      orderId: order.id.toString(),
+      appointmentId: order.appointment_id ? order.appointment_id.toString() : '',
+      clientName: order.client_name,
+      clientPhone: order.client_phone,
+      paymentMethod: order.payment_method,
+      action: 'add_items' // Indicar que estamos adicionando itens a uma comanda existente
+    });
+    
+    navigate(`/admin/orders/new?${queryParams.toString()}`);
   };
 
   return (
@@ -216,7 +234,20 @@ function OrderDetail({ order }: { order: Order }) {
       )}
 
       <div>
-        <h4 className="font-medium mb-2">Itens da Comanda</h4>
+        <div className="flex justify-between items-center mb-2">
+          <h4 className="font-medium">Itens da Comanda</h4>
+          {order.status === "aberta" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={navigateToAddItems}
+              className="flex items-center gap-1"
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar Itens
+            </Button>
+          )}
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
