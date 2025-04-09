@@ -60,7 +60,7 @@ import { cn } from "@/lib/utils";
 const AppointmentsPage = () => {
   const [, navigate] = useLocation();
   const [selectedTab, setSelectedTab] = useState<string>("all");
-  const [professionalFilter, setProfessionalFilter] = useState<string>("all");
+  const [professionalFilter, setProfessionalFilter] = useState<string[]>(["all"]);
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [statusDialog, setStatusDialog] = useState<{open: boolean, appointment: any | null, newStatus: string}>({
     open: false,
@@ -114,7 +114,7 @@ const AppointmentsPage = () => {
     updateAppointmentStatus 
   } = useAppointments({ 
     date: dateFilter,
-    professionalIds: professionalFilter !== "all" ? [parseInt(professionalFilter)] : undefined
+    professionalIds: professionalFilter.includes("all") ? undefined : professionalFilter.map(id => parseInt(id))
   });
 
   // Get professionals for filter
@@ -187,7 +187,7 @@ const AppointmentsPage = () => {
     },
   });
 
-  // Filter appointments by tab and professional
+  // Filter appointments by tab only - professional filtering is now handled on backend
   const filteredAppointments = appointments?.filter((appointment: any) => {
     // Filter by tab (date range)
     if (selectedTab === "today" && !isToday(parseISO(appointment.appointment_date))) {
@@ -203,10 +203,8 @@ const AppointmentsPage = () => {
       return false;
     }
     
-    // Filter by professional
-    if (professionalFilter !== "all" && appointment.professional_id !== parseInt(professionalFilter)) {
-      return false;
-    }
+    // Não precisa mais filtrar por profissional, já está sendo feito na API
+    // Os profissionais são filtrados pelo hook useAppointments
     
     return true;
   }) || [];
@@ -495,22 +493,90 @@ const AppointmentsPage = () => {
                 </PopoverContent>
               </Popover>
 
-              <Select
-                value={professionalFilter}
-                onValueChange={setProfessionalFilter}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filtrar por profissional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os profissionais</SelectItem>
-                  {!isLoadingProfessionals && Array.isArray(professionals) && professionals.map((professional: any) => (
-                    <SelectItem key={professional.id} value={professional.id.toString()}>
-                      {professional.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Filtrar por profissional</div>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center space-x-2 bg-background rounded-md border px-3 py-1 text-sm">
+                    <input
+                      type="checkbox"
+                      id="professional-all"
+                      checked={professionalFilter.includes("all")}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          console.log("Adicionando filtro para TODOS os profissionais");
+                          setProfessionalFilter(["all"]);
+                        } else if (professionalFilter.length > 1) {
+                          console.log("Removendo filtro para TODOS os profissionais");
+                          setProfessionalFilter(professionalFilter.filter(id => id !== "all"));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <label htmlFor="professional-all" className="font-medium text-sm cursor-pointer">
+                      Todos
+                    </label>
+                  </div>
+                  
+                  {!isLoadingProfessionals && Array.isArray(professionals) && professionals.map((professional: any) => {
+                    const proId = professional.id.toString();
+                    const isChecked = professionalFilter.includes(proId) || professionalFilter.includes("all");
+                    // Cores diferentes para cada profissional (repetindo se necessário)
+                    const colorClasses = [
+                      "bg-blue-50 border-blue-200 text-blue-700",
+                      "bg-green-50 border-green-200 text-green-700",
+                      "bg-purple-50 border-purple-200 text-purple-700",
+                      "bg-amber-50 border-amber-200 text-amber-700",
+                      "bg-teal-50 border-teal-200 text-teal-700",
+                    ];
+                    const colorIndex = (professional.id - 1) % colorClasses.length;
+                    const colorClass = colorClasses[colorIndex];
+                    
+                    return (
+                      <div 
+                        key={professional.id} 
+                        className={`flex items-center space-x-2 rounded-md border px-3 py-1 text-sm ${isChecked ? colorClass : "bg-background"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          id={`professional-${professional.id}`}
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (professionalFilter.includes("all")) {
+                              // Se "todos" está selecionado e o usuário desmarca uma opção,
+                              // removemos "todos" e adicionamos cada profissional individualmente (exceto o atual)
+                              if (!e.target.checked) {
+                                const otherPros = professionals
+                                  .map((p: any) => p.id.toString())
+                                  .filter((id: string) => id !== proId);
+                                setProfessionalFilter(otherPros);
+                              }
+                            } else {
+                              // Toggle normal para adição/remoção deste profissional
+                              if (e.target.checked) {
+                                if (!professionalFilter.includes(proId)) {
+                                  setProfessionalFilter([...professionalFilter, proId]);
+                                }
+                              } else {
+                                setProfessionalFilter(professionalFilter.filter(id => id !== proId));
+                              }
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <label 
+                          htmlFor={`professional-${professional.id}`} 
+                          className="font-medium text-sm cursor-pointer flex items-center gap-2"
+                        >
+                          <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-xs font-bold border">
+                            {professional.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                          </span>
+                          <span>{professional.name}</span>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             
             <div className="flex items-center">
