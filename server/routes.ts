@@ -9,7 +9,14 @@ import {
   appointmentLookupSchema,
   loyaltyLookupSchema,
   insertBarbershopSettingsSchema,
-  InsertAppointment
+  insertProductSchema,
+  insertOrderSchema,
+  paymentMethods,
+  productCategories,
+  InsertAppointment,
+  InsertProduct,
+  InsertOrder,
+  OrderItem
 } from "@shared/schema";
 import { parseISO, format, addMinutes, isAfter } from "date-fns";
 import { setupAuth } from "./auth";
@@ -1496,6 +1503,281 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedSettings);
     } catch (error) {
       res.status(500).json({ message: "Failed to update barbershop settings" });
+    }
+  });
+
+  // ==================== ROTAS DE PRODUTOS ====================
+  
+  // GET /api/products - Obter todos os produtos
+  app.get("/api/products", async (req: Request, res: Response) => {
+    try {
+      const products = await storage.getAllProducts();
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar produtos" });
+    }
+  });
+  
+  // GET /api/products/categories - Obter categorias de produtos
+  app.get("/api/products/categories", async (req: Request, res: Response) => {
+    try {
+      res.json(productCategories);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar categorias de produtos" });
+    }
+  });
+  
+  // GET /api/products/:id - Obter um produto específico
+  app.get("/api/products/:id", async (req: Request, res: Response) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const product = await storage.getProduct(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar produto" });
+    }
+  });
+  
+  // GET /api/products/category/:category - Obter produtos por categoria
+  app.get("/api/products/category/:category", async (req: Request, res: Response) => {
+    try {
+      const category = req.params.category;
+      const products = await storage.getProductsByCategory(category);
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar produtos por categoria" });
+    }
+  });
+  
+  // POST /api/products - Criar um novo produto (somente admin)
+  app.post("/api/products", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const productData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(productData);
+      res.status(201).json(product);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Falha ao criar produto" });
+      }
+    }
+  });
+  
+  // PUT /api/products/:id - Atualizar um produto (somente admin)
+  app.put("/api/products/:id", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const productId = parseInt(req.params.id);
+      const productData = insertProductSchema.partial().parse(req.body);
+      const product = await storage.updateProduct(productId, productData);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Falha ao atualizar produto" });
+      }
+    }
+  });
+  
+  // DELETE /api/products/:id - Excluir um produto (somente admin)
+  app.delete("/api/products/:id", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const productId = parseInt(req.params.id);
+      const success = await storage.deleteProduct(productId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao excluir produto" });
+    }
+  });
+  
+  // PUT /api/products/:id/stock - Atualizar estoque de um produto (somente admin)
+  app.put("/api/products/:id/stock", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated() || req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const productId = parseInt(req.params.id);
+      const { quantity } = req.body;
+      
+      if (typeof quantity !== 'number') {
+        return res.status(400).json({ message: "Quantidade inválida" });
+      }
+      
+      const product = await storage.updateProductStock(productId, quantity);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Produto não encontrado" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao atualizar estoque" });
+    }
+  });
+  
+  // ==================== ROTAS DE COMANDAS ====================
+  
+  // GET /api/orders - Obter todas as comandas
+  app.get("/api/orders", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const orders = await storage.getAllOrders();
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar comandas" });
+    }
+  });
+  
+  // GET /api/orders/:id - Obter uma comanda específica
+  app.get("/api/orders/:id", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const orderId = parseInt(req.params.id);
+      const order = await storage.getOrderById(orderId);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Comanda não encontrada" });
+      }
+      
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar comanda" });
+    }
+  });
+  
+  // GET /api/orders/appointment/:appointmentId - Obter comandas por agendamento
+  app.get("/api/orders/appointment/:appointmentId", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const appointmentId = parseInt(req.params.appointmentId);
+      const orders = await storage.getOrdersByAppointmentId(appointmentId);
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar comandas por agendamento" });
+    }
+  });
+  
+  // GET /api/orders/client/:phone - Obter comandas por cliente
+  app.get("/api/orders/client/:phone", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const clientPhone = req.params.phone;
+      const orders = await storage.getOrdersByClientPhone(clientPhone);
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar comandas por cliente" });
+    }
+  });
+  
+  // GET /api/payment-methods - Obter métodos de pagamento
+  app.get("/api/payment-methods", async (req: Request, res: Response) => {
+    try {
+      res.json(paymentMethods);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao buscar métodos de pagamento" });
+    }
+  });
+  
+  // POST /api/orders - Criar uma nova comanda
+  app.post("/api/orders", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const orderData = insertOrderSchema.parse(req.body);
+      
+      // Verificar se todos os produtos existem
+      for (const item of orderData.items) {
+        const product = await storage.getProduct(item.product_id);
+        if (!product) {
+          return res.status(404).json({ message: `Produto #${item.product_id} não encontrado` });
+        }
+        
+        // Verificar se há estoque suficiente
+        if (product.stock_quantity < item.quantity) {
+          return res.status(400).json({ 
+            message: `Estoque insuficiente para o produto ${product.name}. Disponível: ${product.stock_quantity}, Solicitado: ${item.quantity}` 
+          });
+        }
+      }
+      
+      const order = await storage.createOrder(orderData);
+      res.status(201).json(order);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      } else {
+        console.error("Erro ao criar comanda:", error);
+        res.status(500).json({ message: "Falha ao criar comanda" });
+      }
+    }
+  });
+  
+  // PUT /api/orders/:id/status - Atualizar status de uma comanda
+  app.put("/api/orders/:id/status", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const orderId = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (!status || !['aberta', 'fechada', 'cancelada'].includes(status)) {
+        return res.status(400).json({ message: "Status inválido. Use: 'aberta', 'fechada' ou 'cancelada'" });
+      }
+      
+      const order = await storage.updateOrderStatus(orderId, status);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Comanda não encontrada" });
+      }
+      
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ message: "Falha ao atualizar status da comanda" });
     }
   });
 

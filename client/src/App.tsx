@@ -24,6 +24,9 @@ import UsersPage from "@/pages/admin/UsersPage";
 import ProfessionalsPage from "@/pages/admin/ProfessionalsPage";
 import AvailabilityManagementPage from "@/pages/admin/AvailabilityManagementPage";
 import BarbershopSettingsPage from "@/pages/admin/BarbershopSettingsPage";
+import ProductsPage from "@/pages/admin/ProductsPage";
+import OrdersPage from "@/pages/admin/OrdersPage";
+import CreateOrderPage from "@/pages/admin/CreateOrderPage";
 
 function Router() {
   return (
@@ -49,6 +52,9 @@ function Router() {
       <ProtectedRoute path="/admin/users" component={UsersPage} />
       <ProtectedRoute path="/admin/settings" component={BarbershopSettingsPage} />
       <ProtectedRoute path="/admin/barbershop-settings" component={BarbershopSettingsPage} />
+      <ProtectedRoute path="/admin/products" component={ProductsPage} />
+      <ProtectedRoute path="/admin/orders" component={OrdersPage} />
+      <ProtectedRoute path="/admin/orders/new" component={CreateOrderPage} />
       
       {/* Fallback Route */}
       <Route component={NotFound} />

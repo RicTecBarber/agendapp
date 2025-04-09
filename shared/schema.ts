@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, doublePrecision, json, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, doublePrecision, json, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -156,3 +156,71 @@ export const insertBarbershopSettingsSchema = createInsertSchema(barbershopSetti
 });
 export type InsertBarbershopSettings = z.infer<typeof insertBarbershopSettingsSchema>;
 export type BarbershopSettings = typeof barbershopSettings.$inferSelect;
+
+// Products
+export const products = pgTable("products", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  price: doublePrecision("price").notNull(),
+  stock_quantity: integer("stock_quantity").notNull().default(0),
+  category: text("category").notNull().default("outros"), // categorias: 'cuidados', 'acessorios', 'outros', etc.
+  image_url: text("image_url"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertProductSchema = createInsertSchema(products).omit({ 
+  id: true, created_at: true, updated_at: true 
+});
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Product = typeof products.$inferSelect;
+
+// Product categories for select dropdown
+export const productCategories = [
+  { value: "cuidados", label: "Produtos de Cuidado" },
+  { value: "acessorios", label: "Acessórios" },
+  { value: "cosmeticos", label: "Cosméticos" },
+  { value: "roupas", label: "Roupas e Vestuário" },
+  { value: "outros", label: "Outros" }
+];
+
+// Order Items (comanda)
+export interface OrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+}
+
+// Comandas (orders)
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  appointment_id: integer("appointment_id"), // opcional - pode ser null para vendas sem agendamento
+  client_name: text("client_name").notNull(),
+  client_phone: text("client_phone").notNull(),
+  items: jsonb("items").notNull().$type<OrderItem[]>(), // array de itens da comanda
+  total: doublePrecision("total").notNull(),
+  payment_method: text("payment_method").notNull().default("dinheiro"), // 'dinheiro', 'cartao', 'pix'
+  status: text("status").notNull().default("aberta"), // 'aberta', 'fechada', 'cancelada'
+  notes: text("notes"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertOrderSchema = createInsertSchema(orders).omit({ 
+  id: true, created_at: true, updated_at: true 
+});
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type Order = typeof orders.$inferSelect;
+
+// Payment methods for select dropdown
+export const paymentMethods = [
+  { value: "dinheiro", label: "Dinheiro" },
+  { value: "cartao_debito", label: "Cartão de Débito" },
+  { value: "cartao_credito", label: "Cartão de Crédito" },
+  { value: "pix", label: "PIX" },
+  { value: "transferencia", label: "Transferência Bancária" }
+];

@@ -5,7 +5,9 @@ import {
   availability, type Availability, type InsertAvailability,
   appointments, type Appointment, type InsertAppointment,
   clientRewards, type ClientReward, type InsertClientReward,
-  barbershopSettings, type BarbershopSettings, type InsertBarbershopSettings
+  barbershopSettings, type BarbershopSettings, type InsertBarbershopSettings,
+  products, type Product, type InsertProduct,
+  orders, type Order, type InsertOrder, type OrderItem
 } from "@shared/schema";
 import createMemoryStore from "memorystore";
 import session from "express-session";
@@ -62,6 +64,23 @@ export interface IStorage {
   createBarbershopSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings>;
   updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings>;
   
+  // Product operations
+  getAllProducts(): Promise<Product[]>;
+  getProduct(id: number): Promise<Product | undefined>;
+  getProductsByCategory(category: string): Promise<Product[]>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
+  deleteProduct(id: number): Promise<boolean>;
+  updateProductStock(id: number, quantity: number): Promise<Product | undefined>;
+  
+  // Order (Comanda) operations
+  getAllOrders(): Promise<Order[]>;
+  getOrdersByAppointmentId(appointmentId: number): Promise<Order[]>;
+  getOrderById(id: number): Promise<Order | undefined>;
+  getOrdersByClientPhone(clientPhone: string): Promise<Order[]>;
+  createOrder(order: InsertOrder): Promise<Order>;
+  updateOrderStatus(id: number, status: string): Promise<Order | undefined>;
+  
   // SessionStore for auth
   sessionStore: session.Store;
 }
@@ -75,6 +94,8 @@ export class MemStorage implements IStorage {
   private appointments: Map<number, Appointment>;
   private clientRewards: Map<number, ClientReward>;
   private barbershopSettings: BarbershopSettings | undefined;
+  private products: Map<number, Product>;
+  private orders: Map<number, Order>;
   
   // Cache para melhorar desempenho
   private _appointmentsByDateCache: Map<string, Appointment[]>;
@@ -88,6 +109,8 @@ export class MemStorage implements IStorage {
   private availabilityIdCounter: number;
   private appointmentIdCounter: number;
   private clientRewardIdCounter: number;
+  private productIdCounter: number;
+  private orderIdCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -96,6 +119,8 @@ export class MemStorage implements IStorage {
     this.availability = new Map();
     this.appointments = new Map();
     this.clientRewards = new Map();
+    this.products = new Map();
+    this.orders = new Map();
     
     // Inicializar caches
     this._appointmentsByDateCache = new Map();
@@ -107,6 +132,8 @@ export class MemStorage implements IStorage {
     this.availabilityIdCounter = 1;
     this.appointmentIdCounter = 1;
     this.clientRewardIdCounter = 1;
+    this.productIdCounter = 1;
+    this.orderIdCounter = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
@@ -608,6 +635,147 @@ export class MemStorage implements IStorage {
   }
   
   // Seed initial data for development
+  // Product operations
+  async getAllProducts(): Promise<Product[]> {
+    return Array.from(this.products.values());
+  }
+  
+  async getProduct(id: number): Promise<Product | undefined> {
+    return this.products.get(id);
+  }
+  
+  async getProductsByCategory(category: string): Promise<Product[]> {
+    return Array.from(this.products.values()).filter(
+      product => product.category === category
+    );
+  }
+  
+  async createProduct(productData: InsertProduct): Promise<Product> {
+    const id = this.productIdCounter++;
+    const now = new Date();
+    
+    const product: Product = { 
+      ...productData, 
+      id,
+      created_at: now,
+      updated_at: now,
+      stock_quantity: productData.stock_quantity ?? 0,
+      category: productData.category ?? "outros",
+      image_url: productData.image_url || null
+    };
+    
+    this.products.set(id, product);
+    return product;
+  }
+  
+  async updateProduct(id: number, productData: Partial<InsertProduct>): Promise<Product | undefined> {
+    const existingProduct = this.products.get(id);
+    if (!existingProduct) {
+      return undefined;
+    }
+    
+    const updatedProduct = { 
+      ...existingProduct, 
+      ...productData,
+      updated_at: new Date()
+    };
+    
+    this.products.set(id, updatedProduct);
+    return updatedProduct;
+  }
+  
+  async deleteProduct(id: number): Promise<boolean> {
+    return this.products.delete(id);
+  }
+  
+  async updateProductStock(id: number, quantity: number): Promise<Product | undefined> {
+    const existingProduct = this.products.get(id);
+    if (!existingProduct) {
+      return undefined;
+    }
+    
+    const updatedProduct = { 
+      ...existingProduct, 
+      stock_quantity: existingProduct.stock_quantity + quantity,
+      updated_at: new Date()
+    };
+    
+    this.products.set(id, updatedProduct);
+    return updatedProduct;
+  }
+  
+  // Order (Comanda) operations
+  async getAllOrders(): Promise<Order[]> {
+    return Array.from(this.orders.values());
+  }
+  
+  async getOrdersByAppointmentId(appointmentId: number): Promise<Order[]> {
+    return Array.from(this.orders.values()).filter(
+      order => order.appointment_id === appointmentId
+    );
+  }
+  
+  async getOrderById(id: number): Promise<Order | undefined> {
+    return this.orders.get(id);
+  }
+  
+  async getOrdersByClientPhone(clientPhone: string): Promise<Order[]> {
+    return Array.from(this.orders.values()).filter(
+      order => order.client_phone === clientPhone
+    );
+  }
+  
+  async createOrder(orderData: InsertOrder): Promise<Order> {
+    const id = this.orderIdCounter++;
+    const now = new Date();
+    
+    // Garantir que os itens são uma array de OrderItem
+    const items = orderData.items as OrderItem[];
+    
+    // Calcular total automaticamente se não for fornecido
+    const calculatedTotal = orderData.total || items.reduce(
+      (sum, item) => sum + item.subtotal, 0
+    );
+    
+    const order: Order = { 
+      ...orderData, 
+      id,
+      items: items,
+      total: calculatedTotal, 
+      payment_method: orderData.payment_method || "dinheiro",
+      status: orderData.status || "aberta",
+      notes: orderData.notes || null,
+      appointment_id: orderData.appointment_id || null,
+      created_at: now,
+      updated_at: now
+    };
+    
+    this.orders.set(id, order);
+    
+    // Atualizar o estoque de produtos
+    for (const item of items) {
+      await this.updateProductStock(item.product_id, -item.quantity);
+    }
+    
+    return order;
+  }
+  
+  async updateOrderStatus(id: number, status: string): Promise<Order | undefined> {
+    const existingOrder = this.orders.get(id);
+    if (!existingOrder) {
+      return undefined;
+    }
+    
+    const updatedOrder = { 
+      ...existingOrder, 
+      status,
+      updated_at: new Date()
+    };
+    
+    this.orders.set(id, updatedOrder);
+    return updatedOrder;
+  }
+  
   private seedInitialData() {
     // Add barbershop settings
     this.barbershopSettings = {
@@ -776,6 +944,82 @@ export class MemStorage implements IStorage {
       last_reward_at: new Date(new Date().setHours(9, 0, 0, 0))
     };
     this.clientRewards.set(reward3.id, reward3);
+    
+    // Produtos para venda
+    this.createProduct({
+      name: "Pomada Modeladora",
+      description: "Pomada modeladora com fixação forte para cabelos masculinos",
+      price: 45.0,
+      stock_quantity: 20,
+      category: "cuidados",
+      image_url: "https://images.unsplash.com/photo-1626808642875-0aa545639932?w=200&h=200&fit=crop"
+    });
+    
+    this.createProduct({
+      name: "Shampoo Anti-Queda",
+      description: "Shampoo especializado para prevenir queda de cabelo",
+      price: 39.90,
+      stock_quantity: 15,
+      category: "cuidados",
+      image_url: "https://images.unsplash.com/photo-1669828850907-1f32d7925405?w=200&h=200&fit=crop"
+    });
+    
+    this.createProduct({
+      name: "Creme para Barba",
+      description: "Creme hidratante para barba com óleo de argan",
+      price: 35.50,
+      stock_quantity: 25,
+      category: "cuidados",
+      image_url: "https://images.unsplash.com/photo-1621607068865-2502db6647c6?w=200&h=200&fit=crop"
+    });
+    
+    this.createProduct({
+      name: "Pente Profissional",
+      description: "Pente de alta qualidade para cabelo e barba",
+      price: 22.00,
+      stock_quantity: 30,
+      category: "acessorios",
+      image_url: "https://images.unsplash.com/photo-1621607068944-18932f3be784?w=200&h=200&fit=crop"
+    });
+    
+    this.createProduct({
+      name: "Camiseta AgendApp",
+      description: "Camiseta oficial da marca",
+      price: 49.90,
+      stock_quantity: 10,
+      category: "roupas",
+      image_url: "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=200&h=200&fit=crop"
+    });
+    
+    // Criar algumas comandas de exemplo
+    const orderItems: OrderItem[] = [
+      {
+        id: 1,
+        product_id: 1,
+        product_name: "Pomada Modeladora",
+        quantity: 1,
+        price: 45.0,
+        subtotal: 45.0
+      },
+      {
+        id: 2,
+        product_id: 3,
+        product_name: "Creme para Barba",
+        quantity: 1,
+        price: 35.50,
+        subtotal: 35.50
+      }
+    ];
+    
+    this.createOrder({
+      client_name: "Marcos Ribeiro",
+      client_phone: "11987654321",
+      items: orderItems,
+      total: 80.50,
+      payment_method: "cartao_credito",
+      status: "fechada",
+      notes: "Cliente satisfeito com o serviço"
+    });
   }
 }
 

@@ -1,0 +1,639 @@
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import AdminLayout from "@/components/layout/AdminLayout";
+import { useLocation } from "wouter";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { 
+  Package, 
+  Search, 
+  ShoppingCart, 
+  Plus, 
+  Trash2, 
+  AlertCircle,
+  ArrowLeftIcon 
+} from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+type Product = {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  stock_quantity: number;
+  category: string;
+  image_url: string | null;
+};
+
+type OrderItem = {
+  id: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+};
+
+type OrderFormData = {
+  client_name: string;
+  client_phone: string;
+  payment_method: string;
+  notes?: string;
+  appointment_id?: number | null;
+};
+
+const orderFormSchema = z.object({
+  client_name: z.string().min(3, "Nome do cliente é obrigatório"),
+  client_phone: z.string().min(8, "Telefone do cliente é obrigatório"),
+  payment_method: z.string().min(1, "Método de pagamento é obrigatório"),
+  notes: z.string().optional(),
+  appointment_id: z.number().optional().nullable(),
+});
+
+const searchClientSchema = z.object({
+  searchTerm: z.string().min(3, "Digite pelo menos 3 caracteres")
+});
+
+function CreateOrderPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [cartItems, setCartItems] = useState<OrderItem[]>([]);
+  const [idCounter, setIdCounter] = useState(1);
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+
+  // Formulário para dados do cliente e pagamento
+  const orderForm = useForm<z.infer<typeof orderFormSchema>>({
+    resolver: zodResolver(orderFormSchema),
+    defaultValues: {
+      client_name: "",
+      client_phone: "",
+      payment_method: "dinheiro",
+      notes: "",
+      appointment_id: null,
+    },
+  });
+
+  // Buscar produtos
+  const { data: products = [], isLoading: loadingProducts } = useQuery({
+    queryKey: ["/api/products"],
+    queryFn: async () => {
+      const response = await fetch("/api/products");
+      if (!response.ok) {
+        throw new Error("Erro ao buscar produtos");
+      }
+      return response.json();
+    }
+  });
+
+  // Buscar categorias de produtos
+  const { data: categories = [] } = useQuery({
+    queryKey: ["/api/products/categories"],
+    queryFn: async () => {
+      const response = await fetch("/api/products/categories");
+      if (!response.ok) {
+        throw new Error("Erro ao buscar categorias");
+      }
+      return response.json();
+    }
+  });
+
+  // Buscar métodos de pagamento
+  const { data: paymentMethods = [] } = useQuery({
+    queryKey: ["/api/payment-methods"],
+    queryFn: async () => {
+      const response = await fetch("/api/payment-methods");
+      if (!response.ok) {
+        throw new Error("Erro ao buscar métodos de pagamento");
+      }
+      return response.json();
+    }
+  });
+
+  // Filtrar produtos
+  const filteredProducts = products.filter((product: Product) => {
+    // Filtrar por termo de busca
+    const searchMatch =
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Filtrar por categoria
+    const categoryMatch =
+      selectedCategory === "all" || product.category === selectedCategory;
+
+    return searchMatch && categoryMatch;
+  });
+
+  // Adicionar produto ao carrinho
+  const addToCart = (product: Product) => {
+    const existingItemIndex = cartItems.findIndex(
+      (item) => item.product_id === product.id
+    );
+
+    if (existingItemIndex >= 0) {
+      // Se o produto já estiver no carrinho, incrementa a quantidade
+      const updatedItems = [...cartItems];
+      updatedItems[existingItemIndex].quantity++;
+      updatedItems[existingItemIndex].subtotal =
+        updatedItems[existingItemIndex].quantity * product.price;
+      setCartItems(updatedItems);
+    } else {
+      // Se for um produto novo, adiciona ao carrinho
+      const newItem: OrderItem = {
+        id: idCounter,
+        product_id: product.id,
+        product_name: product.name,
+        quantity: 1,
+        price: product.price,
+        subtotal: product.price,
+      };
+      setCartItems([...cartItems, newItem]);
+      setIdCounter(idCounter + 1);
+    }
+
+    toast({
+      title: "Produto adicionado",
+      description: `${product.name} adicionado ao carrinho`,
+    });
+  };
+
+  // Remover produto do carrinho
+  const removeFromCart = (itemId: number) => {
+    setCartItems(cartItems.filter((item) => item.id !== itemId));
+  };
+
+  // Atualizar quantidade de um produto no carrinho
+  const updateQuantity = (itemId: number, quantity: number) => {
+    if (quantity < 1) return;
+
+    const updatedItems = cartItems.map((item) => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          quantity,
+          subtotal: quantity * item.price,
+        };
+      }
+      return item;
+    });
+
+    setCartItems(updatedItems);
+  };
+
+  // Calcular total do carrinho
+  const cartTotal = cartItems.reduce((total, item) => total + item.subtotal, 0);
+
+  // Mutation para criar comanda
+  const createOrderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/orders", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Comanda criada",
+        description: "A comanda foi criada com sucesso",
+      });
+      navigate("/admin/orders");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao criar comanda",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Enviar comanda
+  const handleCreateOrder = (orderData: z.infer<typeof orderFormSchema>) => {
+    if (cartItems.length === 0) {
+      toast({
+        title: "Carrinho vazio",
+        description: "Adicione produtos ao carrinho antes de finalizar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const orderPayload = {
+      ...orderData,
+      items: cartItems,
+      total: cartTotal,
+    };
+
+    createOrderMutation.mutate(orderPayload);
+  };
+
+  // Buscar cliente por telefone
+  const searchClient = async (phone: string) => {
+    try {
+      const response = await fetch(`/api/loyalty/${phone}`);
+      
+      if (response.status === 404) {
+        toast({
+          title: "Cliente não encontrado",
+          description: "Nenhum cliente encontrado com este telefone",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!response.ok) {
+        throw new Error("Erro ao buscar cliente");
+      }
+      
+      const clientData = await response.json();
+      
+      if (clientData) {
+        orderForm.setValue("client_name", clientData.client_name);
+        orderForm.setValue("client_phone", clientData.client_phone);
+        
+        toast({
+          title: "Cliente encontrado",
+          description: `${clientData.client_name} encontrado com sucesso`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao buscar cliente",
+        description: "Ocorreu um erro ao buscar informações do cliente",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <AdminLayout title="Nova Comanda">
+      <div className="container mx-auto py-8">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" size="icon" onClick={() => navigate("/admin/orders")}>
+            <ArrowLeftIcon className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-bold">Nova Comanda</h1>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Coluna da esquerda: Produtos */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Adicionar Produtos</CardTitle>
+                <CardDescription>
+                  Selecione os produtos para adicionar à comanda
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar produtos..."
+                      className="pl-9"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={setSelectedCategory}
+                  >
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as categorias</SelectItem>
+                      {categories.map((category: any) => (
+                        <SelectItem
+                          key={category.value}
+                          value={category.value}
+                        >
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {loadingProducts ? (
+                  <div className="flex justify-center items-center h-32">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {filteredProducts.map((product: Product) => (
+                      <Card
+                        key={product.id}
+                        className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => addToCart(product)}
+                      >
+                        <div className="relative h-32 bg-gray-100">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full">
+                              <Package className="h-16 w-16 text-gray-300" />
+                            </div>
+                          )}
+                          {product.stock_quantity <= 0 && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold">
+                              ESGOTADO
+                            </div>
+                          )}
+                        </div>
+                        <CardContent className="p-3">
+                          <div className="font-medium truncate">{product.name}</div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-sm text-muted-foreground">
+                              Estoque: {product.stock_quantity}
+                            </span>
+                            <span className="font-semibold">
+                              R$ {product.price.toFixed(2)}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {filteredProducts.length === 0 && !loadingProducts && (
+                  <div className="text-center py-8">
+                    <Package className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-4 text-lg font-medium">Nenhum produto encontrado</h3>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Tente ajustar os critérios de busca ou categoria.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Coluna da direita: Carrinho e dados do cliente */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5" />
+                  Carrinho
+                </CardTitle>
+                <CardDescription>
+                  {cartItems.length} {cartItems.length === 1 ? "item" : "itens"} no carrinho
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {cartItems.length === 0 ? (
+                  <div className="text-center py-6">
+                    <ShoppingCart className="mx-auto h-12 w-12 text-gray-400" />
+                    <p className="mt-4 text-sm text-muted-foreground">
+                      Seu carrinho está vazio. Adicione produtos clicando nos cards.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {cartItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between border-b pb-3"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium">{item.product_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            R$ {item.price.toFixed(2)} x {item.quantity}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-r-none"
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            >
+                              -
+                            </Button>
+                            <div className="h-8 px-3 flex items-center justify-center border border-l-0 border-r-0">
+                              {item.quantity}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-l-none"
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            >
+                              +
+                            </Button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFromCart(item.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="flex justify-between font-bold text-lg pt-2">
+                      <span>Total:</span>
+                      <span>R$ {cartTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Dados do Cliente</CardTitle>
+                <CardDescription>
+                  Informe os dados do cliente para a comanda
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...orderForm}>
+                  <form
+                    onSubmit={orderForm.handleSubmit(handleCreateOrder)}
+                    className="space-y-4"
+                  >
+                    <div className="flex gap-2">
+                      <FormField
+                        control={orderForm.control}
+                        name="client_phone"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>Telefone</FormLabel>
+                            <div className="flex gap-2">
+                              <FormControl>
+                                <Input placeholder="(11) 99999-9999" {...field} />
+                              </FormControl>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="icon"
+                                onClick={() => searchClient(field.value)}
+                                disabled={!field.value || field.value.length < 8}
+                              >
+                                <Search className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <FormDescription>
+                              Digite o telefone para buscar cliente
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={orderForm.control}
+                      name="client_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome do Cliente</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={orderForm.control}
+                      name="payment_method"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Método de Pagamento</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione uma opção" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {paymentMethods.map((method: any) => (
+                                <SelectItem
+                                  key={method.value}
+                                  value={method.value}
+                                >
+                                  {method.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={orderForm.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Observações (opcional)</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={cartItems.length === 0 || createOrderMutation.isPending}
+                    >
+                      {createOrderMutation.isPending ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Processando...</span>
+                        </div>
+                      ) : (
+                        "Finalizar Comanda"
+                      )}
+                    </Button>
+
+                    {cartItems.length === 0 && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Atenção</AlertTitle>
+                        <AlertDescription>
+                          Adicione pelo menos um produto ao carrinho para finalizar a comanda.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}
+
+export default CreateOrderPage;
