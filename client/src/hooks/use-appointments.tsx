@@ -20,7 +20,7 @@ export function useAppointments(options: AppointmentOptions = {}) {
   
   // Adicionar cada filtro à queryKey
   if (date) queryKey.push("date", format(date, "yyyy-MM-dd"));
-  if (professionalId) queryKey.push("professionalId", professionalId.toString());
+  if (professionalId !== undefined) queryKey.push("professionalId", professionalId.toString());
   if (startDate && endDate) {
     queryKey.push("range", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"));
   }

@@ -1134,21 +1134,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dateFilter = req.query.date as string;
       const startDateFilter = req.query.startDate as string;
       const endDateFilter = req.query.endDate as string;
-      const professionalIdFilter = req.query.professionalId ? parseInt(req.query.professionalId as string) : null;
+      // Verificar se professionalId existe e se não é uma string vazia
+      const professionalIdParam = req.query.professionalId;
+      // Define como undefined se param for undefined, string vazia ou "undefined"
+      const professionalIdFilter = (professionalIdParam && 
+                                  professionalIdParam !== "" && 
+                                  professionalIdParam !== "undefined") 
+                                  ? parseInt(professionalIdParam as string) 
+                                  : null;
       
       // Log detalhado dos filtros
       console.log("Filtros recebidos:", { 
         dateFilter, 
         startDateFilter, 
         endDateFilter, 
+        professionalIdParam,
         professionalIdFilter,
         professionalIdType: typeof professionalIdFilter
       });
       
       let appointments: any[] = [];
       
-      // Se tiver um filtro de profissional, usar o método específico
-      if (professionalIdFilter !== null) {
+      // Se tiver um filtro de profissional válido, usar o método específico
+      if (professionalIdFilter !== null && !isNaN(professionalIdFilter)) {
         console.log(`Usando método específico para buscar agendamentos do profissional ${professionalIdFilter}`);
         appointments = await storage.getAppointmentsByProfessionalId(professionalIdFilter);
       } else {
