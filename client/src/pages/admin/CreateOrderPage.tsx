@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useLocation } from "wouter";
 import {
@@ -98,6 +99,7 @@ function CreateOrderPage() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
+  const { user, isLoading: authLoading } = useAuth();
 
   // Formulário para dados do cliente e pagamento
   const orderForm = useForm<z.infer<typeof orderFormSchema>>({
@@ -117,6 +119,18 @@ function CreateOrderPage() {
   
   // Efeito para preencher dados do cliente a partir dos parâmetros da URL
   // e adicionar o serviço principal ao carrinho
+  // Verificar se o usuário não está autenticado
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast({
+        title: "Sessão expirada",
+        description: "Por favor, faça login novamente",
+        variant: "destructive",
+      });
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate, toast]);
+
   useEffect(() => {
     // Verificar se há parâmetros na URL
     const params = new URLSearchParams(window.location.search);
@@ -342,6 +356,9 @@ function CreateOrderPage() {
   // Mutation para adicionar itens a uma comanda existente
   const addItemsToOrderMutation = useMutation({
     mutationFn: async ({ orderId, items, total }: { orderId: number, items: OrderItem[], total: number }) => {
+      if (!user) {
+        throw new Error("Você precisa estar autenticado para adicionar itens à comanda");
+      }
       const res = await apiRequest("PUT", `/api/orders/${orderId}/items`, { items, total });
       return await res.json();
     },
