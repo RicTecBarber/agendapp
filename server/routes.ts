@@ -601,7 +601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ 
             message: "Invalid appointment data", 
             errors: error.errors,
-            received: processedAppointmentData
+            received: req.body
           });
         }
         throw error;

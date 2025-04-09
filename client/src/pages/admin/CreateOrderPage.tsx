@@ -150,7 +150,7 @@ function CreateOrderPage() {
       setIsAddingToExistingOrder(true);
       setExistingOrderId(parseInt(orderId));
       
-      // Atualizar título da página no Toast
+      // Atualizar título da página no Toast - exibir apenas uma vez
       toast({
         title: "Adicionar itens à comanda",
         description: `Adicionando itens à comanda #${orderId}`,
@@ -199,8 +199,14 @@ function CreateOrderPage() {
             description: `${serviceName} adicionado automaticamente à comanda`,
           });
         } else if (!addingItems) {
+          // Criar uma flag de controle para evitar chamadas em loop
+          let isFetching = false;
+          
           // Se não temos os parâmetros do serviço, buscar as informações do agendamento
           const fetchAppointmentDetails = async () => {
+            if (isFetching) return; // Evitar chamadas duplicadas
+            isFetching = true;
+            
             try {
               // Buscar detalhes do agendamento
               const appointmentResponse = await fetch(`/api/appointments/${appointmentId}`);
@@ -228,9 +234,11 @@ function CreateOrderPage() {
                 subtotal: serviceData.price,
               };
               
+              // Usar uma única operação de estado para evitar loops
               setCartItems([newItem]);
               setIdCounter(prevCounter => prevCounter + 1);
               
+              // Mostrar notificação apenas uma vez
               toast({
                 title: "Serviço adicionado",
                 description: `${serviceData.name} adicionado automaticamente à comanda`,
@@ -241,6 +249,8 @@ function CreateOrderPage() {
                 description: error.message,
                 variant: "destructive",
               });
+            } finally {
+              isFetching = false;
             }
           };
           
@@ -248,7 +258,8 @@ function CreateOrderPage() {
         }
       }
     }
-  }, [orderForm, toast, idCounter]);
+  // Importante: remover idCounter das dependências para evitar loops
+  }, [orderForm, toast]);
 
   // Buscar produtos
   const { data: products = [], isLoading: loadingProducts } = useQuery({
