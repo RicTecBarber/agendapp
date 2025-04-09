@@ -83,22 +83,23 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
                   Comandas
                 </a>
               </Link>
+              {/* Link de Usuários apenas para administradores da barbearia */}
               {user?.role === "admin" && (
-                <>
-                  <Link href="/admin/users">
-                    <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/users" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
-                      <UserPlus className="h-5 w-5 mr-3" />
-                      Usuários
-                    </a>
-                  </Link>
-                  <Link href="/admin/barbershop-settings">
-                    <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/barbershop-settings" || location === "/admin/settings" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
-                      <Settings className="h-5 w-5 mr-3" />
-                      Configurações
-                    </a>
-                  </Link>
-                </>
+                <Link href="/admin/users">
+                  <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/users" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
+                    <UserPlus className="h-5 w-5 mr-3" />
+                    Usuários
+                  </a>
+                </Link>
               )}
+              
+              {/* Link de Configurações disponível para todos os tipos de admin */}
+              <Link href="/admin/barbershop-settings">
+                <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/barbershop-settings" || location === "/admin/settings" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
+                  <Settings className="h-5 w-5 mr-3" />
+                  Configurações
+                </a>
+              </Link>
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center py-3 px-4 rounded-lg text-white/80 hover:bg-primary-light hover:text-white transition mt-4"
