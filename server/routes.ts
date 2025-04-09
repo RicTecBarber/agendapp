@@ -458,10 +458,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/availability/professional/:professionalId - Get availability by professional
   app.get("/api/availability/professional/:professionalId", async (req: Request, res: Response) => {
     try {
+      if (!req.tenantId) {
+        return res.status(400).json({ message: "Tenant não identificado. Use o parâmetro ?tenant=SLUG" });
+      }
+      
       const professionalId = parseInt(req.params.professionalId);
-      const availability = await storage.getAvailabilityByProfessionalId(professionalId);
-      res.json(availability);
+      
+      // Verificar se o profissional pertence ao tenant atual
+      const professional = await storage.getProfessional(professionalId, req.tenantId);
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional não encontrado ou não pertence a este tenant" });
+      }
+      
+      // Obter disponibilidade e filtrar por tenant_id
+      const allAvailability = await storage.getAvailabilityByProfessionalId(professionalId);
+      const filteredAvailability = allAvailability.filter(a => a.tenant_id === req.tenantId);
+      
+      res.json(filteredAvailability);
     } catch (error) {
+      console.error("Erro ao buscar disponibilidade:", error);
       res.status(500).json({ message: "Failed to get availability" });
     }
   });
@@ -553,9 +568,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/availability/:professionalId/:date - Get time slots for date
   app.get("/api/availability/:professionalId/:date", async (req: Request, res: Response) => {
     try {
+      if (!req.tenantId) {
+        return res.status(400).json({ message: "Tenant não identificado. Use o parâmetro ?tenant=SLUG" });
+      }
+      
       const professionalId = parseInt(req.params.professionalId);
       const dateStr = req.params.date;
       const timezone = req.query.timezone as string || 'America/Sao_Paulo';
+      
+      // Verificar se o profissional pertence ao tenant atual
+      const professional = await storage.getProfessional(professionalId, req.tenantId);
+      if (!professional) {
+        return res.status(404).json({ 
+          message: "Profissional não encontrado ou não pertence a este tenant",
+          available_slots: []
+        });
+      }
       
       // Extrair horário de início e fim da jornada das configurações
       const settings = await storage.getBarbershopSettings();
@@ -571,11 +599,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
       }
 
-      console.log(`Buscando disponibilidade para ${dateStr} no fuso ${timezone}`);
+      console.log(`Buscando disponibilidade para ${dateStr} no fuso ${timezone}, tenant: ${req.tenantSlug}`);
       
       // Buscar disponibilidade configurada para o profissional
-      const availabilitySettings = await storage.getAvailabilityByProfessionalId(professionalId);
-      console.log(`Configurações de disponibilidade encontradas: ${availabilitySettings.length}`);
+      const allAvailabilitySettings = await storage.getAvailabilityByProfessionalId(professionalId);
+      // Filtrar apenas a disponibilidade deste tenant
+      const availabilitySettings = allAvailabilitySettings.filter(a => a.tenant_id === req.tenantId);
+      console.log(`Configurações de disponibilidade encontradas: ${availabilitySettings.length} para o tenant ${req.tenantId}`);
       
       // Verificar se há configuração para o dia da semana 
       const dayOfWeek = dateObj.getDay(); // 0 = Domingo, 1 = Segunda, ...
@@ -628,7 +658,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Total de slots possíveis: ${slots.length}`);
       
       // Buscar agendamentos do profissional para a data
-      const appointments = await storage.getAppointmentsByProfessionalId(professionalId);
+      const allAppointments = await storage.getAppointmentsByProfessionalId(professionalId);
+      // Filtrar apenas agendamentos deste tenant
+      const appointments = allAppointments.filter(a => a.tenant_id === req.tenantId);
       
       // Filtrar apenas agendamentos da data específica e que não estejam cancelados
       const dateAppointments = appointments.filter(app => {
@@ -780,7 +812,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Verificar se o horário já está agendado
         const professionalId = processedAppointmentData.professional_id;
-        const appointments = await storage.getAppointmentsByProfessionalId(professionalId);
+        const allAppointments = await storage.getAppointmentsByProfessionalId(professionalId);
+        // Filtrar apenas agendamentos deste tenant
+        const appointments = allAppointments.filter(a => a.tenant_id === req.tenantId);
         
         // Filtrar agendamentos na mesma data e hora
         const conflictingAppointments = appointments.filter(app => {
