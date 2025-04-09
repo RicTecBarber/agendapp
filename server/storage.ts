@@ -171,18 +171,33 @@ export class MemStorage implements IStorage {
   }
 
   // User operations
-  async getAllUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
+  async getAllUsers(tenantId?: number | null): Promise<User[]> {
+    const users = Array.from(this.users.values());
+    if (tenantId !== undefined) {
+      return users.filter(user => user.tenant_id === tenantId);
+    }
+    return users;
   }
   
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+  async getUser(id: number, tenantId?: number | null): Promise<User | undefined> {
+    const user = this.users.get(id);
+    // Se houver um tenantId especificado, verifique se o usuário pertence a esse tenant
+    if (user && tenantId !== undefined && user.tenant_id !== tenantId) {
+      return undefined; // Usuário não pertence ao tenant solicitado
+    }
+    return user;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username
-    );
+  async getUserByUsername(username: string, tenantId?: number | null): Promise<User | undefined> {
+    const users = Array.from(this.users.values());
+    const user = users.find(user => user.username === username);
+    
+    // Se houver um tenantId especificado, verifique se o usuário pertence a esse tenant
+    if (user && tenantId !== undefined && user.tenant_id !== tenantId) {
+      return undefined; // Usuário não pertence ao tenant solicitado
+    }
+    
+    return user;
   }
 
   async createUser(userData: InsertUser): Promise<User> {
@@ -201,12 +216,21 @@ export class MemStorage implements IStorage {
   }
   
   // Service operations
-  async getAllServices(): Promise<Service[]> {
-    return Array.from(this.services.values());
+  async getAllServices(tenantId?: number | null): Promise<Service[]> {
+    const services = Array.from(this.services.values());
+    if (tenantId !== undefined) {
+      return services.filter(service => service.tenant_id === tenantId);
+    }
+    return services;
   }
   
-  async getService(id: number): Promise<Service | undefined> {
-    return this.services.get(id);
+  async getService(id: number, tenantId?: number | null): Promise<Service | undefined> {
+    const service = this.services.get(id);
+    // Se houver um tenantId especificado, verifique se o serviço pertence a esse tenant
+    if (service && tenantId !== undefined && service.tenant_id !== tenantId) {
+      return undefined; // Serviço não pertence ao tenant solicitado
+    }
+    return service;
   }
   
   async createService(serviceData: InsertService): Promise<Service> {
@@ -232,18 +256,34 @@ export class MemStorage implements IStorage {
   }
   
   // Professional operations
-  async getAllProfessionals(): Promise<Professional[]> {
-    return Array.from(this.professionals.values());
+  async getAllProfessionals(tenantId?: number | null): Promise<Professional[]> {
+    const professionals = Array.from(this.professionals.values());
+    if (tenantId !== undefined) {
+      return professionals.filter(professional => professional.tenant_id === tenantId);
+    }
+    return professionals;
   }
   
-  async getProfessional(id: number): Promise<Professional | undefined> {
-    return this.professionals.get(id);
+  async getProfessional(id: number, tenantId?: number | null): Promise<Professional | undefined> {
+    const professional = this.professionals.get(id);
+    // Se houver um tenantId especificado, verifique se o profissional pertence a esse tenant
+    if (professional && tenantId !== undefined && professional.tenant_id !== tenantId) {
+      return undefined; // Profissional não pertence ao tenant solicitado
+    }
+    return professional;
   }
   
-  async getProfessionalsByServiceId(serviceId: number): Promise<Professional[]> {
-    return Array.from(this.professionals.values()).filter(professional => 
+  async getProfessionalsByServiceId(serviceId: number, tenantId?: number | null): Promise<Professional[]> {
+    let professionals = Array.from(this.professionals.values()).filter(professional => 
       (professional.services_offered as number[]).includes(serviceId)
     );
+    
+    // Se o tenant_id for fornecido, filtre apenas os profissionais desse tenant
+    if (tenantId !== undefined) {
+      professionals = professionals.filter(professional => professional.tenant_id === tenantId);
+    }
+    
+    return professionals;
   }
   
   async createProfessional(professionalData: InsertProfessional): Promise<Professional> {

@@ -2,12 +2,14 @@ import { format, addDays, parseISO, startOfWeek, endOfWeek } from 'date-fns';
 import type { Express, Request, Response, NextFunction } from 'express';
 import { z } from "zod";
 import { createServer, type Server } from 'http';
-import { parseTime } from './utils';
 import WebSocket from 'ws';
 import { WebSocketServer } from 'ws';
 import { storage } from './storage';
 import { setupAuth } from './auth';
 import passport from 'passport';
+import { 
+  isSystemAdmin, isAdmin, applyTenantId 
+} from './middleware';
 import {
   insertServiceSchema,
   insertProfessionalSchema,
@@ -38,6 +40,12 @@ function getTimezoneOffset(timezone: string): number {
   return timezoneOffsets[timezone] || 0;
 }
 
+// Função auxiliar para extrair o horário de uma string no formato HH:MM
+function parseTime(timeString: string): { hours: number; minutes: number } {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return { hours, minutes };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
   setupAuth(app);
@@ -50,23 +58,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   });
   
-  // Middleware para verificar se o usuário é um administrador do sistema
-  const isSystemAdmin = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Não autenticado" });
-    }
-    
-    // Verificar se o usuário tem a propriedade isSystemAdmin
-    if (!req.user || !('isSystemAdmin' in req.user)) {
-      return res.status(403).json({ error: "Acesso negado" });
-    }
-    
-    next();
-  };
-  
   // Middleware para logging
   app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path}`);
+    console.log(`${req.method} ${req.path} ${req.tenantSlug ? `[Tenant: ${req.tenantSlug}]` : ''}`);
     next();
   });
 
@@ -108,10 +102,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // SERVICES ENDPOINTS
 
-  // GET /api/services - Get all services
+  // GET /api/services - Get all services (filtered by tenant)
   app.get("/api/services", async (req: Request, res: Response) => {
     try {
-      const services = await storage.getAllServices();
+      // Filtrar por tenant_id
+      const services = await storage.getAllServices(req.tenantId);
       res.json(services);
     } catch (error) {
       res.status(500).json({ message: "Failed to get services" });
@@ -196,21 +191,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // PROFESSIONALS ENDPOINTS
 
-  // GET /api/professionals - Get all professionals
+  // GET /api/professionals - Get all professionals (filtered by tenant)
   app.get("/api/professionals", async (req: Request, res: Response) => {
     try {
-      const professionals = await storage.getAllProfessionals();
+      // Filtrar por tenant_id
+      const professionals = await storage.getAllProfessionals(req.tenantId);
       res.json(professionals);
     } catch (error) {
       res.status(500).json({ message: "Failed to get professionals" });
     }
   });
 
-  // GET /api/professionals/:id - Get professional by id
+  // GET /api/professionals/:id - Get professional by id (filtering by tenant)
   app.get("/api/professionals/:id", async (req: Request, res: Response) => {
     try {
       const professionalId = parseInt(req.params.id);
-      const professional = await storage.getProfessional(professionalId);
+      // Filtrar pelo tenant_id também
+      const professional = await storage.getProfessional(professionalId, req.tenantId);
       
       if (!professional) {
         return res.status(404).json({ message: "Professional not found" });
@@ -222,11 +219,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/professionals/service/:serviceId - Get professionals by service
+  // GET /api/professionals/service/:serviceId - Get professionals by service (filtered by tenant)
   app.get("/api/professionals/service/:serviceId", async (req: Request, res: Response) => {
     try {
       const serviceId = parseInt(req.params.serviceId);
-      const professionals = await storage.getProfessionalsByServiceId(serviceId);
+      // Passar o tenant_id para filtrar profissionais apenas desse tenant
+      const professionals = await storage.getProfessionalsByServiceId(serviceId, req.tenantId);
       res.json(professionals);
     } catch (error) {
       res.status(500).json({ message: "Failed to get professionals by service" });
@@ -241,7 +239,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const professionalData = insertProfessionalSchema.parse(req.body);
-      const professional = await storage.createProfessional(professionalData);
+      // Adicionar o tenant_id do contexto atual ao novo profissional
+      const professionalWithTenant = {
+        ...professionalData,
+        tenant_id: req.tenantId
+      };
+      const professional = await storage.createProfessional(professionalWithTenant);
       res.status(201).json(professional);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -260,7 +263,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const professionalId = parseInt(req.params.id);
-      const professionalData = req.body;
+      
+      // Verificar se o profissional existe e pertence ao tenant atual
+      const existingProfessional = await storage.getProfessional(professionalId, req.tenantId);
+      if (!existingProfessional) {
+        return res.status(404).json({ message: "Professional not found or doesn't belong to this tenant" });
+      }
+      
+      // Manter o mesmo tenant_id do profissional original
+      const professionalData = {
+        ...req.body,
+        tenant_id: req.tenantId
+      };
       const updated = await storage.updateProfessional(professionalId, professionalData);
       
       if (!updated) {
@@ -293,8 +307,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized" });
       }
       
+      // Validar os dados e adicionar o tenant_id
       const availabilityData = insertAvailabilitySchema.parse(req.body);
-      const availability = await storage.createAvailability(availabilityData);
+      
+      // Verificar se o profissional pertence ao tenant atual
+      const professional = await storage.getProfessional(availabilityData.professional_id, req.tenantId);
+      if (!professional) {
+        return res.status(404).json({ message: "Professional not found or doesn't belong to this tenant" });
+      }
+      
+      // Adicionar o tenant_id do contexto atual
+      const availabilityWithTenant = {
+        ...availabilityData,
+        tenant_id: req.tenantId
+      };
+      
+      const availability = await storage.createAvailability(availabilityWithTenant);
       res.status(201).json(availability);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -313,7 +341,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const availabilityId = parseInt(req.params.id);
-      const availabilityData = req.body;
+      
+      // Verificar se a disponibilidade existe e pertence ao tenant atual
+      const existingAvailability = await storage.getAvailabilityById(availabilityId);
+      if (!existingAvailability || existingAvailability.tenant_id !== req.tenantId) {
+        return res.status(404).json({ message: "Availability not found or doesn't belong to this tenant" });
+      }
+      
+      // Preservar o tenant_id existente
+      const availabilityData = {
+        ...req.body,
+        tenant_id: req.tenantId
+      };
+      
       const updated = await storage.updateAvailability(availabilityId, availabilityData);
       
       if (!updated) {
@@ -334,6 +374,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const availabilityId = parseInt(req.params.id);
+      
+      // Verificar se a disponibilidade existe e pertence ao tenant atual
+      const existingAvailability = await storage.getAvailabilityById(availabilityId);
+      if (!existingAvailability || existingAvailability.tenant_id !== req.tenantId) {
+        return res.status(404).json({ message: "Availability not found or doesn't belong to this tenant" });
+      }
+      
       const deleted = await storage.deleteAvailability(availabilityId);
       
       if (!deleted) {
@@ -600,8 +647,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
+        // Verificar se o profissional pertence ao tenant atual
+        const professional = await storage.getProfessional(processedAppointmentData.professional_id, req.tenantId);
+        if (!professional) {
+          return res.status(404).json({ message: "Professional not found or doesn't belong to this tenant" });
+        }
+        
+        // Adicionar o tenant_id nos dados do agendamento
+        const appointmentWithTenant = {
+          ...processedAppointmentData,
+          tenant_id: req.tenantId
+        };
+        
         // Criar o agendamento
-        const appointment = await storage.createAppointment(processedAppointmentData);
+        const appointment = await storage.createAppointment(appointmentWithTenant);
         
         // Se marcado como resgate de fidelidade, registrar o uso da recompensa
         if (processedAppointmentData.is_loyalty_reward) {
@@ -643,7 +702,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Phone number is required" });
       }
       
-      const appointments = await storage.getAppointmentsByClientPhone(phone);
+      // Obter todos os agendamentos do cliente
+      let appointments = await storage.getAppointmentsByClientPhone(phone);
+      
+      // Filtrar apenas os agendamentos do tenant atual
+      appointments = appointments.filter(a => a.tenant_id === req.tenantId);
       
       // Ordenar por data, mais recente primeiro
       appointments.sort((a, b) => {
@@ -675,6 +738,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Appointment not found" });
       }
       
+      // Verificar se o agendamento pertence ao tenant atual
+      if (appointment.tenant_id !== req.tenantId) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      
       res.json(appointment);
     } catch (error) {
       res.status(500).json({ message: "Failed to get appointment" });
@@ -698,6 +766,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const appointment = await storage.getAppointmentById(appointmentId);
       
       if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      
+      // Verificar se o agendamento pertence ao tenant atual
+      if (appointment.tenant_id !== req.tenantId) {
         return res.status(404).json({ message: "Appointment not found" });
       }
       
@@ -765,10 +838,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let appointments: any[] = [];
       
-      // Sempre buscar todos os agendamentos primeiro
+      // Buscar agendamentos e filtrar por tenant_id
       console.log("Buscando todos os agendamentos");
       appointments = await storage.getAllAppointments();
-      console.log(`Total de agendamentos encontrados: ${appointments.length}`);
+      
+      // Filtrar apenas agendamentos do tenant atual
+      appointments = appointments.filter(a => a.tenant_id === req.tenantId);
+      
+      console.log(`Total de agendamentos encontrados para o tenant ${req.tenantId}: ${appointments.length}`);
       
       // Processar os IDs de profissionais
       // Caso 1: "all" - não filtrar, mostrar todos
@@ -957,10 +1034,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Lógica para gerar estatísticas do dashboard
-      const appointments = await storage.getAllAppointments();
-      const professionals = await storage.getAllProfessionals();
-      const services = await storage.getAllServices();
-      const orders = await storage.getAllOrders();
+      let appointments = await storage.getAllAppointments();
+      let professionals = await storage.getAllProfessionals();
+      let services = await storage.getAllServices();
+      let orders = await storage.getAllOrders();
+      
+      // Filtrar dados pelo tenant atual
+      appointments = appointments.filter(a => a.tenant_id === req.tenantId);
+      professionals = professionals.filter(p => p.tenant_id === req.tenantId);
+      services = services.filter(s => s.tenant_id === req.tenantId);
+      orders = orders.filter(o => o.tenant_id === req.tenantId);
       
       // Estatísticas gerais
       const totalAppointments = appointments.length;
@@ -1029,10 +1112,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dataType = req.query.type as string || 'week';
       
       // Get appointments
-      const appointments = await storage.getAllAppointments();
+      let appointments = await storage.getAllAppointments();
       
       // Get orders
-      const orders = await storage.getAllOrders();
+      let orders = await storage.getAllOrders();
+      
+      // Filtrar dados pelo tenant atual
+      appointments = appointments.filter(a => a.tenant_id === req.tenantId);
+      orders = orders.filter(o => o.tenant_id === req.tenantId);
       
       // Current date
       const now = new Date();
@@ -1173,7 +1260,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/barbershop-settings", async (req: Request, res: Response) => {
     try {
       const settings = await storage.getBarbershopSettings();
-      res.json(settings);
+      
+      // Filtrar configurações pelo tenant atual
+      const tenantSettings = settings.filter(s => s.tenant_id === req.tenantId);
+      
+      // Retornar a primeira configuração encontrada ou null
+      res.json(tenantSettings.length > 0 ? tenantSettings[0] : null);
     } catch (error) {
       res.status(500).json({ message: "Failed to get barbershop settings" });
     }
@@ -1187,7 +1279,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const settingsData = insertBarbershopSettingsSchema.parse(req.body);
-      const settings = await storage.createBarbershopSettings(settingsData);
+      
+      // Adicionar tenant_id aos dados de configuração
+      const settingsWithTenant = {
+        ...settingsData,
+        tenant_id: req.tenantId
+      };
+      
+      const settings = await storage.createBarbershopSettings(settingsWithTenant);
       res.status(201).json(settings);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1205,7 +1304,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized" });
       }
       
-      const settingsData = req.body;
+      // Obter as configurações atuais para verificar o tenant_id
+      const settings = await storage.getBarbershopSettings();
+      const tenantSettings = settings.filter(s => s.tenant_id === req.tenantId);
+      
+      if (tenantSettings.length === 0) {
+        return res.status(404).json({ message: "Settings not found for this tenant" });
+      }
+      
+      // Verificar se as configurações pertencem ao tenant atual
+      const currentSettings = tenantSettings[0];
+      if (currentSettings.tenant_id !== req.tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Garantir que o tenant_id não seja alterado
+      const settingsData = {
+        ...req.body,
+        tenant_id: req.tenantId
+      };
+      
       const updated = await storage.updateBarbershopSettings(settingsData);
       res.json(updated);
     } catch (error) {
@@ -1218,7 +1336,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/products - Get all products
   app.get("/api/products", async (req: Request, res: Response) => {
     try {
-      const products = await storage.getAllProducts();
+      let products = await storage.getAllProducts();
+      
+      // Filtrar produtos pelo tenant atual
+      products = products.filter(p => p.tenant_id === req.tenantId);
+      
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: "Failed to get products" });
@@ -1228,7 +1350,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/products/categories - Get all distinct product categories
   app.get("/api/products/categories", async (req: Request, res: Response) => {
     try {
-      const products = await storage.getAllProducts();
+      let products = await storage.getAllProducts();
+      
+      // Filtrar produtos pelo tenant atual
+      products = products.filter(p => p.tenant_id === req.tenantId);
       
       // Extract unique categories
       const categories = [...new Set(products.map(p => p.category))];
@@ -1259,7 +1384,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products/category/:category", async (req: Request, res: Response) => {
     try {
       const category = req.params.category;
-      const products = await storage.getProductsByCategory(category);
+      let products = await storage.getProductsByCategory(category);
+      
+      // Filtrar produtos pelo tenant atual
+      products = products.filter(p => p.tenant_id === req.tenantId);
+      
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: "Failed to get products by category" });
@@ -1362,7 +1491,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //   return res.status(403).json({ message: "Unauthorized" });
       // }
       
-      const orders = await storage.getAllOrders();
+      let orders = await storage.getAllOrders();
+      
+      // Filtrar ordens pelo tenant atual
+      orders = orders.filter(o => o.tenant_id === req.tenantId);
+      
       res.json(orders);
     } catch (error) {
       res.status(500).json({ message: "Failed to get orders" });
@@ -1384,6 +1517,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       
+      // Verificar se a ordem pertence ao tenant atual
+      if (order.tenant_id !== req.tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       res.json(order);
     } catch (error) {
       res.status(500).json({ message: "Failed to get order" });
@@ -1398,7 +1536,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const appointmentId = parseInt(req.params.appointmentId);
-      const orders = await storage.getOrdersByAppointmentId(appointmentId);
+      let orders = await storage.getOrdersByAppointmentId(appointmentId);
+      
+      // Filtrar ordens pelo tenant atual
+      orders = orders.filter(o => o.tenant_id === req.tenantId);
+      
       res.json(orders);
     } catch (error) {
       res.status(500).json({ message: "Failed to get orders by appointment" });
@@ -1413,7 +1555,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const phone = req.params.phone;
-      const orders = await storage.getOrdersByClientPhone(phone);
+      let orders = await storage.getOrdersByClientPhone(phone);
+      
+      // Filtrar ordens pelo tenant atual
+      orders = orders.filter(o => o.tenant_id === req.tenantId);
+      
       res.json(orders);
     } catch (error) {
       res.status(500).json({ message: "Failed to get orders by client" });
@@ -1451,10 +1597,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Adicionar total ao orderData
+      // Adicionar total ao orderData e aplicar o tenant_id
       const orderWithTotal = {
         ...orderData,
-        total_amount: totalAmount
+        total_amount: totalAmount,
+        tenant_id: req.tenantId
       };
       
       const order = await storage.createOrder(orderWithTotal);
@@ -1503,6 +1650,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Recebida solicitação para atualizar status da comanda ${orderId} para ${status}`);
       
+      // Verificar se a ordem existe
+      const existingOrder = await storage.getOrderById(orderId);
+      if (!existingOrder) {
+        console.error(`Comanda com ID ${orderId} não encontrada`);
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verificar se a ordem pertence ao tenant atual
+      if (existingOrder.tenant_id !== req.tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       // Corrigido para aceitar os status usados no frontend
       if (!status || !['aberta', 'fechada', 'cancelada'].includes(status)) {
         console.error(`Status inválido recebido: '${status}'`);
@@ -1513,11 +1672,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedOrder = await storage.updateOrderStatus(orderId, status);
-      
-      if (!updatedOrder) {
-        console.error(`Comanda com ID ${orderId} não encontrada`);
-        return res.status(404).json({ message: "Order not found" });
-      }
       
       console.log(`Comanda ${orderId} atualizada com sucesso para status: ${status}`);
       res.json(updatedOrder);
@@ -1547,6 +1701,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Comanda não encontrada", 
           detail: `A comanda com ID ${orderId} não existe. Isto pode ocorrer se o servidor foi reiniciado e os dados em memória foram perdidos.` 
         });
+      }
+      
+      // Verificar se a ordem pertence ao tenant atual
+      if (existingOrder.tenant_id !== req.tenantId) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
       // Validar a estrutura dos itens

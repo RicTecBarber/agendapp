@@ -1,10 +1,30 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { tenantMiddleware, requireTenant } from "./middleware";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Aplicar middleware de tenant para todas as requisições
+app.use(tenantMiddleware);
+
+// Aplicar middleware de validação de tenant apenas para rotas API (exceto system)
+// Isso garante que ações de dados sempre terão um tenant identificado
+app.use('/api', (req, res, next) => {
+  // Ignora rotas específicas
+  if (req.path.startsWith('/system/') || 
+      req.path === '/login' || 
+      req.path === '/logout' || 
+      req.path === '/user' || 
+      req.path === '/register') {
+    return next();
+  }
+  
+  // Para todas as outras rotas /api, exige um tenant
+  requireTenant(req, res, next);
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
