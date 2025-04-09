@@ -626,7 +626,7 @@ const AppointmentsPage = () => {
                           <td className="py-3 px-4">
                             {appointment.is_loyalty_reward 
                               ? <span className="text-green-600 font-medium">Brinde</span>
-                              : `R$ ${appointment.service_price.toFixed(2)}`
+                              : `R$ ${appointment.service_price ? appointment.service_price.toFixed(2) : '0.00'}`
                             }
                           </td>
                           <td className="py-3 px-4">
@@ -797,7 +797,7 @@ const AppointmentsPage = () => {
                 <SelectContent>
                   {!isLoadingServices && Array.isArray(services) && services.map((service: any) => (
                     <SelectItem key={service.id} value={service.id.toString()}>
-                      {service.name} - R$ {service.price.toFixed(2)}
+                      {service.name} - R$ {service.price ? service.price.toFixed(2) : '0.00'}
                     </SelectItem>
                   ))}
                 </SelectContent>
