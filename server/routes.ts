@@ -1581,10 +1581,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mergedTotalAmount += subtotal;
       });
       
-      // Atualizar a comanda com os itens mesclados e total recalculado
+      // Atualizar a comanda com os itens mesclados e total recalculado e manter status original
       const updatedOrderData = {
         items: mergedItems,
-        total: mergedTotalAmount // Usa o campo 'total' no backend
+        total: mergedTotalAmount, // Usa o campo 'total' no backend
+        status: existingOrder.status // Preservar o status original da comanda
       };
       
       const updatedOrder = await storage.updateOrder(orderId, updatedOrderData);

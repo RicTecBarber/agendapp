@@ -413,7 +413,13 @@ function CreateOrderPage() {
         title: "Itens adicionados",
         description: "Os itens foram adicionados à comanda com sucesso",
       });
-      navigate("/admin/orders");
+      // Não redirecionar automaticamente após adicionar itens
+      // Isso permite que o usuário continue adicionando mais itens se desejar
+      // O botão "Voltar" já existe na interface para quando o usuário quiser retornar
+      
+      // Limpar o carrinho após adicionar itens com sucesso
+      setCartItems([]);
+      setCartTotal(0);
     },
     onError: (error: Error) => {
       console.error("Erro na mutação:", error);
