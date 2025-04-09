@@ -122,7 +122,17 @@ const AuthPage = () => {
         </Card>
         
         <div className="text-center mt-6">
-          <Button variant="link" onClick={() => navigate("/")}>
+          <Button variant="link" onClick={() => {
+            // Pegar o parâmetro tenant da URL atual
+            const url = new URL(window.location.href);
+            const tenant = url.searchParams.get('tenant');
+            
+            // Construir a nova URL mantendo o parâmetro tenant
+            const tenantParam = tenant ? `?tenant=${tenant}` : '';
+            
+            // Redirecionar de volta para a interface do cliente com o parâmetro tenant
+            navigate(`/${tenantParam}`);
+          }}>
             Voltar para área do cliente
           </Button>
         </div>

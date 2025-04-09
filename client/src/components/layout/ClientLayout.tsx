@@ -14,12 +14,20 @@ const ClientLayout = ({ children, title }: ClientLayoutProps) => {
   
   const handleAdminClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    
+    // Pegar o parâmetro tenant da URL atual
+    const url = new URL(window.location.href);
+    const tenant = url.searchParams.get('tenant');
+    
+    // Construir a nova URL mantendo o parâmetro tenant
+    const tenantParam = tenant ? `?tenant=${tenant}` : '';
+    
     // Se já estiver autenticado, vá direto para o dashboard
     if (user) {
-      navigate('/admin/dashboard');
+      navigate(`/admin/dashboard${tenantParam}`);
     } else {
       // Senão, vá para a página de autenticação
-      navigate('/admin/auth');
+      navigate(`/admin/auth${tenantParam}`);
     }
   };
   
