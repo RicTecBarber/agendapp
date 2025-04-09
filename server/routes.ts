@@ -66,37 +66,197 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // USERS ENDPOINTS
   
-  // GET /api/users - Get all users (admin only)
+  // Verificar se o usuário tem permissão para gerenciar usuários
+  const canManageUsers = (req: Request): boolean => {
+    if (!req.isAuthenticated()) return false;
+    
+    const user = req.user;
+    
+    // Super admins e admins podem gerenciar usuários
+    if (user.role === 'super_admin' || user.role === 'admin') return true;
+    
+    // Verificar permissões específicas
+    if (Array.isArray(user.permissions) && user.permissions.includes('manage_users')) {
+      return true;
+    }
+    
+    return false;
+  };
+  
+  // GET /api/users - Get all users (admin/super_admin only)
   app.get("/api/users", async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
+      if (!canManageUsers(req)) {
+        return res.status(403).json({ message: "Acesso não autorizado" });
       }
       
-      const users = await storage.getAllUsers();
+      // Se for super_admin, pode ver todos os usuários (incluindo admins)
+      // Se for admin, só vê usuários do seu tenant
+      let users;
+      if (req.user.role === 'super_admin') {
+        users = await storage.getAllUsers();
+      } else {
+        users = await storage.getAllUsers(req.tenantId);
+      }
+      
       res.json(users);
     } catch (error) {
-      res.status(500).json({ message: "Failed to get users" });
+      console.error("Erro ao obter usuários:", error);
+      res.status(500).json({ message: "Falha ao obter usuários" });
     }
   });
-
-  // DELETE /api/users/:id - Delete user (admin only)
-  app.delete("/api/users/:id", async (req: Request, res: Response) => {
+  
+  // GET /api/users/:id - Get specific user
+  app.get("/api/users/:id", async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
+      if (!canManageUsers(req)) {
+        return res.status(403).json({ message: "Acesso não autorizado" });
       }
       
       const userId = parseInt(req.params.id);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      // Super admin pode ver qualquer usuário
+      // Admin só pode ver usuários do seu tenant
+      if (req.user.role !== 'super_admin' && user.tenant_id !== req.tenantId) {
+        return res.status(403).json({ message: "Acesso não autorizado a este usuário" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Erro ao obter usuário:", error);
+      res.status(500).json({ message: "Falha ao obter usuário" });
+    }
+  });
+  
+  // POST /api/users - Create new user
+  app.post("/api/users", async (req: Request, res: Response) => {
+    try {
+      if (!canManageUsers(req)) {
+        return res.status(403).json({ message: "Acesso não autorizado" });
+      }
+      
+      const userData = req.body;
+      
+      // Validar entrada
+      if (!userData.username || !userData.password || !userData.name || !userData.email) {
+        return res.status(400).json({ message: "Dados incompletos" });
+      }
+      
+      // Super admin pode criar qualquer tipo de usuário
+      // Admin só pode criar staff e receptionist (não outros admins)
+      if (req.user.role !== 'super_admin' && userData.role === 'admin') {
+        return res.status(403).json({ message: "Você não tem permissão para criar usuários administradores" });
+      }
+      
+      // Adicionar tenant_id automaticamente para usuários criados por admins de tenant
+      if (req.user.role !== 'super_admin') {
+        userData.tenant_id = req.tenantId;
+      }
+      
+      // Verificar se usuário já existe
+      const existingUser = await storage.getUserByUsername(userData.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Nome de usuário já existe" });
+      }
+      
+      // Criptografar senha antes de salvar
+      userData.password = await hashPassword(userData.password);
+      
+      const newUser = await storage.createUser(userData);
+      res.status(201).json(newUser);
+    } catch (error) {
+      console.error("Erro ao criar usuário:", error);
+      res.status(500).json({ message: "Falha ao criar usuário" });
+    }
+  });
+  
+  // PUT /api/users/:id - Update user
+  app.put("/api/users/:id", async (req: Request, res: Response) => {
+    try {
+      if (!canManageUsers(req)) {
+        return res.status(403).json({ message: "Acesso não autorizado" });
+      }
+      
+      const userId = parseInt(req.params.id);
+      const userData = req.body;
+      
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      // Super admin pode atualizar qualquer usuário
+      // Admin só pode atualizar usuários do seu tenant
+      if (req.user.role !== 'super_admin' && existingUser.tenant_id !== req.tenantId) {
+        return res.status(403).json({ message: "Acesso não autorizado a este usuário" });
+      }
+      
+      // Admin não pode promover usuários para admin
+      if (req.user.role !== 'super_admin' && userData.role === 'admin' && existingUser.role !== 'admin') {
+        return res.status(403).json({ message: "Você não tem permissão para promover usuários a administradores" });
+      }
+      
+      // Se senha for fornecida, criptografar
+      if (userData.password) {
+        userData.password = await hashPassword(userData.password);
+      } else {
+        // Se não for fornecida, manter a senha antiga
+        delete userData.password;
+      }
+      
+      const updatedUser = await storage.updateUser(userId, userData);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Erro ao atualizar usuário:", error);
+      res.status(500).json({ message: "Falha ao atualizar usuário" });
+    }
+  });
+
+  // DELETE /api/users/:id - Delete user (admin/super_admin only)
+  app.delete("/api/users/:id", async (req: Request, res: Response) => {
+    try {
+      if (!canManageUsers(req)) {
+        return res.status(403).json({ message: "Acesso não autorizado" });
+      }
+      
+      const userId = parseInt(req.params.id);
+      
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      // Super admin pode excluir qualquer usuário
+      // Admin só pode excluir usuários do seu tenant
+      if (req.user.role !== 'super_admin' && existingUser.tenant_id !== req.tenantId) {
+        return res.status(403).json({ message: "Acesso não autorizado a este usuário" });
+      }
+      
+      // Admin não pode excluir outros admins
+      if (req.user.role !== 'super_admin' && existingUser.role === 'admin') {
+        return res.status(403).json({ message: "Você não tem permissão para excluir usuários administradores" });
+      }
+      
+      // Não permitir auto-exclusão
+      if (userId === req.user.id) {
+        return res.status(400).json({ message: "Você não pode excluir sua própria conta" });
+      }
+      
       const deleted = await storage.deleteUser(userId);
       
       if (!deleted) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(404).json({ message: "Usuário não encontrado" });
       }
       
-      res.status(200).json({ message: "User deleted successfully" });
+      res.status(200).json({ message: "Usuário excluído com sucesso" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete user" });
+      console.error("Erro ao excluir usuário:", error);
+      res.status(500).json({ message: "Falha ao excluir usuário" });
     }
   });
   

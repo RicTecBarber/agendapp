@@ -87,14 +87,22 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
                   Comandas
                 </a>
               </Link>
-              {/* Link de Usuários apenas para administradores da barbearia */}
-              {user?.role === "admin" && (
-                <Link href={getUrlWithTenant("/admin/users")}>
-                  <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/users" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
-                    <UserPlus className="h-5 w-5 mr-3" />
-                    Usuários
-                  </a>
-                </Link>
+              {/* Links de Usuários apenas para administradores */}
+              {(user?.role === "admin" || user?.role === "super_admin") && (
+                <>
+                  <Link href={getUrlWithTenant("/admin/users")}>
+                    <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/users" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
+                      <UserPlus className="h-5 w-5 mr-3" />
+                      Usuários Simples
+                    </a>
+                  </Link>
+                  <Link href={getUrlWithTenant("/admin/users-management")}>
+                    <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/users-management" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
+                      <Users className="h-5 w-5 mr-3" />
+                      Gerenciar Usuários
+                    </a>
+                  </Link>
+                </>
               )}
               
               {/* Link de Configurações disponível para todos os tipos de admin */}

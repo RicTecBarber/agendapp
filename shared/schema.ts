@@ -2,20 +2,52 @@ import { pgTable, text, serial, integer, timestamp, doublePrecision, json, boole
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table (admin, barber)
+// Users table with expanded roles
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
   email: text("email").notNull(),
-  role: text("role").notNull().default("barber"), // 'admin' or 'barber'
-  tenant_id: integer("tenant_id"), // FK para o tenant (null para usuários do sistema)
+  // Roles:
+  // - super_admin: Administrador do sistema (pode gerenciar todos os tenants)
+  // - admin: Administrador do tenant (pode gerenciar usuários do seu tenant)
+  // - staff: Funcionário com acesso limitado (barbeiro, cabeleireiro, etc)
+  // - receptionist: Recepcionista (pode marcar agendamentos, mas não modificar configurações)
+  role: text("role").notNull().default("staff"),
+  permissions: json("permissions").$type<string[]>().default([]), // Array com permissões específicas
+  tenant_id: integer("tenant_id"), // FK para o tenant (null para super_admin)
+  is_active: boolean("is_active").notNull().default(true),
+  last_login: timestamp("last_login"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true });
+// Basic schema for user insertion
+export const insertUserSchema = createInsertSchema(users).omit({ 
+  id: true, 
+  created_at: true, 
+  updated_at: true, 
+  last_login: true 
+});
+
+// Role schema for validation
+export const userRolesSchema = z.enum([
+  "super_admin", 
+  "admin", 
+  "staff", 
+  "receptionist"
+]);
+
+// Login schema
+export const loginSchema = z.object({
+  username: z.string().min(3, "Nome de usuário deve ter pelo menos 3 caracteres"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type UserRole = z.infer<typeof userRolesSchema>;
 
 // Services
 export const services = pgTable("services", {
@@ -130,12 +162,7 @@ export const loyaltyLookupSchema = z.object({
 
 export type LoyaltyLookup = z.infer<typeof loyaltyLookupSchema>;
 
-// Login Schema
-export const loginSchema = z.object({
-  username: z.string().min(1, "Nome de usuário é obrigatório"),
-  password: z.string().min(1, "Senha é obrigatória"),
-});
-
+// O schema de login já foi definido acima
 export type LoginData = z.infer<typeof loginSchema>;
 
 // Barbershop Settings

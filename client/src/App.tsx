@@ -23,6 +23,7 @@ import ClientsPage from "@/pages/admin/ClientsPage";
 import LoyaltyManagementPage from "@/pages/admin/LoyaltyManagementPage";
 import ServicesPage from "@/pages/admin/ServicesPage";
 import UsersPage from "@/pages/admin/UsersPage";
+import UsersManagementPage from "@/pages/admin/UsersManagementPage";
 import ProfessionalsPage from "@/pages/admin/ProfessionalsPage";
 import AvailabilityManagementPage from "@/pages/admin/AvailabilityManagementPage";
 import BarbershopSettingsPage from "@/pages/admin/BarbershopSettingsPage";
@@ -60,6 +61,7 @@ function Router() {
       <ProtectedRoute path="/admin/professionals" component={ProfessionalsPage} />
       <ProtectedRoute path="/admin/professionals/:id/availability" component={AvailabilityManagementPage} />
       <ProtectedRoute path="/admin/users" component={UsersPage} />
+      <ProtectedRoute path="/admin/users-management" component={UsersManagementPage} />
       <ProtectedRoute path="/admin/settings" component={BarbershopSettingsPage} />
       <ProtectedRoute path="/admin/barbershop-settings" component={BarbershopSettingsPage} />
       <ProtectedRoute path="/admin/products" component={ProductsPage} />
