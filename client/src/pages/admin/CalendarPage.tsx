@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAppointments } from '@/hooks/use-appointments';
 import { Appointment, Professional, User } from '@shared/schema';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon, X, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon, X, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { useLocalCache } from '@/hooks/use-cache';
 import { cn } from '@/lib/utils';
 import { useLocation } from 'wouter';
@@ -188,12 +188,12 @@ const CalendarPage = () => {
     const grouped = new Map<string, Appointment[]>();
     
     // Inicializar todos os dias da semana com arrays vazios
-    weekDays.forEach(day => {
+    weekDays.forEach((day: Date) => {
       grouped.set(format(day, 'yyyy-MM-dd'), []);
     });
     
     // Agrupar agendamentos por dia
-    appointments.forEach(appointment => {
+    appointments.forEach((appointment: Appointment) => {
       try {
         // Extrair a data do appointment_date (formato ISO)
         const appointmentDate = formatAppointmentDate(appointment.appointment_date);
@@ -236,7 +236,7 @@ const CalendarPage = () => {
           {isLoading ? (
             // Esqueleto para carregamento
             <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, i) => (
+              {Array.from({ length: 3 }).map((_, i: number) => (
                 <Skeleton 
                   key={i} 
                   className="w-full h-16 rounded-md"
@@ -344,6 +344,19 @@ const CalendarPage = () => {
     }
   };
   
+  // Handler para criar uma comanda a partir do agendamento
+  const handleCreateOrder = () => {
+    if (selectedAppointment) {
+      const queryParams = new URLSearchParams({
+        appointmentId: selectedAppointment.id.toString(),
+        clientName: selectedAppointment.client_name,
+        clientPhone: selectedAppointment.client_phone
+      });
+      setLocation(`/admin/nova-comanda?${queryParams.toString()}`);
+      setCancelDialogOpen(false);
+    }
+  };
+  
   // Verificar se o usuário é admin ou profissional para mostrar ou não o seletor de profissional
   const showProfessionalSelector = currentUser?.role === 'admin';
 
@@ -380,7 +393,7 @@ const CalendarPage = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os profissionais</SelectItem>
-                  {professionals.map(prof => (
+                  {professionals.map((prof: Professional) => (
                     <SelectItem key={prof.id} value={prof.id.toString()}>
                       {prof.name}
                     </SelectItem>
@@ -436,7 +449,7 @@ const CalendarPage = () => {
       {isMobile ? (
         // Versão mobile - Lista vertical de dias
         <div className="space-y-4">
-          {weekDays.map(day => (
+          {weekDays.map((day: Date) => (
             <div key={format(day, 'yyyy-MM-dd')} className="h-auto">
               {renderDay(day)}
             </div>
@@ -445,7 +458,7 @@ const CalendarPage = () => {
       ) : (
         // Versão desktop - Grade de dias lado a lado
         <div className="grid grid-cols-7 gap-4">
-          {weekDays.map(day => (
+          {weekDays.map((day: Date) => (
             <div key={format(day, 'yyyy-MM-dd')} className="h-[500px]">
               {renderDay(day)}
             </div>
@@ -510,9 +523,8 @@ const CalendarPage = () => {
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancelar Agendamento</DialogTitle>
+            <DialogTitle>Detalhes do Agendamento</DialogTitle>
             <DialogDescription>
-              Você tem certeza que deseja cancelar este agendamento?
               {selectedAppointment && (
                 <div className="mt-4 p-3 bg-muted rounded-md">
                   <div className="font-medium">{selectedAppointment.client_name}</div>
@@ -522,21 +534,47 @@ const CalendarPage = () => {
                   <div className="text-sm mt-1 text-muted-foreground">
                     Telefone: {selectedAppointment.client_phone}
                   </div>
+                  <div className={cn(
+                    "text-xs mt-2 rounded-full px-2 py-0.5 inline-block",
+                    selectedAppointment.status === 'confirmed' ? "bg-green-100 text-green-800" :
+                    selectedAppointment.status === 'cancelled' ? "bg-red-100 text-red-800" :
+                    "bg-blue-100 text-blue-800"
+                  )}>
+                    {selectedAppointment.status === 'confirmed' ? 'Confirmado' :
+                     selectedAppointment.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
+                  </div>
                 </div>
               )}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          
+          <div className="flex flex-col gap-3 py-4">
+            <Button
+              variant="outline"
+              className="flex items-center justify-start p-4 h-auto hover:bg-orange-50 border-orange-200 hover:border-orange-300 hover:text-orange-700 transition-colors"
+              onClick={handleCreateOrder}
+            >
+              <ShoppingCart className="h-5 w-5 mr-2 text-orange-600" />
+              <div className="text-left">
+                <div className="font-medium">Criar Comanda</div>
+                <div className="text-xs text-muted-foreground">Adicionar produtos ao atendimento</div>
+              </div>
+            </Button>
+          </div>
+          
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setCancelDialogOpen(false)}
+              className="w-full sm:w-auto"
             >
               Voltar
             </Button>
             <Button
               variant="destructive"
               onClick={handleCancelAppointment}
-              disabled={cancelMutation.isPending}
+              disabled={cancelMutation.isPending || (selectedAppointment?.status === 'cancelled')}
+              className="w-full sm:w-auto"
             >
               {cancelMutation.isPending ? (
                 <>
@@ -544,7 +582,10 @@ const CalendarPage = () => {
                   Cancelando...
                 </>
               ) : (
-                'Cancelar Agendamento'
+                <>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancelar Agendamento
+                </>
               )}
             </Button>
           </DialogFooter>
