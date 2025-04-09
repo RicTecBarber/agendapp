@@ -1268,22 +1268,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Se o usuário estiver autenticado como administrador do sistema, tenta buscar todas as configurações
+      // Buscar configurações da barbearia
       const settings = await storage.getBarbershopSettings();
       
-      // Se não há tenant_id na requisição mas o usuário é um administrador do sistema,
-      // retornar as configurações da primeira barbearia (para fins de visualização)
-      if (!req.tenantId && req.isAuthenticated() && req.user?.isSystemAdmin) {
-        console.log("Administrador do sistema acessando configurações sem tenant específico");
-        return res.json(settings.length > 0 ? settings[0] : null);
-      }
+      // Verificar se há um tenant_id
+      if (!req.tenantId) {
+        // Se não há tenant_id na requisição mas o usuário é um administrador do sistema,
+        // retornar as configurações existentes
+        if (req.isAuthenticated() && req.user?.isSystemAdmin) {
+          console.log("Administrador do sistema acessando configurações sem tenant específico");
+          return res.json(settings);
+        } else {
+          // Se não é um admin do sistema e não há tenant_id, retornar erro
+          return res.status(400).json({ 
+            message: "Tenant não identificado",
+            error: "Para acessar esta página, você precisa especificar um tenant válido usando o parâmetro ?tenant=SLUG"
+          });
+        }
+      } 
       
-      // Filtrar configurações pelo tenant atual
-      const tenantSettings = settings.filter(s => s.tenant_id === req.tenantId);
-      
-      // Retornar a primeira configuração encontrada ou null
-      if (tenantSettings.length > 0) {
-        return res.json(tenantSettings[0]);
+      // Se temos um tenant_id, verificar se as configurações pertencem a esse tenant
+      if (settings && settings.tenant_id === req.tenantId) {
+        return res.json(settings);
       } else {
         // Se não houver configurações para este tenant, criar uma configuração padrão
         if (req.tenantId) {
@@ -1407,14 +1413,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Obter as configurações atuais para verificar o tenant_id
+      // Obter as configurações atuais
       const settings = await storage.getBarbershopSettings();
       
-      // Encontrar as configurações do tenant atual ou do tenant específico (para admin do sistema)
-      const tenantSettings = Array.isArray(settings) ? 
-        settings.filter(s => s.tenant_id === targetTenantId) : [];
-      
-      if (tenantSettings.length === 0) {
+      // Verificar se as configurações pertencem ao tenant atual
+      if (!settings || settings.tenant_id !== targetTenantId) {
         // Se não houver configurações, criar configurações padrão
         console.log(`Criando configurações padrão para tenant ${targetTenantId} durante atualização`);
         try {
@@ -1442,7 +1445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Garantir que o tenant_id não seja alterado
       const settingsData = {
         ...req.body,
-        id: tenantSettings[0].id, // Importante incluir o ID para atualização
+        id: settings.id, // Importante incluir o ID para atualização
         tenant_id: targetTenantId
       };
       
