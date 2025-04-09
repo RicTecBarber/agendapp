@@ -384,9 +384,20 @@ function CreateOrderPage() {
         return item;
       });
       
-      const res = await apiRequest("PUT", `/api/orders/${orderId}/items`, { 
-        items: validatedItems, 
-        total_amount: total // Backend espera total_amount, não total
+      // Adicionar cabeçalhos de autenticação
+      const res = await fetch(`/api/orders/${orderId}/items`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          // Garantir que o cookie de sessão seja enviado
+          'credentials': 'include'
+        },
+        // Enviar o cookie de sessão em todas as solicitações
+        credentials: 'include',
+        body: JSON.stringify({
+          items: validatedItems, 
+          total_amount: total // Backend espera total_amount, não total
+        })
       });
       
       if (!res.ok) {
