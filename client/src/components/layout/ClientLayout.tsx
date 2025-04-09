@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import logoSvg from "@/assets/logo.svg";
 
 interface ClientLayoutProps {
   children: ReactNode;
@@ -28,7 +29,7 @@ const ClientLayout = ({ children, title }: ClientLayoutProps) => {
         <div className="container mx-auto px-4 py-6 flex justify-between items-center">
           <Link href="/">
             <a className="flex items-center">
-              <img src="/assets/logo.svg" alt="AgendApp Logo" className="h-10 w-10" />
+              <img src={logoSvg} alt="AgendApp Logo" className="h-10 w-10" />
               <h1 className="ml-2 text-2xl font-display font-bold text-white">AgendApp</h1>
             </a>
           </Link>

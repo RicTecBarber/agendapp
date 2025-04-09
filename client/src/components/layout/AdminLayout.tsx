@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { LogOut, Home, Calendar, CalendarRange, Users, DollarSign, Scissors, Settings, UserPlus, UserCircle, ShoppingCart, Package } from "lucide-react";
+import logoSvg from "@/assets/logo.svg";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -24,7 +25,7 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
         <aside className="w-64 bg-primary text-white h-screen fixed inset-y-0 left-0 overflow-y-auto">
           <div className="px-6 py-6">
             <div className="flex items-center mb-8">
-              <img src="/assets/logo.svg" alt="AgendApp Logo" className="h-8 w-8 mr-2" />
+              <img src={logoSvg} alt="AgendApp Logo" className="h-8 w-8 mr-2" />
               <h1 className="text-xl font-display font-bold">AgendApp</h1>
             </div>
             
