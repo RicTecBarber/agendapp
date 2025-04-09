@@ -869,19 +869,26 @@ export class MemStorage implements IStorage {
     );
   }
   
-  async createTenant(tenantData: InsertTenant): Promise<Tenant> {
+  async createTenant(tenantData: any): Promise<any> {
     const id = this.tenantIdCounter++;
     const now = new Date();
     
-    const tenant: Tenant = {
-      ...tenantData,
+    // Extrair somente os campos que existem no schema do Tenant
+    const { name, slug, active, is_active, production_url } = tenantData;
+    
+    const tenant = {
       id,
-      active: tenantData.active ?? true,
+      name,
+      slug,
+      active: active ?? true,
+      is_active: is_active ?? active ?? true,
+      production_url: production_url ?? null,
       created_at: now,
       updated_at: now
     };
     
     this.tenants.set(id, tenant);
+    console.log("Tenant criado:", tenant);
     return tenant;
   }
   
@@ -901,7 +908,7 @@ export class MemStorage implements IStorage {
     return updatedTenant;
   }
   
-  async activateTenant(id: number): Promise<Tenant | undefined> {
+  async activateTenant(id: number): Promise<any> {
     const existingTenant = this.tenants.get(id);
     if (!existingTenant) {
       return undefined;
@@ -910,6 +917,7 @@ export class MemStorage implements IStorage {
     const updatedTenant = {
       ...existingTenant,
       active: true,
+      is_active: true,
       updated_at: new Date()
     };
     
@@ -917,7 +925,7 @@ export class MemStorage implements IStorage {
     return updatedTenant;
   }
   
-  async deactivateTenant(id: number): Promise<Tenant | undefined> {
+  async deactivateTenant(id: number): Promise<any> {
     const existingTenant = this.tenants.get(id);
     if (!existingTenant) {
       return undefined;
@@ -926,6 +934,7 @@ export class MemStorage implements IStorage {
     const updatedTenant = {
       ...existingTenant,
       active: false,
+      is_active: false,
       updated_at: new Date()
     };
     

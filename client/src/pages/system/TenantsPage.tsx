@@ -340,7 +340,7 @@ export default function TenantsPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {tenant.active ? (
+                          {tenant.is_active ? (
                             <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                               Ativo
                             </Badge>
@@ -367,9 +367,9 @@ export default function TenantsPage() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => handleToggleActive(tenant.id, tenant.active)}
+                              onClick={() => handleToggleActive(tenant.id, tenant.is_active)}
                             >
-                              {tenant.active ? (
+                              {tenant.is_active ? (
                                 <X className="h-4 w-4" />
                               ) : (
                                 <Check className="h-4 w-4" />

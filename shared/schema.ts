@@ -240,7 +240,8 @@ export const tenants = pgTable("tenants", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(), // URL amigável para o tenant (ex: cliente1, cliente2)
-  active: boolean("active").notNull().default(true),
+  active: boolean("active").notNull().default(true), // para compatibilidade com banco de dados existente
+  is_active: boolean("is_active").notNull().default(true), // usado no código
   production_url: text("production_url"), // URL de produção do tenant
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
