@@ -1533,10 +1533,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total_amount: finalTotalAmount 
       });
       
-      // Atualizar a comanda com os novos itens e total
+      // Mesclar os itens existentes com os novos itens
+      let mergedItems = [...items];
+      
+      // Se existem itens antigos, adicionar os que não tem duplicações
+      if (existingOrder.items && Array.isArray(existingOrder.items)) {
+        console.log("Itens existentes na comanda:", existingOrder.items.length);
+        console.log("Novos itens sendo adicionados:", items.length);
+        
+        // Percorrer itens existentes e adicionar os que não têm duplicações nos novos itens
+        existingOrder.items.forEach((existingItem: any) => {
+          // Garantir que existingItem tenha a propriedade type
+          const itemType = existingItem.type || 
+                           (existingItem.product_id ? 'product' : 'service');
+          
+          // Verificar se já existe um item idêntico nos novos itens (mesmo produto ou serviço)
+          const isDuplicate = mergedItems.some(newItem => {
+            const newItemType = newItem.type || 
+                               (newItem.product_id ? 'product' : 'service');
+            
+            if (itemType === 'product' && newItemType === 'product') {
+              return existingItem.product_id === newItem.product_id;
+            }
+            if (itemType === 'service' && newItemType === 'service') {
+              return existingItem.service_id === newItem.service_id;
+            }
+            return false;
+          });
+          
+          // Se não for duplicado, adicionar à lista mesclada
+          if (!isDuplicate) {
+            const itemWithType = {
+              ...existingItem,
+              type: itemType
+            };
+            mergedItems.push(itemWithType);
+          }
+        });
+      }
+      
+      // Calcular o total com base nos itens mesclados
+      let mergedTotalAmount = 0;
+      mergedItems.forEach((item: any) => {
+        const subtotal = (item.price || 0) * (item.quantity || 1);
+        mergedTotalAmount += subtotal;
+      });
+      
+      // Atualizar a comanda com os itens mesclados e total recalculado
       const updatedOrderData = {
-        items: items,
-        total: finalTotalAmount // Usa o campo 'total' no backend
+        items: mergedItems,
+        total: mergedTotalAmount // Usa o campo 'total' no backend
       };
       
       const updatedOrder = await storage.updateOrder(orderId, updatedOrderData);
