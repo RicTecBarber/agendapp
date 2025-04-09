@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, isToday, isTomorrow, isThisWeek, isThisMonth, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { createUtcDateFromLocalTime } from "@/lib/timezone-utils";
+import { useLocation } from "wouter";
 import {
   Card,
   CardContent,
@@ -32,7 +33,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, MoreHorizontal, Calendar as CalendarIcon, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Loader2, MoreHorizontal, Calendar as CalendarIcon, CheckCircle, XCircle, Clock, ShoppingCart } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,6 +58,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const AppointmentsPage = () => {
+  const [, navigate] = useLocation();
   const [selectedTab, setSelectedTab] = useState<string>("all");
   const [professionalFilter, setProfessionalFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
@@ -406,6 +408,16 @@ const AppointmentsPage = () => {
     }
   };
   
+  // Navigate to create order page with appointment details
+  const navigateToCreateOrder = (appointment: any) => {
+    const queryParams = new URLSearchParams({
+      appointmentId: appointment.id.toString(),
+      clientName: appointment.client_name,
+      clientPhone: appointment.client_phone
+    });
+    navigate(`/admin/nova-comanda?${queryParams.toString()}`);
+  };
+
   // Get status badge styles
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -650,13 +662,22 @@ const AppointmentsPage = () => {
                                   </DropdownMenuItem>
                                 )}
                                 {appointment.status === "completed" && (
-                                  <DropdownMenuItem
-                                    className="text-blue-600"
-                                    onClick={() => handleStatusChange(appointment, "scheduled")}
-                                  >
-                                    <Clock className="h-4 w-4 mr-2" />
-                                    Reverter para agendado
-                                  </DropdownMenuItem>
+                                  <>
+                                    <DropdownMenuItem
+                                      className="text-blue-600"
+                                      onClick={() => handleStatusChange(appointment, "scheduled")}
+                                    >
+                                      <Clock className="h-4 w-4 mr-2" />
+                                      Reverter para agendado
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="text-orange-600"
+                                      onClick={() => navigateToCreateOrder(appointment)}
+                                    >
+                                      <ShoppingCart className="h-4 w-4 mr-2" />
+                                      Criar comanda
+                                    </DropdownMenuItem>
+                                  </>
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
