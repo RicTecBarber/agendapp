@@ -1789,7 +1789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const orderId = parseInt(req.params.id);
-      const { items } = req.body;
+      const { items, total } = req.body;
       
       if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ message: "Itens são obrigatórios" });
@@ -1806,17 +1806,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Apenas comandas abertas podem receber novos itens" });
       }
       
-      // Calcular total dos novos itens
-      const newItemsTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      
       // Combinar itens existentes com novos itens
       const combinedItems = [...existingOrder.items];
       
-      // Adicionar novos itens, combinando aqueles que são do mesmo produto
+      // Adicionar novos itens, combinando aqueles que são do mesmo produto com mesmo nome
+      // Para lidar com produtos e serviços, verificamos tanto o product_id quanto o product_name
+      // porque os serviços têm "(Serviço)" no nome
       for (const newItem of items) {
-        // Verificar se o item já existe na comanda
+        // Verificar se o item já existe na comanda com mesmo ID e nome para diferenciar
+        // produtos e serviços com o mesmo ID
         const existingItemIndex = combinedItems.findIndex(
-          item => item.product_id === newItem.product_id
+          item => item.product_id === newItem.product_id && 
+                 item.product_name === newItem.product_name
         );
         
         if (existingItemIndex >= 0) {
@@ -1832,16 +1833,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Calcular novo total
-      const newTotal = existingOrder.total + newItemsTotal;
+      // Calcular novo total - se fornecido, usar o valor enviado, caso contrário, calcular
+      const newTotal = total || 
+                       combinedItems.reduce((sum, item) => sum + item.subtotal, 0);
       
       // Atualizar comanda com os novos itens e total
-      const updatedOrder = await storage.updateOrder(orderId, {
-        ...existingOrder,
+      // Garantir que o objeto enviado para updateOrder tenha os campos no formato correto
+      const updatedOrderData = {
         items: combinedItems,
         total: newTotal,
-        updated_at: new Date().toISOString()
-      });
+        updated_at: new Date()
+      };
+      
+      const updatedOrder = await storage.updateOrder(orderId, updatedOrderData);
+      
+      // Log para depuração
+      console.log("Comanda atualizada com sucesso:", updatedOrder);
       
       res.json(updatedOrder);
     } catch (error) {
