@@ -72,6 +72,8 @@ type OrderItem = {
   quantity: number;
   price: number;
   subtotal: number;
+  // Tipo de item (produto ou serviço)
+  type?: 'product' | 'service';
 };
 
 type OrderFormData = {
@@ -189,20 +191,84 @@ function CreateOrderPage() {
             quantity: 1,
             price: price,
             subtotal: price,
+            type: 'service' // Marcar explicitamente como serviço
           };
           
           setCartItems([newItem]);
           setIdCounter(prevCounter => prevCounter + 1);
           
+          // Definir a aba ativa para 'services' para melhor contexto visual
+          setActiveTab('services');
+          
           toast({
             title: "Serviço adicionado",
             description: `${serviceName} adicionado automaticamente à comanda`,
+            variant: "default"
           });
-        } else if (!addingItems) {
-          // Não sendo necessário buscar detalhes de agendamento
-          // Já que estamos carregando a página com todos os dados necessários nos parâmetros da URL
-          // Não faremos nenhuma chamada adicional
-          console.log("Agendamento sem detalhes de serviço. Usuário deve selecionar os serviços manualmente.");
+        } else if (appointmentId && !addingItems) {
+          // Se temos appointmentId mas não temos dados completos do serviço,
+          // buscar detalhes do agendamento da API e adicionar o serviço
+          
+          // Buscar detalhes do agendamento para adicionar o serviço
+          const fetchAppointmentDetails = async () => {
+            try {
+              console.log(`Buscando detalhes do agendamento #${appointmentId}`);
+              const res = await fetch(`/api/appointments/${appointmentId}`);
+              
+              if (!res.ok) {
+                throw new Error("Erro ao buscar detalhes do agendamento");
+              }
+              
+              const appointmentData = await res.json();
+              console.log("Detalhes do agendamento:", appointmentData);
+              
+              if (appointmentData && appointmentData.service_id) {
+                // Buscar detalhes do serviço
+                const serviceRes = await fetch(`/api/services/${appointmentData.service_id}`);
+                
+                if (!serviceRes.ok) {
+                  throw new Error("Erro ao buscar detalhes do serviço");
+                }
+                
+                const serviceData = await serviceRes.json();
+                console.log("Detalhes do serviço:", serviceData);
+                
+                if (serviceData) {
+                  // Adicionar o serviço à comanda
+                  const newItem: OrderItem = {
+                    id: idCounter,
+                    product_id: serviceData.id,
+                    product_name: `${serviceData.name} (Serviço)`,
+                    quantity: 1,
+                    price: serviceData.price,
+                    subtotal: serviceData.price,
+                    type: 'service' // Marcar explicitamente como serviço
+                  };
+                  
+                  setCartItems([newItem]);
+                  setIdCounter(prevCounter => prevCounter + 1);
+                  
+                  // Definir a aba ativa para 'services' para melhor contexto visual
+                  setActiveTab('services');
+                  
+                  toast({
+                    title: "Serviço adicionado",
+                    description: `${serviceData.name} adicionado automaticamente à comanda`,
+                    variant: "default"
+                  });
+                }
+              }
+            } catch (error) {
+              console.error("Erro ao buscar detalhes do agendamento:", error);
+              toast({
+                title: "Erro ao buscar serviço",
+                description: "Não foi possível adicionar o serviço agendado automaticamente. Por favor, adicione manualmente.",
+                variant: "destructive"
+              });
+            }
+          };
+          
+          fetchAppointmentDetails();
         }
       }
     }
@@ -280,7 +346,7 @@ function CreateOrderPage() {
   const addToCart = (item: Product | Service, isService = false) => {
     const existingItemIndex = cartItems.findIndex(
       (cartItem) => cartItem.product_id === item.id && 
-                    (isService ? cartItem.product_name.includes("(Serviço)") : !cartItem.product_name.includes("(Serviço)"))
+                    (isService ? cartItem.type === 'service' : cartItem.type !== 'service')
     );
 
     if (existingItemIndex >= 0) {
@@ -299,6 +365,7 @@ function CreateOrderPage() {
         quantity: 1,
         price: item.price,
         subtotal: item.price,
+        type: isService ? 'service' : 'product'
       };
       setCartItems([...cartItems, newItem]);
       setIdCounter(idCounter + 1);
@@ -657,13 +724,33 @@ function CreateOrderPage() {
                     {cartItems.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between border-b pb-3"
+                        className={`flex items-center justify-between border-b pb-3 ${
+                          item.type === 'service' ? 'bg-primary/5 rounded-lg p-2' : ''
+                        }`}
                       >
-                        <div className="flex-1">
-                          <p className="font-medium">{item.product_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            R$ {item.price.toFixed(2)} x {item.quantity}
-                          </p>
+                        <div className="flex-1 flex items-start gap-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            item.type === 'service' 
+                              ? 'bg-primary/20 text-primary' 
+                              : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {item.type === 'service' 
+                              ? <Scissors className="h-4 w-4" /> 
+                              : <Package className="h-4 w-4" />}
+                          </div>
+                          <div>
+                            <p className="font-medium">{item.type === 'service' 
+                              ? item.product_name.replace(' (Serviço)', '') 
+                              : item.product_name}</p>
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              {item.type === 'service' && (
+                                <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">
+                                  Serviço
+                                </span>
+                              )}
+                              <span>R$ {item.price.toFixed(2)} x {item.quantity}</span>
+                            </p>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex items-center">
