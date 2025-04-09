@@ -16,6 +16,9 @@ import {
   X,
   ArrowLeft,
   ExternalLink,
+  Link as LinkIcon,
+  Copy,
+  Cog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,15 +47,58 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+// Interface para o gerador de links
+interface LinkGeneratorState {
+  tenant: Tenant | null;
+  linkType: string;
+  baseUrl: string;
+  customPath: string;
+  customParams: string;
+}
 
 export default function TenantsPage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [deletingTenantId, setDeletingTenantId] = useState<number | null>(null);
+  
+  // Estado para o gerador de links
+  const [linkGeneratorOpen, setLinkGeneratorOpen] = useState(false);
+  const [linkGenerator, setLinkGenerator] = useState<LinkGeneratorState>({
+    tenant: null,
+    linkType: 'client',
+    baseUrl: window.location.origin,
+    customPath: '',
+    customParams: ''
+  });
 
   // Buscar todos os tenants
   const { data: tenants, isLoading } = useQuery<Tenant[]>({
@@ -126,6 +172,69 @@ export default function TenantsPage() {
 
   const confirmDelete = (id: number) => {
     setDeletingTenantId(id);
+  };
+
+  // Abrir gerador de links para um tenant específico
+  const openLinkGenerator = (tenant: Tenant) => {
+    setLinkGenerator({
+      ...linkGenerator,
+      tenant: tenant,
+    });
+    setLinkGeneratorOpen(true);
+  };
+
+  // Atualizar estado do gerador de links
+  const updateLinkGenerator = (field: string, value: string) => {
+    setLinkGenerator({
+      ...linkGenerator,
+      [field]: value
+    });
+  };
+
+  // Gerar link com base nas configurações
+  const generateLink = () => {
+    if (!linkGenerator.tenant) return '';
+
+    const { tenant, linkType, baseUrl, customPath, customParams } = linkGenerator;
+    let generatedLink = baseUrl;
+
+    // Adicionar o caminho personalizado, se houver
+    if (customPath && customPath.trim() !== '') {
+      generatedLink += customPath.startsWith('/') ? customPath : `/${customPath}`;
+    }
+
+    // Adicionar parâmetros de acordo com o tipo de link
+    let queryParams = '';
+    
+    if (linkType === 'client') {
+      // Link para cliente - tenant apenas
+      queryParams = `?tenant=${tenant.slug}`;
+    } else if (linkType === 'admin') {
+      // Link para administração - tenant + admin=true
+      queryParams = `?tenant=${tenant.slug}&admin=true`;
+    } else if (linkType === 'custom') {
+      // Link personalizado - adicionar tenant e parâmetros personalizados
+      queryParams = `?tenant=${tenant.slug}`;
+      if (customParams && customParams.trim() !== '') {
+        // Verificar se os parâmetros personalizados já começam com '&'
+        if (customParams.startsWith('&')) {
+          queryParams += customParams;
+        } else {
+          queryParams += `&${customParams}`;
+        }
+      }
+    }
+
+    return generatedLink + queryParams;
+  };
+
+  // Copiar link para a área de transferência
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Link copiado",
+      description: "Link copiado para a área de transferência",
+    });
   };
 
   return (
@@ -231,15 +340,30 @@ export default function TenantsPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={tenant.active ? "success" : "destructive"}>
-                            {tenant.active ? "Ativo" : "Inativo"}
-                          </Badge>
+                          {tenant.active ? (
+                            <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                              Ativo
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive">
+                              Inativo
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           {format(new Date(tenant.created_at), "dd/MM/yyyy", { locale: ptBR })}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => openLinkGenerator(tenant)}
+                              title="Gerador de Links"
+                              className="bg-blue-50"
+                            >
+                              <LinkIcon className="h-4 w-4 text-blue-600" />
+                            </Button>
                             <Button 
                               variant="outline" 
                               size="sm"
@@ -301,6 +425,114 @@ export default function TenantsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Diálogo do Gerador de Links */}
+      <Dialog open={linkGeneratorOpen} onOpenChange={setLinkGeneratorOpen}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <LinkIcon className="h-5 w-5 mr-2 text-primary" />
+              Gerador de Links para Tenant
+            </DialogTitle>
+            <DialogDescription>
+              {linkGenerator.tenant ? (
+                <>Crie links personalizados para o tenant <strong>{linkGenerator.tenant.name}</strong> (slug: <code>{linkGenerator.tenant.slug}</code>)</>
+              ) : 'Crie links personalizados para o tenant selecionado'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Tabs defaultValue="client" className="w-full" onValueChange={(value) => updateLinkGenerator('linkType', value)}>
+            <TabsList className="w-full grid grid-cols-3">
+              <TabsTrigger value="client">Link Cliente</TabsTrigger>
+              <TabsTrigger value="admin">Link Admin</TabsTrigger>
+              <TabsTrigger value="custom">Link Personalizado</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="client" className="space-y-4 mt-4">
+              <div className="space-y-1">
+                <h4 className="text-sm font-medium">Link para Clientes</h4>
+                <p className="text-xs text-gray-500">
+                  Link básico para acesso dos clientes ao ambiente do tenant.
+                </p>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="admin" className="space-y-4 mt-4">
+              <div className="space-y-1">
+                <h4 className="text-sm font-medium">Link para Administradores</h4>
+                <p className="text-xs text-gray-500">
+                  Link para acesso dos administradores ao ambiente de gestão do tenant.
+                </p>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="custom" className="space-y-4 mt-4">
+              <div className="space-y-1">
+                <h4 className="text-sm font-medium">Link Personalizado</h4>
+                <p className="text-xs text-gray-500">
+                  Personalize o caminho (path) e parâmetros adicionais para o link.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Caminho (Path)</label>
+                  <Input 
+                    placeholder="/caminho/personalizado" 
+                    value={linkGenerator.customPath}
+                    onChange={(e) => updateLinkGenerator('customPath', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Parâmetros adicionais</label>
+                  <Input 
+                    placeholder="param1=valor1&param2=valor2" 
+                    value={linkGenerator.customParams}
+                    onChange={(e) => updateLinkGenerator('customParams', e.target.value)}
+                  />
+                  <p className="text-xs text-gray-500">Não inclua o parâmetro 'tenant', ele será adicionado automaticamente.</p>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+          
+          <div className="mt-4 space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">URL Base</label>
+              <Input 
+                placeholder="https://exemplo.com" 
+                value={linkGenerator.baseUrl}
+                onChange={(e) => updateLinkGenerator('baseUrl', e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Link Gerado</label>
+              <div className="flex gap-2">
+                <Input 
+                  value={generateLink()}
+                  readOnly
+                  className="font-mono text-sm bg-gray-50"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => copyToClipboard(generateLink())}
+                  title="Copiar link"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Fechar</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
