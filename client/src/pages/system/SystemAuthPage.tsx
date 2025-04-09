@@ -58,8 +58,8 @@ export default function SystemAuthPage() {
   const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "admin",
-      password: "admin123",
+      username: "superadmin",
+      password: "Admin@123",
     },
   });
 
@@ -74,7 +74,7 @@ export default function SystemAuthPage() {
       
       console.log("Login bem-sucedido, usuário:", userData);
       
-      if (userData?.isSystemAdmin) {
+      if (userData && 'isSystemAdmin' in userData) {
         console.log("Usuário é um administrador do sistema");
         // Atualizar o estado do usuário (na próxima vez que a página for carregada)
         setLoginSuccess(true);
