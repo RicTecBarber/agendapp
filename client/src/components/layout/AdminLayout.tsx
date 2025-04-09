@@ -13,9 +13,30 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
   const { user, logoutMutation } = useAuth();
   const [location] = useLocation();
   
+  // Função para preservar o parâmetro tenant em todos os links
+  const getUrlWithTenant = (path: string) => {
+    const url = new URL(window.location.href);
+    const tenant = url.searchParams.get('tenant');
+    
+    if (tenant) {
+      return `${path}?tenant=${tenant}`;
+    }
+    
+    return path;
+  };
+  
   const handleLogout = () => {
     logoutMutation.mutate();
-    window.location.href = "/";
+    
+    // Preservar o parâmetro tenant ao fazer logout
+    const url = new URL(window.location.href);
+    const tenant = url.searchParams.get('tenant');
+    
+    if (tenant) {
+      window.location.href = `/?tenant=${tenant}`;
+    } else {
+      window.location.href = "/";
+    }
   };
   
   return (
@@ -29,55 +50,55 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
             </div>
             
             <nav className="space-y-1">
-              <Link href="/admin/dashboard">
+              <Link href={getUrlWithTenant("/admin/dashboard")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/dashboard" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <Home className="h-5 w-5 mr-3" />
                   Dashboard
                 </a>
               </Link>
-              <Link href="/admin/appointments">
+              <Link href={getUrlWithTenant("/admin/appointments")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/appointments" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <Calendar className="h-5 w-5 mr-3" />
                   Agenda
                 </a>
               </Link>
-              <Link href="/admin/calendar">
+              <Link href={getUrlWithTenant("/admin/calendar")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/calendar" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <CalendarRange className="h-5 w-5 mr-3" />
                   Calendário
                 </a>
               </Link>
-              <Link href="/admin/clients">
+              <Link href={getUrlWithTenant("/admin/clients")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/clients" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <Users className="h-5 w-5 mr-3" />
                   Clientes
                 </a>
               </Link>
-              <Link href="/admin/loyalty">
+              <Link href={getUrlWithTenant("/admin/loyalty")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/loyalty" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <DollarSign className="h-5 w-5 mr-3" />
                   Fidelidade
                 </a>
               </Link>
-              <Link href="/admin/services">
+              <Link href={getUrlWithTenant("/admin/services")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/services" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <Scissors className="h-5 w-5 mr-3" />
                   Serviços
                 </a>
               </Link>
-              <Link href="/admin/professionals">
+              <Link href={getUrlWithTenant("/admin/professionals")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/professionals" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <UserCircle className="h-5 w-5 mr-3" />
                   Profissionais
                 </a>
               </Link>
-              <Link href="/admin/products">
+              <Link href={getUrlWithTenant("/admin/products")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/products" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <Package className="h-5 w-5 mr-3" />
                   Produtos
                 </a>
               </Link>
-              <Link href="/admin/orders">
+              <Link href={getUrlWithTenant("/admin/orders")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location.startsWith("/admin/orders") ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <ShoppingCart className="h-5 w-5 mr-3" />
                   Comandas
@@ -85,7 +106,7 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
               </Link>
               {/* Link de Usuários apenas para administradores da barbearia */}
               {user?.role === "admin" && (
-                <Link href="/admin/users">
+                <Link href={getUrlWithTenant("/admin/users")}>
                   <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/users" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                     <UserPlus className="h-5 w-5 mr-3" />
                     Usuários
@@ -94,7 +115,7 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
               )}
               
               {/* Link de Configurações disponível para todos os tipos de admin */}
-              <Link href="/admin/barbershop-settings">
+              <Link href={getUrlWithTenant("/admin/barbershop-settings")}>
                 <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/barbershop-settings" || location === "/admin/settings" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <Settings className="h-5 w-5 mr-3" />
                   Configurações

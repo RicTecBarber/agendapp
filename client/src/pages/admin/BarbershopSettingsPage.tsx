@@ -85,7 +85,20 @@ export default function BarbershopSettingsPage() {
   
   // Buscar configurações da barbearia
   const { data: settings, isLoading, error } = useQuery<any, Error>({
-    queryKey: ["/api/barbershop-settings"]
+    queryKey: ["/api/barbershop-settings"],
+    queryFn: async ({ queryKey }) => {
+      // Adiciona o parâmetro tenant à URL, se existir
+      const url = tenantParam
+        ? `/api/barbershop-settings?tenant=${tenantParam}`
+        : `/api/barbershop-settings`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error("Falha ao buscar configurações da barbearia");
+      }
+      
+      return response.json();
+    }
   });
   
   // Observar erros para detectar problemas de tenant
@@ -159,7 +172,12 @@ export default function BarbershopSettingsPage() {
         data.tenant_id = settings.tenant_id;
       }
       
-      const response = await apiRequest("POST", "/api/barbershop-settings", data);
+      // Adiciona o parâmetro tenant à URL, se existir
+      const url = tenantParam
+        ? `/api/barbershop-settings?tenant=${tenantParam}`
+        : `/api/barbershop-settings`;
+      
+      const response = await apiRequest("POST", url, data);
       return response.json();
     },
     onSuccess: () => {
@@ -192,7 +210,12 @@ export default function BarbershopSettingsPage() {
         data.id = settings.id;
       }
       
-      const response = await apiRequest("PUT", "/api/barbershop-settings", data);
+      // Adiciona o parâmetro tenant à URL, se existir
+      const url = tenantParam
+        ? `/api/barbershop-settings?tenant=${tenantParam}`
+        : `/api/barbershop-settings`;
+      
+      const response = await apiRequest("PUT", url, data);
       return response.json();
     },
     onSuccess: () => {

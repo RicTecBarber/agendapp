@@ -52,7 +52,14 @@ const AuthPage = () => {
   // If user is already logged in, redirect to dashboard
   useEffect(() => {
     if (user) {
-      navigate('/admin/dashboard');
+      // Pegar o parâmetro tenant da URL atual
+      const url = new URL(window.location.href);
+      const tenant = url.searchParams.get('tenant');
+      
+      // Construir a nova URL mantendo o parâmetro tenant
+      const tenantParam = tenant ? `?tenant=${tenant}` : '';
+      
+      navigate(`/admin/dashboard${tenantParam}`);
     }
   }, [user, navigate]);
 
