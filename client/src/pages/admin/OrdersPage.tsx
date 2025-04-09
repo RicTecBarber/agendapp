@@ -128,16 +128,21 @@ function OrderDetail({ order }: { order: Order }) {
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       console.log(`Enviando atualização de status para comanda #${id}: ${status}`);
-      const res = await apiRequest("PUT", `/api/orders/${id}/status`, { status });
-      // Verificar o corpo da resposta para debugging
-      const text = await res.text();
-      console.log("Resposta recebida:", text);
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        console.error("Erro ao analisar resposta JSON:", e);
-        return { error: text };
+      const res = await fetch(`/api/orders/${id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Erro na resposta:", errorText);
+        throw new Error(`Erro ao atualizar status: ${errorText}`);
       }
+      
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
@@ -147,6 +152,7 @@ function OrderDetail({ order }: { order: Order }) {
       });
     },
     onError: (error: Error) => {
+      console.error("Erro completo:", error);
       toast({
         title: "Erro ao atualizar status",
         description: error.message,
