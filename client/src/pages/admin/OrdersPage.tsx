@@ -419,7 +419,7 @@ function OrdersPage() {
                     <Button
                       variant="secondary"
                       className="w-full"
-                      onClick={() => navigate(`/admin/orders/create?action=add_items&orderId=${order.id}&clientName=${encodeURIComponent(order.client_name)}&clientPhone=${encodeURIComponent(order.client_phone)}`)}
+                      onClick={() => navigate(`/admin/orders/new?action=add_items&orderId=${order.id}&clientName=${encodeURIComponent(order.client_name)}&clientPhone=${encodeURIComponent(order.client_phone)}`)}
                     >
                       <Plus className="h-4 w-4 mr-2" /> Adicionar Itens
                     </Button>
