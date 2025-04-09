@@ -199,69 +199,10 @@ function CreateOrderPage() {
             description: `${serviceName} adicionado automaticamente à comanda`,
           });
         } else if (!addingItems) {
-          // Variável para controlar se a função já foi executada
-          let wasFetched = false;
-          
-          // Se não temos os parâmetros do serviço, buscar as informações do agendamento
-          const fetchAppointmentDetails = async () => {
-            // Prevenção para evitar múltiplas chamadas
-            if (wasFetched) return;
-            wasFetched = true;
-            
-            try {
-              // Buscar detalhes do agendamento
-              const appointmentResponse = await fetch(`/api/appointments/${appointmentId}`);
-              if (!appointmentResponse.ok) {
-                throw new Error("Erro ao buscar detalhes do agendamento");
-              }
-              
-              const appointmentData = await appointmentResponse.json();
-              
-              // Buscar detalhes do serviço associado ao agendamento
-              const serviceResponse = await fetch(`/api/services/${appointmentData.service_id}`);
-              if (!serviceResponse.ok) {
-                throw new Error("Erro ao buscar detalhes do serviço");
-              }
-              
-              const serviceData = await serviceResponse.json();
-              
-              // Verificar se já existe algum item no carrinho com esse ID de serviço
-              const existingItem = cartItems.find(item => 
-                item.product_id === serviceData.id && 
-                item.product_name.includes("(Serviço)")
-              );
-              
-              // Só adicionar se não existir o item
-              if (!existingItem) {
-                // Adicionar o serviço ao carrinho
-                const newItem: OrderItem = {
-                  id: idCounter,
-                  product_id: serviceData.id,
-                  product_name: `${serviceData.name} (Serviço)`,
-                  quantity: 1,
-                  price: serviceData.price,
-                  subtotal: serviceData.price,
-                };
-                
-                setCartItems([newItem]);
-                setIdCounter(prevCounter => prevCounter + 1);
-                
-                toast({
-                  title: "Serviço adicionado",
-                  description: `${serviceData.name} adicionado automaticamente à comanda`,
-                });
-              }
-            } catch (error: any) {
-              toast({
-                title: "Erro ao carregar serviço",
-                description: error.message,
-                variant: "destructive",
-              });
-            }
-          };
-          
-          // Executar apenas uma vez
-          setTimeout(fetchAppointmentDetails, 0);
+          // Não sendo necessário buscar detalhes de agendamento
+          // Já que estamos carregando a página com todos os dados necessários nos parâmetros da URL
+          // Não faremos nenhuma chamada adicional
+          console.log("Agendamento sem detalhes de serviço. Usuário deve selecionar os serviços manualmente.");
         }
       }
     }
