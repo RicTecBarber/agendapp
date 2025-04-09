@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import { Loader2, AlertCircle, ArrowLeft, Copy } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Form, 
   FormControl, 
+  FormDescription,
   FormField, 
   FormItem, 
   FormLabel, 
@@ -56,6 +57,8 @@ const barbershopSettingsSchema = z.object({
   facebook: z.string().nullable().optional(),
   tenant_id: z.number().optional(), // Campo opcional para armazenar o ID do tenant
   id: z.number().optional(), // ID das configurações (importante para atualizações)
+  // Campo para exibir URL do tenant (apenas visível para administradores do sistema)
+  tenant_url: z.string().optional(),
 });
 
 type BarbershopSettingsFormData = z.infer<typeof barbershopSettingsSchema>;
@@ -139,9 +142,14 @@ export default function BarbershopSettingsPage() {
   // Atualizar valores do formulário quando as configurações são carregadas
   React.useEffect(() => {
     if (settings) {
-      form.reset(settings);
+      // Para administradores do sistema, adicione o campo tenant_url
+      const updatedSettings = { ...settings };
+      if (isSystemAdmin && tenantParam) {
+        updatedSettings.tenant_url = `${window.location.origin}/?tenant=${tenantParam}`;
+      }
+      form.reset(updatedSettings);
     }
-  }, [settings, form]);
+  }, [settings, form, isSystemAdmin, tenantParam]);
 
   // Mutação para criar configurações
   const createMutation = useMutation({
@@ -272,6 +280,49 @@ export default function BarbershopSettingsPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Seção específica para administradores do sistema */}
+              {isSystemAdmin && tenantParam && (
+                <div className="mb-6 border p-4 rounded-lg bg-blue-50 border-blue-200">
+                  <h3 className="text-md font-medium mb-3 text-blue-800">Acesso ao Tenant</h3>
+                  <FormField
+                    control={form.control}
+                    name="tenant_url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-blue-700">URL do Tenant (use este link para acessar)</FormLabel>
+                        <div className="flex">
+                          <FormControl>
+                            <Input 
+                              value={field.value} 
+                              readOnly 
+                              className="bg-white font-mono text-sm"
+                            />
+                          </FormControl>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="ml-2"
+                            onClick={() => {
+                              navigator.clipboard.writeText(field.value || '');
+                              toast({
+                                title: "URL copiada",
+                                description: "Link do tenant copiado para a área de transferência",
+                              });
+                            }}
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copiar
+                          </Button>
+                        </div>
+                        <FormDescription>
+                          Compartilhe este link com os administradores da barbearia para que eles possam acessar seu ambiente.
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Nome da barbearia */}
                 <FormField
