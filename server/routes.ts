@@ -1259,14 +1259,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/barbershop-settings - Get barbershop settings
   app.get("/api/barbershop-settings", async (req: Request, res: Response) => {
     try {
+      // Verificar se um tenant está identificado
+      if (!req.tenantId && !req.isAuthenticated()) {
+        console.log("Erro: Tenant não identificado e usuário não autenticado");
+        return res.status(400).json({
+          error: "Tenant não identificado",
+          message: "Para acessar esta API, você precisa especificar um tenant válido e ativo usando o parâmetro ?tenant=SLUG"
+        });
+      }
+      
+      // Se o usuário estiver autenticado como administrador do sistema, tenta buscar todas as configurações
       const settings = await storage.getBarbershopSettings();
+      
+      // Se não há tenant_id na requisição mas o usuário é um administrador do sistema,
+      // retornar as configurações da primeira barbearia (para fins de visualização)
+      if (!req.tenantId && req.isAuthenticated() && req.user?.isSystemAdmin) {
+        console.log("Administrador do sistema acessando configurações sem tenant específico");
+        return res.json(settings.length > 0 ? settings[0] : null);
+      }
       
       // Filtrar configurações pelo tenant atual
       const tenantSettings = settings.filter(s => s.tenant_id === req.tenantId);
       
       // Retornar a primeira configuração encontrada ou null
-      res.json(tenantSettings.length > 0 ? tenantSettings[0] : null);
+      if (tenantSettings.length > 0) {
+        return res.json(tenantSettings[0]);
+      } else {
+        // Se não houver configurações para este tenant, criar uma configuração padrão
+        if (req.tenantId) {
+          console.log(`Criando configurações padrão para tenant ${req.tenantId}`);
+          try {
+            const defaultSettings = {
+              name: "Barbearia",
+              address: "Endereço não configurado",
+              phone: "Telefone não configurado",
+              email: "email@exemplo.com",
+              timezone: "America/Sao_Paulo",
+              open_time: "09:00",
+              close_time: "18:00",
+              open_days: [1, 2, 3, 4, 5, 6],
+              description: "Descrição não configurada",
+              tenant_id: req.tenantId
+            };
+            
+            const newSettings = await storage.createBarbershopSettings(defaultSettings);
+            return res.json(newSettings);
+          } catch (err) {
+            console.error("Erro ao criar configurações padrão:", err);
+            return res.status(500).json({ message: "Erro ao criar configurações padrão" });
+          }
+        } else {
+          return res.json(null);
+        }
+      }
     } catch (error) {
+      console.error("Erro ao obter configurações da barbearia:", error);
       res.status(500).json({ message: "Failed to get barbershop settings" });
     }
   });
@@ -1274,25 +1321,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/barbershop-settings - Create barbershop settings (admin only)
   app.post("/api/barbershop-settings", async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
+      // Verificar autenticação
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Unauthorized: Você precisa estar autenticado" });
       }
       
+      // Verificar permissão (admin ou admin do sistema)
+      if (req.user?.role !== 'admin' && !req.user?.isSystemAdmin) {
+        return res.status(403).json({ 
+          message: "Acesso negado: Apenas administradores podem alterar configurações" 
+        });
+      }
+      
+      // Verificar se um tenant está identificado
+      if (!req.tenantId && !req.user?.isSystemAdmin) {
+        return res.status(400).json({
+          error: "Tenant não identificado",
+          message: "Para acessar esta API, você precisa especificar um tenant válido e ativo usando o parâmetro ?tenant=SLUG"
+        });
+      }
+      
+      // Parsear e validar dados da requisição
       const settingsData = insertBarbershopSettingsSchema.parse(req.body);
+      
+      // Se for admin do sistema sem tenant específico, usar o tenant_id do corpo da requisição
+      let targetTenantId = req.tenantId;
+      if (!targetTenantId && req.user?.isSystemAdmin && settingsData.tenant_id) {
+        console.log(`Admin do sistema criando configurações para tenant ${settingsData.tenant_id}`);
+        targetTenantId = settingsData.tenant_id;
+      }
+      
+      // Verificar se o tenant_id foi definido
+      if (!targetTenantId) {
+        return res.status(400).json({
+          error: "Tenant não especificado",
+          message: "Um identificador de tenant é necessário para criar configurações"
+        });
+      }
       
       // Adicionar tenant_id aos dados de configuração
       const settingsWithTenant = {
         ...settingsData,
-        tenant_id: req.tenantId
+        tenant_id: targetTenantId
       };
       
       const settings = await storage.createBarbershopSettings(settingsWithTenant);
       res.status(201).json(settings);
     } catch (error) {
+      console.error("Erro ao criar configurações da barbearia:", error);
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid settings data", errors: error.errors });
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       } else {
-        res.status(500).json({ message: "Failed to create barbershop settings" });
+        res.status(500).json({ message: "Erro ao criar configurações" });
       }
     }
   });
@@ -1300,34 +1380,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PUT /api/barbershop-settings - Update barbershop settings (admin only)
   app.put("/api/barbershop-settings", async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Unauthorized" });
+      // Verificar autenticação
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Unauthorized: Você precisa estar autenticado" });
+      }
+      
+      // Verificar permissão (admin ou admin do sistema)
+      if (req.user?.role !== 'admin' && !req.user?.isSystemAdmin) {
+        return res.status(403).json({ 
+          message: "Acesso negado: Apenas administradores podem alterar configurações" 
+        });
+      }
+      
+      // Se for admin do sistema, verificar se possui tenant_id no body
+      let targetTenantId = req.tenantId;
+      if (!targetTenantId && req.user?.isSystemAdmin && req.body.tenant_id) {
+        console.log(`Admin do sistema atualizando configurações para tenant ${req.body.tenant_id}`);
+        targetTenantId = req.body.tenant_id;
+      }
+      
+      // Verificar se um tenant foi identificado
+      if (!targetTenantId) {
+        return res.status(400).json({
+          error: "Tenant não identificado",
+          message: "Para acessar esta API, você precisa especificar um tenant válido e ativo usando o parâmetro ?tenant=SLUG"
+        });
       }
       
       // Obter as configurações atuais para verificar o tenant_id
       const settings = await storage.getBarbershopSettings();
-      const tenantSettings = settings.filter(s => s.tenant_id === req.tenantId);
+      
+      // Encontrar as configurações do tenant atual ou do tenant específico (para admin do sistema)
+      const tenantSettings = Array.isArray(settings) ? 
+        settings.filter(s => s.tenant_id === targetTenantId) : [];
       
       if (tenantSettings.length === 0) {
-        return res.status(404).json({ message: "Settings not found for this tenant" });
-      }
-      
-      // Verificar se as configurações pertencem ao tenant atual
-      const currentSettings = tenantSettings[0];
-      if (currentSettings.tenant_id !== req.tenantId) {
-        return res.status(403).json({ message: "Access denied" });
+        // Se não houver configurações, criar configurações padrão
+        console.log(`Criando configurações padrão para tenant ${targetTenantId} durante atualização`);
+        try {
+          const defaultSettings = {
+            name: req.body.name || "Barbearia",
+            address: req.body.address || "Endereço não configurado",
+            phone: req.body.phone || "Telefone não configurado",
+            email: req.body.email || "email@exemplo.com",
+            timezone: req.body.timezone || "America/Sao_Paulo",
+            open_time: req.body.open_time || "09:00",
+            close_time: req.body.close_time || "18:00",
+            open_days: req.body.open_days || [1, 2, 3, 4, 5, 6],
+            description: req.body.description || "Descrição não configurada",
+            tenant_id: targetTenantId
+          };
+          
+          const newSettings = await storage.createBarbershopSettings(defaultSettings);
+          return res.status(201).json(newSettings);
+        } catch (err) {
+          console.error("Erro ao criar configurações padrão:", err);
+          return res.status(500).json({ message: "Erro ao criar configurações padrão" });
+        }
       }
       
       // Garantir que o tenant_id não seja alterado
       const settingsData = {
         ...req.body,
-        tenant_id: req.tenantId
+        id: tenantSettings[0].id, // Importante incluir o ID para atualização
+        tenant_id: targetTenantId
       };
       
       const updated = await storage.updateBarbershopSettings(settingsData);
       res.json(updated);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update barbershop settings" });
+      console.error("Erro ao atualizar configurações da barbearia:", error);
+      res.status(500).json({ message: "Erro ao atualizar configurações" });
     }
   });
   

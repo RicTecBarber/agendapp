@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { 
@@ -17,9 +19,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 // Lista de fusos horários disponíveis no Brasil
@@ -51,6 +54,8 @@ const barbershopSettingsSchema = z.object({
   logo_url: z.string().nullable().optional(),
   instagram: z.string().nullable().optional(),
   facebook: z.string().nullable().optional(),
+  tenant_id: z.number().optional(), // Campo opcional para armazenar o ID do tenant
+  id: z.number().optional(), // ID das configurações (importante para atualizações)
 });
 
 type BarbershopSettingsFormData = z.infer<typeof barbershopSettingsSchema>;
@@ -67,19 +72,40 @@ const WEEKDAYS = [
 
 export default function BarbershopSettingsPage() {
   const [isCreating, setIsCreating] = useState(false);
-
+  const [tenantError, setTenantError] = useState<string | null>(null);
+  const { user, isSystemAdmin } = useAuth();
+  const [location] = useLocation();
+  
+  // Verificar se temos um tenant na URL
+  const searchParams = new URLSearchParams(window.location.search);
+  const tenantParam = searchParams.get('tenant');
+  
   // Buscar configurações da barbearia
-  const { data: settings, isLoading, error } = useQuery({
+  const { data: settings, isLoading, error } = useQuery<any, Error>({
     queryKey: ["/api/barbershop-settings"]
   });
+  
+  // Observar erros para detectar problemas de tenant
+  React.useEffect(() => {
+    if (error) {
+      console.error("Erro ao carregar configurações:", error);
+      
+      // Verificar se é um erro de tenant não identificado
+      if (error?.message?.includes("Tenant não identificado") || 
+          error.toString().includes("Tenant não identificado")) {
+        setTenantError("Para acessar esta página, você precisa especificar um tenant válido usando o parâmetro ?tenant=SLUG");
+      }
+    }
+  }, [error]);
   
   // Handle query error
   React.useEffect(() => {
     if (error) {
       const errorMessage = error.toString();
       const isNotFound = errorMessage.includes("404");
+      const isTenantError = errorMessage.includes("Tenant não identificado");
       
-      if (!isNotFound) {
+      if (!isNotFound && !isTenantError) {
         toast({
           title: "Erro ao carregar configurações",
           description: errorMessage,
@@ -120,6 +146,11 @@ export default function BarbershopSettingsPage() {
   // Mutação para criar configurações
   const createMutation = useMutation({
     mutationFn: async (data: BarbershopSettingsFormData) => {
+      // Se for admin do sistema, assegurar que o tenant_id está incluído
+      if (isSystemAdmin && settings?.tenant_id) {
+        data.tenant_id = settings.tenant_id;
+      }
+      
       const response = await apiRequest("POST", "/api/barbershop-settings", data);
       return response.json();
     },
@@ -143,6 +174,16 @@ export default function BarbershopSettingsPage() {
   // Mutação para atualizar configurações
   const updateMutation = useMutation({
     mutationFn: async (data: BarbershopSettingsFormData) => {
+      // Se for admin do sistema, assegurar que o tenant_id está incluído
+      if (isSystemAdmin && settings?.tenant_id) {
+        data.tenant_id = settings.tenant_id;
+      }
+      
+      // Garantir que o id esteja incluído para atualização
+      if (settings?.id) {
+        data.id = settings.id;
+      }
+      
       const response = await apiRequest("PUT", "/api/barbershop-settings", data);
       return response.json();
     },
@@ -164,6 +205,16 @@ export default function BarbershopSettingsPage() {
 
   // Submissão do formulário
   const onSubmit = (data: BarbershopSettingsFormData) => {
+    // Verificar se temos um tenant_id quando for admin do sistema
+    if (isSystemAdmin && !tenantParam && !settings?.tenant_id) {
+      toast({
+        title: "Tenant não especificado",
+        description: "Como administrador do sistema, você precisa acessar esta página com o parâmetro ?tenant=SLUG",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (isCreating) {
       createMutation.mutate(data);
     } else {
@@ -182,13 +233,41 @@ export default function BarbershopSettingsPage() {
     );
   }
 
+  // Detectar o nome do tenant atual
+  const currentTenantName = settings?.name || tenantParam || "Desconhecido";
+  
   return (
     <AdminLayout title="Configurações da Barbearia">
+      {/* Alerta para administradores do sistema quando não há tenant */}
+      {isSystemAdmin && (
+        <div className="mb-4">
+          {tenantError ? (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Erro de tenant</AlertTitle>
+              <AlertDescription>{tenantError}</AlertDescription>
+            </Alert>
+          ) : tenantParam ? (
+            <Alert className="mb-4 bg-blue-50 border-blue-200">
+              <AlertTitle>Modo administrador do sistema</AlertTitle>
+              <AlertDescription>
+                Você está editando configurações do tenant: <strong>{tenantParam}</strong>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </div>
+      )}
+      
       <Card className="w-full shadow-md">
         <CardHeader>
           <CardTitle>
             {isCreating ? "Criar Configurações da Barbearia" : "Editar Configurações da Barbearia"}
           </CardTitle>
+          {isSystemAdmin && settings && (
+            <CardDescription>
+              Tenant: {currentTenantName} {settings.tenant_id ? `(ID: ${settings.tenant_id})` : ''}
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -449,7 +528,20 @@ export default function BarbershopSettingsPage() {
                 )}
               />
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-between pt-4">
+                {/* Botão para voltar para a lista de tenants (apenas para administradores do sistema) */}
+                {isSystemAdmin && (
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    onClick={() => window.location.href = "/system/tenants"}
+                    className="flex items-center gap-1"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar para Tenants
+                  </Button>
+                )}
+                
                 <Button 
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
