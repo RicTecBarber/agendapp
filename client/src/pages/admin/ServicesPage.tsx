@@ -5,7 +5,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useTenant } from "@/hooks/use-tenant";
+import { useLocation } from "wouter";
+import { getTenantFromUrl } from "@/hooks/use-tenant";
 import {
   Card,
   CardContent,
@@ -106,7 +107,8 @@ type ServiceFormValues = z.infer<typeof serviceSchema>;
 
 const ServicesPage = () => {
   const { toast } = useToast();
-  const { tenant } = useTenant();
+  const [location] = useLocation();
+  const tenantParam = getTenantFromUrl(location);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<any | null>(null);
@@ -129,7 +131,7 @@ const ServicesPage = () => {
   
   // Get services
   const { data: services, isLoading: isLoadingServices } = useQuery({
-    queryKey: ["/api/services"],
+    queryKey: ["/api/services", tenantParam],
   });
   
   // Create service mutation
@@ -144,7 +146,7 @@ const ServicesPage = () => {
         description: "O serviço foi criado com sucesso.",
         variant: "default",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services", tenantParam] });
       setServiceDialogOpen(false);
       form.reset();
     },
@@ -169,7 +171,7 @@ const ServicesPage = () => {
         description: "O serviço foi atualizado com sucesso.",
         variant: "default",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services", tenantParam] });
       setServiceDialogOpen(false);
       setEditingService(null);
       form.reset();
@@ -195,7 +197,7 @@ const ServicesPage = () => {
         description: "O serviço foi excluído com sucesso.",
         variant: "default",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services", tenantParam] });
       setDeleteDialogOpen(false);
       setServiceToDelete(null);
     },
