@@ -190,7 +190,7 @@ export default function BusinessSettingsPage() {
     onSuccess: () => {
       toast({
         title: "Configurações criadas com sucesso",
-        description: "As configurações da barbearia foram salvas.",
+        description: "As configurações da empresa foram salvas.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/barbershop-settings", tenantParam] });
       setIsCreating(false);
@@ -394,7 +394,7 @@ export default function BusinessSettingsPage() {
               )}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Nome da barbearia */}
+                {/* Nome da empresa */}
                 <FormField
                   control={form.control}
                   name="name"
@@ -649,29 +649,38 @@ export default function BusinessSettingsPage() {
                 )}
               />
 
-              <div className="flex justify-between pt-4">
-                {/* Botão para voltar para a lista de tenants (apenas para administradores do sistema) */}
-                {isSystemAdmin && (
-                  <Button 
-                    type="button"
-                    variant="outline"
-                    onClick={() => window.history.back()}
-                    className="flex items-center gap-1"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Voltar
-                  </Button>
-                )}
-                
+              <div className="flex justify-end space-x-4 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    form.reset(settings || {
+                      name: "",
+                      address: "",
+                      phone: "",
+                      email: "",
+                      timezone: "America/Sao_Paulo",
+                      open_time: "08:00",
+                      close_time: "20:00",
+                      open_days: [1, 2, 3, 4, 5, 6],
+                      description: "",
+                      logo_url: "",
+                      instagram: "",
+                      facebook: ""
+                    });
+                  }}
+                >
+                  Cancelar
+                </Button>
                 <Button 
                   type="submit"
+                  className="bg-primary"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="min-w-[150px]"
                 >
-                  {(createMutation.isPending || updateMutation.isPending) ? (
+                  {(createMutation.isPending || updateMutation.isPending) && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  {isCreating ? "Criar" : "Salvar Alterações"}
+                  )}
+                  {isCreating ? "Criar" : "Salvar"}
                 </Button>
               </div>
             </form>

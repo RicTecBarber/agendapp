@@ -26,7 +26,7 @@ import UsersPage from "@/pages/admin/UsersPage";
 import UsersManagementPage from "@/pages/admin/UsersManagementPage";
 import ProfessionalsPage from "@/pages/admin/ProfessionalsPage";
 import AvailabilityManagementPage from "@/pages/admin/AvailabilityManagementPage";
-import BarbershopSettingsPage from "@/pages/admin/BarbershopSettingsPage";
+import BusinessSettingsPage from "@/pages/admin/BusinessSettingsPage";
 import ProductsPage from "@/pages/admin/ProductsPage";
 import OrdersPage from "@/pages/admin/OrdersPage";
 import CreateOrderPage from "@/pages/admin/CreateOrderPage";
@@ -64,8 +64,8 @@ function Router() {
       <ProtectedRoute path="/admin/professionals/:id/availability" component={AvailabilityManagementPage} />
       <ProtectedRoute path="/admin/users" component={UsersPage} />
       <ProtectedRoute path="/admin/users-management" component={UsersManagementPage} />
-      <ProtectedRoute path="/admin/settings" component={BarbershopSettingsPage} />
-      <ProtectedRoute path="/admin/barbershop-settings" component={BarbershopSettingsPage} />
+      <ProtectedRoute path="/admin/settings" component={BusinessSettingsPage} />
+      <ProtectedRoute path="/admin/business-settings" component={BusinessSettingsPage} />
       <ProtectedRoute path="/admin/products" component={ProductsPage} />
       <ProtectedRoute path="/admin/orders" component={OrdersPage} />
       <ProtectedRoute path="/admin/orders/new" component={CreateOrderPage} />
