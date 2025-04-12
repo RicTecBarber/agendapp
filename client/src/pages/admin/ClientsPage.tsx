@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { getTenantFromUrl } from "@/hooks/use-tenant";
+import { getTenantFromUrl, getUrlWithTenant } from "@/hooks/use-tenant";
 import {
   Card,
   CardContent,
