@@ -989,19 +989,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // APPOINTMENTS ENDPOINTS
   
   // POST /api/appointments - Create appointment
-  app.post("/api/appointments", async (req: Request, res: Response) => {
+  app.post("/api/appointments", requireTenant, async (req: Request, res: Response) => {
     try {
       // Parâmetros opcionais
       const timezone = req.query.timezone as string || 'America/Sao_Paulo';
       const tzOffset = getTimezoneOffset(timezone);
       
-      console.log(`Criando agendamento no fuso horário: ${timezone}, offset: ${tzOffset} minutos`);
+      console.log(`Criando agendamento no fuso horário: ${timezone}, offset: ${tzOffset} minutos, Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
       
       // Obtém os dados do corpo da requisição
       const appointmentData = req.body;
       
       try {
         console.log("Dados do agendamento recebidos:", appointmentData);
+        
+        // Verificar se o profissional pertence ao tenant atual
+        const professional = await storage.getProfessional(appointmentData.professional_id, req.tenantId);
+        if (!professional) {
+          return res.status(404).json({ 
+            message: "Profissional não encontrado ou não pertence a este tenant",
+            error: "tenant_validation_failed"
+          });
+        }
+        
+        // Verificar se o serviço pertence ao tenant atual
+        const service = await storage.getService(appointmentData.service_id, req.tenantId);
+        if (!service) {
+          return res.status(404).json({ 
+            message: "Serviço não encontrado ou não pertence a este tenant",
+            error: "tenant_validation_failed"
+          });
+        }
         
         // Verificar se há timestamp especial LOCAL para processar
         let appointmentDate: Date;
@@ -1021,10 +1039,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log(`Data do agendamento interpretada como: ${appointmentDate.toISOString()}`);
           
-          // Criar novo objeto com a data processada
+          // Criar novo objeto com a data processada e garantir que o tenant_id esteja definido
           processedAppointmentData = {
             ...req.body,
-            appointment_date: appointmentDate
+            appointment_date: appointmentDate,
+            tenant_id: req.tenantId // Garantir que o tenant_id seja sempre o do contexto atual
           };
         } else {
           // Usar processamento padrão
@@ -1100,8 +1119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Verificar se o profissional pertence ao tenant atual
-        const professional = await storage.getProfessional(processedAppointmentData.professional_id, req.tenantId);
-        if (!professional) {
+        const professionalDetails = await storage.getProfessional(processedAppointmentData.professional_id, req.tenantId);
+        if (!professionalDetails) {
           return res.status(404).json({ message: "Professional not found or doesn't belong to this tenant" });
         }
         
@@ -1146,8 +1165,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/appointments/lookup - Lookup appointment by client phone or name
-  app.post("/api/appointments/lookup", async (req: Request, res: Response) => {
+  app.post("/api/appointments/lookup", requireTenant, async (req: Request, res: Response) => {
     try {
+      console.log(`POST /api/appointments/lookup - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
+      
       const { client_name, client_phone } = req.body;
       
       // Verificar se pelo menos um dos campos foi fornecido
@@ -1186,7 +1207,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (client_phone) {
         const clientReward = await storage.getClientRewardByPhone(client_phone);
-        if (clientReward) {
+        // Verificar se o clientReward pertence ao tenant atual
+        if (clientReward && clientReward.tenant_id === req.tenantId) {
           rewardPoints = clientReward.total_attendances || 0;
           hasReward = (clientReward.total_attendances || 0) >= 10;
         }
@@ -1203,8 +1225,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/appointments/:id - Get appointment by id
-  app.get("/api/appointments/:id", async (req: Request, res: Response) => {
+  app.get("/api/appointments/:id", requireTenant, async (req: Request, res: Response) => {
     try {
+      console.log(`GET /api/appointments/${req.params.id} - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
+      
       const appointmentId = parseInt(req.params.id);
       const appointment = await storage.getAppointmentById(appointmentId);
       
@@ -1214,11 +1238,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verificar se o agendamento pertence ao tenant atual
       if (appointment.tenant_id !== req.tenantId) {
-        return res.status(404).json({ message: "Appointment not found" });
+        console.warn(`Tentativa de acesso a agendamento de outro tenant. ID: ${appointmentId}, Tenant solicitado: ${req.tenantId}, Tenant do agendamento: ${appointment.tenant_id}`);
+        return res.status(404).json({ message: "Appointment not found or doesn't belong to this tenant" });
       }
       
+      console.log(`Retornando agendamento ${appointmentId} do tenant ${req.tenantId}`);
       res.json(appointment);
     } catch (error) {
+      console.error(`Erro ao buscar agendamento:`, error);
       res.status(500).json({ message: "Failed to get appointment" });
     }
   });
@@ -1286,11 +1313,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/appointments - Get all appointments (auth required)
-  app.get("/api/appointments", async (req: Request, res: Response) => {
+  app.get("/api/appointments", requireTenant, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated()) {
         return res.status(403).json({ message: "Unauthorized" });
       }
+      
+      console.log(`GET /api/appointments - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
       
       // Optional date filters
       const dateFilter = req.query.date as string;
@@ -1418,8 +1447,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // LOYALTY ENDPOINTS
 
   // GET /api/loyalty/:phone - Get client loyalty by phone
-  app.get("/api/loyalty/:phone", async (req: Request, res: Response) => {
+  app.get("/api/loyalty/:phone", requireTenant, async (req: Request, res: Response) => {
     try {
+      console.log(`GET /api/loyalty/${req.params.phone} - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
+      
       const phone = req.params.phone;
       
       if (!phone) {
@@ -1432,18 +1463,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Client not found" });
       }
       
+      // Verificar se o cliente pertence ao tenant atual
+      if (clientReward.tenant_id !== req.tenantId) {
+        console.warn(`Tentativa de acesso a dados de fidelidade de outro tenant. Phone: ${phone}, Tenant solicitado: ${req.tenantId}, Tenant do cliente: ${clientReward.tenant_id}`);
+        return res.status(404).json({ message: "Client not found or doesn't belong to this tenant" });
+      }
+      
+      console.log(`Retornando dados de fidelidade para o cliente ${phone} do tenant ${req.tenantId}`);
       res.json(clientReward);
     } catch (error) {
+      console.error(`Erro ao buscar dados de fidelidade:`, error);
       res.status(500).json({ message: "Failed to get client loyalty" });
     }
   });
 
   // POST /api/loyalty/lookup - Lookup client loyalty by phone
-  app.post("/api/loyalty/lookup", async (req: Request, res: Response) => {
+  app.post("/api/loyalty/lookup", requireTenant, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated()) {
         return res.status(403).json({ message: "Unauthorized" });
       }
+      
+      console.log(`POST /api/loyalty/lookup - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
       
       const { phone } = req.body;
       
@@ -1457,6 +1498,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Client not found" });
       }
       
+      // Verificar se o cliente pertence ao tenant atual
+      if (clientReward.tenant_id !== req.tenantId) {
+        console.warn(`Tentativa de acesso a dados de fidelidade de outro tenant. Phone: ${phone}, Tenant solicitado: ${req.tenantId}, Tenant do cliente: ${clientReward.tenant_id}`);
+        return res.status(404).json({ message: "Client not found or doesn't belong to this tenant" });
+      }
+      
+      console.log(`Retornando dados de fidelidade para o cliente ${phone} do tenant ${req.tenantId}`);
+      
       res.json({
         points: clientReward.attendance_count,
         hasReward: clientReward.attendance_count >= 10,
@@ -1466,6 +1515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error) {
+      console.error(`Erro ao buscar dados de fidelidade:`, error);
       res.status(500).json({ message: "Failed to lookup client loyalty" });
     }
   });
@@ -1498,11 +1548,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DASHBOARD ENDPOINTS
   
   // GET /api/dashboard/stats - Get dashboard statistics
-  app.get("/api/dashboard/stats", async (req: Request, res: Response) => {
+  app.get("/api/dashboard/stats", requireTenant, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated()) {
         return res.status(403).json({ message: "Unauthorized" });
       }
+      
+      console.log(`GET /api/dashboard/stats - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
       
       // Lógica para gerar estatísticas do dashboard
       let appointments = await storage.getAllAppointments();
@@ -1572,11 +1624,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/dashboard/chart - Get chart data
-  app.get("/api/dashboard/chart", async (req: Request, res: Response) => {
+  app.get("/api/dashboard/chart", requireTenant, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated()) {
         return res.status(403).json({ message: "Unauthorized" });
       }
+      
+      console.log(`GET /api/dashboard/chart - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
       
       // Data type param: 'day', 'week', 'month'
       const dataType = req.query.type as string || 'week';
