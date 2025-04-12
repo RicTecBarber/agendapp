@@ -95,8 +95,8 @@ const AvailabilityManagementPage = () => {
 
   // Buscar profissional
   const { data: professional, isLoading: isLoadingProfessional } = useQuery({
-    queryKey: [`/api/professionals/${professionalId}`],
-    enabled: !!professionalId,
+    queryKey: [`/api/professionals/${professionalId}`, tenant],
+    enabled: !!professionalId && !!tenant,
     onError: () => {
       toast({
         title: "Erro",
@@ -109,19 +109,19 @@ const AvailabilityManagementPage = () => {
 
   // Buscar disponibilidades
   const { data: availabilities, isLoading: isLoadingAvailabilities } = useQuery({
-    queryKey: [`/api/availability/professional/${professionalId}`],
-    enabled: !!professionalId,
+    queryKey: [`/api/availability/professional/${professionalId}`, tenant],
+    enabled: !!professionalId && !!tenant,
   });
   
   // Buscar configurações da barbearia para obter horário de funcionamento
   const { data: barbershopSettings } = useQuery({
-    queryKey: ['/api/barbershop-settings'],
+    queryKey: ['/api/barbershop-settings', tenant],
   });
 
   // Mutation para criar disponibilidade
   const createAvailabilityMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/availability", data);
+      const res = await apiRequest("POST", `/api/availability?tenant=${data.tenant_id}`, data);
       return await res.json();
     },
     onSuccess: () => {
@@ -132,7 +132,7 @@ const AvailabilityManagementPage = () => {
       });
       resetForm();
       setIsCreateDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`, tenant] });
     },
     onError: (error: Error) => {
       toast({
@@ -146,7 +146,7 @@ const AvailabilityManagementPage = () => {
   // Mutation para atualizar disponibilidade
   const updateAvailabilityMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("PUT", `/api/availability/${data.id}`, data);
+      const res = await apiRequest("PUT", `/api/availability/${data.id}?tenant=${data.tenant_id}`, data);
       return await res.json();
     },
     onSuccess: () => {
@@ -156,7 +156,7 @@ const AvailabilityManagementPage = () => {
         variant: "default",
       });
       setIsEditDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`, tenant] });
     },
     onError: (error: Error) => {
       toast({
@@ -180,7 +180,7 @@ const AvailabilityManagementPage = () => {
         variant: "default",
       });
       setIsDeleteDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`, tenant] });
     },
     onError: (error: Error) => {
       toast({
