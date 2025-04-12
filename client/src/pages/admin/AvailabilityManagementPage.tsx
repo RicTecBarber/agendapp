@@ -480,6 +480,13 @@ const AvailabilityManagementPage = () => {
                                 Indisponível
                               </Badge>
                             )}
+                            {availability.lunch_start && availability.lunch_end && (
+                              <div className="mt-2">
+                                <Badge variant="outline" className="bg-amber-50 text-amber-800 hover:bg-amber-50">
+                                  Almoço: {availability.lunch_start} - {availability.lunch_end}
+                                </Badge>
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="flex space-x-2">
@@ -600,7 +607,7 @@ const AvailabilityManagementPage = () => {
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 mb-4">
                 <Checkbox 
                   id="isAvailable" 
                   checked={isAvailable} 
@@ -609,6 +616,61 @@ const AvailabilityManagementPage = () => {
                 <Label htmlFor="isAvailable">
                   Disponível para agendamentos
                 </Label>
+              </div>
+              
+              <div className="border-t pt-4">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Checkbox 
+                    id="hasLunchBreak" 
+                    checked={hasLunchBreak} 
+                    onCheckedChange={(checked) => setHasLunchBreak(checked as boolean)}
+                  />
+                  <Label htmlFor="hasLunchBreak">
+                    Definir horário de almoço
+                  </Label>
+                </div>
+                
+                {hasLunchBreak && (
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <Label htmlFor="lunchStart">Início do Almoço</Label>
+                      <Select
+                        value={lunchStart}
+                        onValueChange={setLunchStart}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Hora início" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeOptions.map((hora) => (
+                            <SelectItem key={`lunch-start-${hora}`} value={hora}>
+                              {hora}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="lunchEnd">Fim do Almoço</Label>
+                      <Select
+                        value={lunchEnd}
+                        onValueChange={setLunchEnd}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Hora fim" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeOptions.map((hora) => (
+                            <SelectItem key={`lunch-end-${hora}`} value={hora}>
+                              {hora}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -712,7 +774,7 @@ const AvailabilityManagementPage = () => {
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 mb-4">
                 <Checkbox 
                   id="isAvailable" 
                   checked={isAvailable} 
@@ -721,6 +783,61 @@ const AvailabilityManagementPage = () => {
                 <Label htmlFor="isAvailable">
                   Disponível para agendamentos
                 </Label>
+              </div>
+              
+              <div className="border-t pt-4">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Checkbox 
+                    id="hasLunchBreak" 
+                    checked={hasLunchBreak} 
+                    onCheckedChange={(checked) => setHasLunchBreak(checked as boolean)}
+                  />
+                  <Label htmlFor="hasLunchBreak">
+                    Definir horário de almoço
+                  </Label>
+                </div>
+                
+                {hasLunchBreak && (
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <Label htmlFor="lunchStart">Início do Almoço</Label>
+                      <Select
+                        value={lunchStart}
+                        onValueChange={setLunchStart}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Hora início" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeOptions.map((hora) => (
+                            <SelectItem key={`edit-lunch-start-${hora}`} value={hora}>
+                              {hora}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="lunchEnd">Fim do Almoço</Label>
+                      <Select
+                        value={lunchEnd}
+                        onValueChange={setLunchEnd}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Hora fim" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeOptions.map((hora) => (
+                            <SelectItem key={`edit-lunch-end-${hora}`} value={hora}>
+                              {hora}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -776,6 +893,12 @@ const AvailabilityManagementPage = () => {
                     <span className="text-sm font-medium text-muted-foreground">Horário:</span>
                     <p>{selectedAvailability.start_time} - {selectedAvailability.end_time}</p>
                   </div>
+                  {selectedAvailability.lunch_start && selectedAvailability.lunch_end && (
+                    <div className="col-span-2 mt-2">
+                      <span className="text-sm font-medium text-muted-foreground">Almoço:</span>
+                      <p>{selectedAvailability.lunch_start} - {selectedAvailability.lunch_end}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
