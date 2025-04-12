@@ -146,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // POST /api/users - Create new user
-  app.post("/api/users", async (req: Request, res: Response) => {
+  app.post("/api/users", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!canManageUsers(req)) {
         return res.status(403).json({ message: "Acesso não autorizado" });
@@ -188,7 +188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // PUT /api/users/:id - Update user
-  app.put("/api/users/:id", async (req: Request, res: Response) => {
+  app.put("/api/users/:id", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!canManageUsers(req)) {
         return res.status(403).json({ message: "Acesso não autorizado" });
@@ -230,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DELETE /api/users/:id - Delete user (admin/super_admin only)
-  app.delete("/api/users/:id", async (req: Request, res: Response) => {
+  app.delete("/api/users/:id", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!canManageUsers(req)) {
         return res.status(403).json({ message: "Acesso não autorizado" });
@@ -377,7 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API de Upload de Arquivos
   
   // Endpoint de teste para facilitar a depuração de problemas de upload
-  app.post("/api/test-upload", uploadProduct.single('image'), (req: Request, res: Response) => {
+  app.post("/api/test-upload", requireTenant, isAdmin, uploadProduct.single('image'), (req: Request, res: Response) => {
     try {
       console.log("Teste de upload - Headers:", req.headers);
       console.log("Teste de upload - Body:", req.body);
