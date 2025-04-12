@@ -684,15 +684,17 @@ export class MemStorage implements IStorage {
       // Inicializar configurações com valores padrão se ainda não existirem
       // Se foi fornecido um tenantId, incluí-lo nas configurações padrão
       return this.createBarbershopSettings({
-        name: "BarberSync",
+        name: "AgendApp Serviços",
         address: "Rua Exemplo, 123",
         phone: "(11) 99999-9999",
-        email: "contato@barbersync.com",
+        email: "contato@agendapp.com",
         timezone: "America/Sao_Paulo",
         open_time: "08:00",
         close_time: "20:00",
         open_days: [1, 2, 3, 4, 5, 6],
-        description: "A melhor barbearia da cidade",
+        description: "O melhor sistema de agendamentos",
+        instagram: "@agendapp",
+        facebook: "facebook.com/agendapp",
         tenant_id: tenantId || null
       });
     }
@@ -1100,6 +1102,22 @@ export class MemStorage implements IStorage {
   
   async deleteSystemAdmin(id: number): Promise<boolean> {
     return this.systemAdmins.delete(id);
+  }
+  
+  // Alias para métodos usando nomes atualizados (compatibilidade)
+  async getBusinessSettings(tenantId?: number | null): Promise<BarbershopSettings | undefined> {
+    console.log("Chamando getBusinessSettings (alias) para tenant_id", tenantId);
+    return this.getBarbershopSettings(tenantId);
+  }
+  
+  async createBusinessSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings> {
+    console.log("Chamando createBusinessSettings (alias)");
+    return this.createBarbershopSettings(settings);
+  }
+  
+  async updateBusinessSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings> {
+    console.log("Chamando updateBusinessSettings (alias)");
+    return this.updateBarbershopSettings(settings);
   }
   
   private seedInitialData() {
