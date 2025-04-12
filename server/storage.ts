@@ -1120,7 +1120,7 @@ export class MemStorage implements IStorage {
     // Criar um administrador do sistema
     this.createSystemAdmin({
       username: "superadmin",
-      password: "$2b$10$3euPcmQFCiblsZeEu5s7p.9NjT3nWm.TnECVXwxjZ6I.hkQQr1vD.", // "admin123"
+      password: "2e8d3873106fcce2073d7e73f48b50fd4f52750b782d6687ca486a38b470a62360efd91e15fb05b2ecf481175f5548c559071baf3cc93cff62198f3688b5760a.4a2f91008ec4cc306d0539e5eaeb250d", // SNKRlcl@2025
       name: "Super Administrador",
       email: "superadmin@agendapp.com",
       role: "super_admin",
@@ -1167,7 +1167,7 @@ export class MemStorage implements IStorage {
     // Add an admin user
     this.createUser({
       username: "admin",
-      password: "$2b$10$3euPcmQFCiblsZeEu5s7p.9NjT3nWm.TnECVXwxjZ6I.hkQQr1vD.", // "admin123"
+      password: "2e8d3873106fcce2073d7e73f48b50fd4f52750b782d6687ca486a38b470a62360efd91e15fb05b2ecf481175f5548c559071baf3cc93cff62198f3688b5760a.4a2f91008ec4cc306d0539e5eaeb250d", // SNKRlcl@2025
       name: "Administrator",
       email: "admin@agendapp.com",
       role: "admin"
@@ -1176,7 +1176,7 @@ export class MemStorage implements IStorage {
     // Add professional users
     this.createUser({
       username: "joao",
-      password: "$2b$10$3euPcmQFCiblsZeEu5s7p.9NjT3nWm.TnECVXwxjZ6I.hkQQr1vD.", // "admin123"
+      password: "2e8d3873106fcce2073d7e73f48b50fd4f52750b782d6687ca486a38b470a62360efd91e15fb05b2ecf481175f5548c559071baf3cc93cff62198f3688b5760a.4a2f91008ec4cc306d0539e5eaeb250d", // SNKRlcl@2025
       name: "João Costa",
       email: "joao@agendapp.com",
       role: "barber"
@@ -1184,7 +1184,7 @@ export class MemStorage implements IStorage {
     
     this.createUser({
       username: "matheus",
-      password: "$2b$10$3euPcmQFCiblsZeEu5s7p.9NjT3nWm.TnECVXwxjZ6I.hkQQr1vD.", // "admin123"
+      password: "2e8d3873106fcce2073d7e73f48b50fd4f52750b782d6687ca486a38b470a62360efd91e15fb05b2ecf481175f5548c559071baf3cc93cff62198f3688b5760a.4a2f91008ec4cc306d0539e5eaeb250d", // SNKRlcl@2025
       name: "Matheus Oliveira",
       email: "matheus@agendapp.com",
       role: "barber"
