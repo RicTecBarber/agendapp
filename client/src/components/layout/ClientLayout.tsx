@@ -31,9 +31,9 @@ const ClientLayout = ({ children, title }: ClientLayoutProps) => {
       <header className="bg-primary shadow-md">
         <div className="container mx-auto px-4 py-6 flex justify-between items-center">
           <Link href={getUrlWithTenant("/")}>
-            <a className="flex items-center">
+            <div className="flex items-center cursor-pointer">
               <LogoIcon className="h-10 w-10" showText={true} />
-            </a>
+            </div>
           </Link>
           <button 
             onClick={handleAdminClick}
@@ -49,11 +49,11 @@ const ClientLayout = ({ children, title }: ClientLayoutProps) => {
           <div className="container mx-auto px-4 py-8 max-w-4xl">
             <div className="flex items-center mb-8">
               <Link href={getUrlWithTenant("/")}>
-                <a className="mr-4 hover:bg-neutral/20 p-2 rounded-full">
+                <div className="mr-4 hover:bg-neutral/20 p-2 rounded-full cursor-pointer">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                   </svg>
-                </a>
+                </div>
               </Link>
               <h2 className="text-2xl font-display font-bold text-primary">{title}</h2>
             </div>

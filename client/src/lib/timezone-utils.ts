@@ -24,7 +24,8 @@ export async function loadConfiguredTimezone(): Promise<string> {
     }
     return configuredTimezone;
   } catch (error) {
-    console.error('Erro ao carregar o fuso horário configurado:', error);
+    // É normal não conseguir carregar as configurações quando o usuário não está logado ou o tenant não existe
+    // Silenciosamente use o fuso horário padrão
     configuredTimezone = BRAZIL_TIMEZONE;
     return BRAZIL_TIMEZONE;
   }
