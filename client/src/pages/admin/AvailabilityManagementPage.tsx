@@ -96,8 +96,8 @@ const AvailabilityManagementPage = () => {
 
   // Buscar profissional
   const { data: professional, isLoading: isLoadingProfessional } = useQuery({
-    queryKey: [`/api/professionals/${professionalId}`, tenant],
-    enabled: !!professionalId && !!tenant,
+    queryKey: [`/api/professionals/${professionalId}`, tenantParam],
+    enabled: !!professionalId && !!tenantParam,
     onError: () => {
       toast({
         title: "Erro",
@@ -110,13 +110,13 @@ const AvailabilityManagementPage = () => {
 
   // Buscar disponibilidades
   const { data: availabilities, isLoading: isLoadingAvailabilities } = useQuery({
-    queryKey: [`/api/availability/professional/${professionalId}`, tenant],
-    enabled: !!professionalId && !!tenant,
+    queryKey: [`/api/availability/professional/${professionalId}`, tenantParam],
+    enabled: !!professionalId && !!tenantParam,
   });
   
   // Buscar configurações da barbearia para obter horário de funcionamento
   const { data: barbershopSettings } = useQuery({
-    queryKey: ['/api/barbershop-settings', tenant],
+    queryKey: ['/api/barbershop-settings', tenantParam],
   });
 
   // Mutation para criar disponibilidade
