@@ -889,6 +889,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         available: boolean;
         is_past: boolean;
         conflicts: number[] | null;
+        lunch_break: boolean;
+      }
+      
+      // Verificar se há horário de almoço configurado
+      const hasLunchBreak = dayConfig.lunch_start && dayConfig.lunch_end;
+      let lunchStartMinutes = -1;
+      let lunchEndMinutes = -1;
+      
+      if (hasLunchBreak) {
+        console.log(`Horário de almoço configurado: ${dayConfig.lunch_start} - ${dayConfig.lunch_end}`);
+        const lunchStart = parseTime(dayConfig.lunch_start!);
+        const lunchEnd = parseTime(dayConfig.lunch_end!);
+        lunchStartMinutes = lunchStart.hours * 60 + lunchStart.minutes;
+        lunchEndMinutes = lunchEnd.hours * 60 + lunchEnd.minutes;
       }
       
       const slotDetails: SlotDetail[] = slots.map(slot => {
@@ -896,8 +910,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const slotTime = new Date(dateObj);
         slotTime.setHours(hours, minutes, 0, 0);
         
+        const slotMinutes = hours * 60 + minutes;
+        
         // Verificar se o horário já passou (apenas hoje)
         const isPast = isToday && slotTime < now;
+        
+        // Verificar se o slot está no horário de almoço
+        const isLunchBreak = hasLunchBreak && 
+          slotMinutes >= lunchStartMinutes && 
+          slotMinutes < lunchEndMinutes;
         
         // Verificar se há conflito com agendamento existente
         const conflicts = dateAppointments
@@ -909,9 +930,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         return {
           time: slot,
-          available: !isPast && conflicts.length === 0,
+          available: !isPast && !isLunchBreak && conflicts.length === 0,
           is_past: isPast,
-          conflicts: conflicts.length > 0 ? conflicts : null
+          conflicts: conflicts.length > 0 ? conflicts : null,
+          lunch_break: isLunchBreak
         };
       });
 
@@ -1028,6 +1050,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message: "This time slot is already booked",
             conflicts: conflictingAppointments
           });
+        }
+        
+        // Verificar se não está no horário de almoço do profissional
+        const dayOfWeek = appointmentDate.getDay(); // 0-6 (Domingo-Sábado)
+        const allAvailabilitySettings = await storage.getAvailabilityByProfessionalId(professionalId);
+        const availabilitySettings = allAvailabilitySettings.filter(a => a.tenant_id === req.tenantId);
+        const dayConfig = availabilitySettings.find(a => a.day_of_week === dayOfWeek);
+        
+        if (dayConfig && dayConfig.lunch_start && dayConfig.lunch_end) {
+          const lunchStart = parseTime(dayConfig.lunch_start);
+          const lunchEnd = parseTime(dayConfig.lunch_end);
+          
+          const lunchStartMinutes = lunchStart.hours * 60 + lunchStart.minutes;
+          const lunchEndMinutes = lunchEnd.hours * 60 + lunchEnd.minutes;
+          
+          const appointmentMinutes = appointmentDate.getHours() * 60 + appointmentDate.getMinutes();
+          
+          // Verificar se o horário está dentro do período de almoço
+          if (appointmentMinutes >= lunchStartMinutes && appointmentMinutes < lunchEndMinutes) {
+            console.log("Tentativa de agendamento durante o intervalo de almoço:", {
+              horarioAgendamento: `${appointmentDate.getHours()}:${appointmentDate.getMinutes()}`,
+              horarioAlmoco: `${dayConfig.lunch_start} - ${dayConfig.lunch_end}`
+            });
+            
+            return res.status(400).json({
+              message: "Cannot schedule appointment during lunch break",
+              lunch_time: `${dayConfig.lunch_start} - ${dayConfig.lunch_end}`
+            });
+          }
         }
         
         // Verificar se o profissional pertence ao tenant atual
