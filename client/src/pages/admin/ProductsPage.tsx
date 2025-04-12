@@ -293,26 +293,34 @@ function ProductsPage() {
 
   // Buscar todos os produtos
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ["/api/products"],
+    queryKey: ["/api/products", tenant],
     queryFn: async () => {
-      const response = await fetch("/api/products");
+      const url = tenant ? `/api/products?tenant=${tenant}` : "/api/products";
+      console.log("Buscando produtos com URL:", url);
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Erro ao buscar produtos");
       }
-      return response.json();
-    }
+      const data = await response.json();
+      console.log(`Produtos recebidos: ${data.length}`);
+      return data;
+    },
+    enabled: !!tenant, // Só executa a query quando tiver o tenant
   });
 
   // Buscar categorias de produtos
   const { data: categories = [] } = useQuery({
-    queryKey: ["/api/products/categories"],
+    queryKey: ["/api/products/categories", tenant],
     queryFn: async () => {
-      const response = await fetch("/api/products/categories");
+      const url = tenant ? `/api/products/categories?tenant=${tenant}` : "/api/products/categories";
+      console.log("Buscando categorias com URL:", url);
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Erro ao buscar categorias");
       }
       return response.json();
-    }
+    },
+    enabled: !!tenant, // Só executa a query quando tiver o tenant
   });
 
   // Mutation para adicionar um produto
@@ -322,7 +330,7 @@ function ProductsPage() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products", tenant] });
       setIsAddDialogOpen(false);
       toast({
         title: "Produto adicionado",
@@ -345,7 +353,7 @@ function ProductsPage() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products", tenant] });
       setEditProduct(null);
       toast({
         title: "Produto atualizado",
@@ -367,7 +375,7 @@ function ProductsPage() {
       await apiRequest("DELETE", `/api/products/${id}`, {tenant_id});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products", tenant] });
       toast({
         title: "Produto excluído",
         description: "O produto foi excluído com sucesso",
