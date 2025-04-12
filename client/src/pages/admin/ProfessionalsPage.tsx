@@ -307,7 +307,7 @@ const ProfessionalsPage = () => {
       try {
         const uploadResult = await uploadImageMutation.mutateAsync(uploadedImage);
         // Atualiza a URL da imagem no payload
-        data.avatar_url = uploadResult.imageUrl;
+        data.avatar_url = uploadResult.url; // A API retorna 'url', não 'imageUrl'
       } catch (error) {
         // Erro já tratado no mutation
         return;
@@ -330,7 +330,7 @@ const ProfessionalsPage = () => {
       try {
         const uploadResult = await uploadImageMutation.mutateAsync(editUploadedImage);
         // Atualiza a URL da imagem no payload
-        data.avatar_url = uploadResult.imageUrl;
+        data.avatar_url = uploadResult.url; // A API retorna 'url', não 'imageUrl'
       } catch (error) {
         // Erro já tratado no mutation
         return;
