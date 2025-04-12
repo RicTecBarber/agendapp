@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useTenant } from "@/hooks/use-tenant";
 import {
   Card,
   CardContent,
@@ -288,6 +289,7 @@ function ProductsPage() {
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { tenant } = useTenant();
 
   // Buscar todos os produtos
   const { data: products = [], isLoading } = useQuery({
@@ -389,8 +391,8 @@ function ProductsPage() {
         const formData = new FormData();
         formData.append("image", file);
         
-        // Usar o endpoint de teste para depurar
-        const endpoint = "/api/test-upload";
+        // Usar o endpoint correto e incluir o parâmetro de tenant na URL
+        const endpoint = tenant ? `/api/upload/product?tenant=${tenant}` : '/api/upload/product';
         console.log("Enviando para:", endpoint);
         
         const response = await fetch(endpoint, {
