@@ -728,16 +728,16 @@ export class MemStorage implements IStorage {
   
   async updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings> {
     if (!this.barbershopSettings) {
-      // Se as configurações não existirem, crie-as com valores padrão
+      // Se as configurações não existirem, crie-as com o nome fornecido ou um valor padrão
       return this.createBarbershopSettings({
-        name: "BarberSync",
-        address: "Rua Exemplo, 123",
-        phone: "(11) 99999-9999",
-        email: "contato@barbersync.com",
-        open_time: "08:00",
-        close_time: "20:00",
-        open_days: [1, 2, 3, 4, 5, 6],
-        description: "A melhor barbearia da cidade",
+        name: settings.name || "AgendApp Serviços",
+        address: settings.address || "Rua Exemplo, 123",
+        phone: settings.phone || "(11) 99999-9999",
+        email: settings.email || "contato@agendapp.com",
+        open_time: settings.open_time || "08:00",
+        close_time: settings.close_time || "20:00",
+        open_days: settings.open_days || [1, 2, 3, 4, 5, 6],
+        description: settings.description || "Configuração inicial",
         ...settings
       });
     }
