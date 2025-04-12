@@ -275,25 +275,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SERVICES ENDPOINTS
 
   // GET /api/services - Get all services (filtered by tenant)
-  app.get("/api/services", async (req: Request, res: Response) => {
+  app.get("/api/services", requireTenant, async (req: Request, res: Response) => {
     try {
-      // Filtrar por tenant_id - Garantir que o tenantId seja explicitamente passado
-      // Adicionar logs para depuração
-      console.log("GET /api/services - req.tenantId:", req.tenantId, "origin:", req.get('origin'), "referer:", req.get('referer'));
+      // Log para depuração
+      console.log(`GET /api/services - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
       
-      if (req.tenantId === null || req.tenantId === undefined) {
-        console.warn(`Requisição para /api/services sem tenant_id definido. Query params: ${JSON.stringify(req.query)}`);
-        
-        // Se não houver tenant_id, retornar um erro para evitar vazamento de dados
-        return res.status(400).json({ 
-          message: "Tenant não especificado na requisição", 
-          details: "É necessário especificar um tenant para acessar serviços"
-        });
-      }
-      
+      // Obter serviços do tenant específico
       const services = await storage.getAllServices(req.tenantId);
-      console.log(`Retornando ${services.length} serviços para o tenant ${req.tenantId}`);
-      res.json(services);
+      
+      // Verificação adicional para garantir isolamento completo
+      const filteredServices = services.filter(s => s.tenant_id === req.tenantId);
+      
+      console.log(`Retornando ${filteredServices.length} serviços para o tenant ${req.tenantId}`);
+      res.json(filteredServices);
     } catch (error) {
       console.error("Erro ao buscar serviços:", error);
       res.status(500).json({ message: "Failed to get services" });
@@ -548,29 +542,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PROFESSIONALS ENDPOINTS
 
   // GET /api/professionals - Get all professionals (filtered by tenant)
-  app.get("/api/professionals", async (req: Request, res: Response) => {
+  app.get("/api/professionals", requireTenant, async (req: Request, res: Response) => {
     try {
-      // Filtrar por tenant_id
+      // Log para depuração
+      console.log(`GET /api/professionals - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
+      
+      // Buscar profissionais do tenant específico
       const professionals = await storage.getAllProfessionals(req.tenantId);
-      res.json(professionals);
+      
+      // Verificação adicional para garantir isolamento completo
+      const filteredProfessionals = professionals.filter(p => p.tenant_id === req.tenantId);
+      
+      console.log(`Retornando ${filteredProfessionals.length} profissionais para o tenant ${req.tenantId}`);
+      res.json(filteredProfessionals);
     } catch (error) {
+      console.error("Erro ao buscar profissionais:", error);
       res.status(500).json({ message: "Failed to get professionals" });
     }
   });
 
   // GET /api/professionals/:id - Get professional by id (filtering by tenant)
-  app.get("/api/professionals/:id", async (req: Request, res: Response) => {
+  app.get("/api/professionals/:id", requireTenant, async (req: Request, res: Response) => {
     try {
+      console.log(`GET /api/professionals/${req.params.id} - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
+      
       const professionalId = parseInt(req.params.id);
       // Filtrar pelo tenant_id também
       const professional = await storage.getProfessional(professionalId, req.tenantId);
       
       if (!professional) {
-        return res.status(404).json({ message: "Professional not found" });
+        return res.status(404).json({ message: "Professional not found or doesn't belong to this tenant" });
       }
       
+      // Verificação adicional para garantir isolamento completo
+      if (professional.tenant_id !== req.tenantId) {
+        console.warn(`Tentativa de acesso a profissional de outro tenant. ID: ${professionalId}, Tenant solicitado: ${req.tenantId}, Tenant do profissional: ${professional.tenant_id}`);
+        return res.status(404).json({ message: "Professional not found or doesn't belong to this tenant" });
+      }
+      
+      console.log(`Retornando profissional ${professionalId} do tenant ${req.tenantId}`);
       res.json(professional);
     } catch (error) {
+      console.error(`Erro ao buscar profissional:`, error);
       res.status(500).json({ message: "Failed to get professional" });
     }
   });
@@ -640,11 +653,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AVAILABILITY ENDPOINTS
 
   // GET /api/availability/professional/:professionalId - Get availability by professional
-  app.get("/api/availability/professional/:professionalId", async (req: Request, res: Response) => {
+  app.get("/api/availability/professional/:professionalId", requireTenant, async (req: Request, res: Response) => {
     try {
-      if (!req.tenantId) {
-        return res.status(400).json({ message: "Tenant não identificado. Use o parâmetro ?tenant=SLUG" });
-      }
+      console.log(`GET /api/availability/professional/${req.params.professionalId} - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
       
       const professionalId = parseInt(req.params.professionalId);
       
@@ -654,10 +665,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Profissional não encontrado ou não pertence a este tenant" });
       }
       
-      // Obter disponibilidade e filtrar por tenant_id
+      // Verificação adicional para garantir isolamento completo
+      if (professional.tenant_id !== req.tenantId) {
+        console.warn(`Tentativa de acesso a profissional de outro tenant. ID: ${professionalId}, Tenant solicitado: ${req.tenantId}, Tenant do profissional: ${professional.tenant_id}`);
+        return res.status(404).json({ message: "Profissional não encontrado ou não pertence a este tenant" });
+      }
+      
+      // Obter disponibilidade e filtrar explicitamente por tenant_id
       const allAvailability = await storage.getAvailabilityByProfessionalId(professionalId);
       const filteredAvailability = allAvailability.filter(a => a.tenant_id === req.tenantId);
       
+      console.log(`Retornando ${filteredAvailability.length} configurações de disponibilidade para o profissional ${professionalId} do tenant ${req.tenantId}`);
       res.json(filteredAvailability);
     } catch (error) {
       console.error("Erro ao buscar disponibilidade:", error);
