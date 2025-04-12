@@ -39,7 +39,7 @@ function detectNetworkIssues(): Promise<boolean> {
     
     // Testar ping para verificar latência da conexão
     const start = Date.now();
-    const pingUrl = '/api/barbershop-settings'; // Endpoint leve para testar latência
+    const pingUrl = '/api/business-settings'; // Endpoint leve para testar latência
     
     fetch(pingUrl, { 
       method: 'HEAD',
