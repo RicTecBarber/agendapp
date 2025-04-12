@@ -213,6 +213,18 @@ const AvailabilityManagementPage = () => {
     setSelectedDay(availability.day_of_week.toString());
     setStartTime(availability.start_time);
     setEndTime(availability.end_time);
+    
+    // Verificar se tem horário de almoço definido
+    if (availability.lunch_start && availability.lunch_end) {
+      setLunchStart(availability.lunch_start);
+      setLunchEnd(availability.lunch_end);
+      setHasLunchBreak(true);
+    } else {
+      setLunchStart("");
+      setLunchEnd("");
+      setHasLunchBreak(false);
+    }
+    
     setIsAvailable(availability.is_available);
     setIsEditDialogOpen(true);
   };
@@ -234,14 +246,35 @@ const AvailabilityManagementPage = () => {
       return;
     }
 
-    createAvailabilityMutation.mutate({
+    // Validar horário de almoço se estiver ativado
+    if (hasLunchBreak && (!lunchStart || !lunchEnd)) {
+      toast({
+        title: "Erro",
+        description: "Preencha o horário de almoço corretamente",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const availabilityData: any = {
       professional_id: professionalId,
       day_of_week: parseInt(selectedDay),
       start_time: startTime,
       end_time: endTime,
       is_available: isAvailable,
       tenant_id: Number(tenantParam)
-    });
+    };
+
+    // Adicionar horário de almoço se habilitado
+    if (hasLunchBreak) {
+      availabilityData.lunch_start = lunchStart;
+      availabilityData.lunch_end = lunchEnd;
+    } else {
+      availabilityData.lunch_start = null;
+      availabilityData.lunch_end = null;
+    }
+
+    createAvailabilityMutation.mutate(availabilityData);
   };
 
   // Enviar formulário de edição
@@ -255,7 +288,17 @@ const AvailabilityManagementPage = () => {
       return;
     }
 
-    updateAvailabilityMutation.mutate({
+    // Validar horário de almoço se estiver ativado
+    if (hasLunchBreak && (!lunchStart || !lunchEnd)) {
+      toast({
+        title: "Erro",
+        description: "Preencha o horário de almoço corretamente",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const availabilityData: any = {
       id: selectedAvailability.id,
       professional_id: professionalId,
       day_of_week: parseInt(selectedDay),
@@ -263,7 +306,18 @@ const AvailabilityManagementPage = () => {
       end_time: endTime,
       is_available: isAvailable,
       tenant_id: Number(tenantParam)
-    });
+    };
+
+    // Adicionar horário de almoço se habilitado
+    if (hasLunchBreak) {
+      availabilityData.lunch_start = lunchStart;
+      availabilityData.lunch_end = lunchEnd;
+    } else {
+      availabilityData.lunch_start = null;
+      availabilityData.lunch_end = null;
+    }
+
+    updateAvailabilityMutation.mutate(availabilityData);
   };
 
   // Confirmar exclusão

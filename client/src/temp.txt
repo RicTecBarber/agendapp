@@ -1,0 +1,65 @@
+              <div className="flex items-center space-x-2 mb-4">
+                <Checkbox 
+                  id="isAvailable" 
+                  checked={isAvailable} 
+                  onCheckedChange={(checked) => setIsAvailable(checked as boolean)}
+                />
+                <Label htmlFor="isAvailable">
+                  Disponível para agendamentos
+                </Label>
+              </div>
+              
+              <div className="border-t pt-4">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Checkbox 
+                    id="hasLunchBreak" 
+                    checked={hasLunchBreak} 
+                    onCheckedChange={(checked) => setHasLunchBreak(checked as boolean)}
+                  />
+                  <Label htmlFor="hasLunchBreak">
+                    Definir horário de almoço
+                  </Label>
+                </div>
+                
+                {hasLunchBreak && (
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <Label htmlFor="lunchStart">Início do Almoço</Label>
+                      <Select
+                        value={lunchStart}
+                        onValueChange={setLunchStart}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Hora início" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeOptions.map((hora) => (
+                            <SelectItem key={`lunch-start-${hora}`} value={hora}>
+                              {hora}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="lunchEnd">Fim do Almoço</Label>
+                      <Select
+                        value={lunchEnd}
+                        onValueChange={setLunchEnd}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Hora fim" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeOptions.map((hora) => (
+                            <SelectItem key={`lunch-end-${hora}`} value={hora}>
+                              {hora}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </div>
