@@ -142,7 +142,7 @@ const ProfessionalsPage = () => {
         description: "O profissional foi cadastrado com sucesso.",
         variant: "default",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/professionals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/professionals", tenantParam] });
       setIsCreateDialogOpen(false);
       form.reset();
     },
@@ -168,7 +168,7 @@ const ProfessionalsPage = () => {
         description: "O profissional foi atualizado com sucesso.",
         variant: "default",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/professionals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/professionals", tenantParam] });
       setIsEditDialogOpen(false);
       setSelectedProfessional(null);
       editForm.reset();
@@ -194,7 +194,7 @@ const ProfessionalsPage = () => {
         description: "O profissional foi excluído com sucesso.",
         variant: "default",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/professionals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/professionals", tenantParam] });
       setIsDeleteDialogOpen(false);
       setSelectedProfessional(null);
     },
