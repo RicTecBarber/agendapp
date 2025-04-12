@@ -301,6 +301,15 @@ const NewAppointmentPage = () => {
                     className={`bg-white rounded-xl shadow p-6 cursor-pointer hover:shadow-md transition ${selectedService?.id === service.id ? 'ring-2 ring-secondary' : ''}`}
                     onClick={() => setSelectedService(service)}
                   >
+                    {service.image_url && (
+                      <div className="mb-3 w-full h-36 rounded-md overflow-hidden">
+                        <img 
+                          src={service.image_url} 
+                          alt={service.name} 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <h3 className="text-lg font-bold text-primary">{service.name}</h3>
                       <span className="font-bold text-secondary">R$ {service.price.toFixed(2)}</span>
@@ -330,16 +339,22 @@ const NewAppointmentPage = () => {
                     className={`bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition ${selectedProfessional?.id === professional.id ? 'ring-2 ring-secondary' : ''}`}
                     onClick={() => setSelectedProfessional(professional)}
                   >
-                    <div className="flex">
-                      <img 
-                        src={professional.avatar_url || 'https://via.placeholder.com/100'} 
-                        alt={professional.name} 
-                        className="w-20 h-20 rounded-full object-cover border-2 border-secondary-light" 
-                      />
-                      <div className="ml-4">
-                        <h3 className="text-lg font-bold text-primary">{professional.name}</h3>
-                        <p className="text-neutral-dark mb-2">{professional.description}</p>
-                        <div className="flex flex-wrap">
+                    <div className="flex flex-col sm:flex-row">
+                      <div className="mb-4 sm:mb-0">
+                        <img 
+                          src={professional.avatar_url || 'https://via.placeholder.com/150'} 
+                          alt={professional.name} 
+                          className="w-28 h-28 rounded-full object-cover border-2 border-secondary-light shadow-md mx-auto sm:mx-0" 
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://via.placeholder.com/150?text=Profissional';
+                            e.currentTarget.onerror = null;
+                          }}
+                        />
+                      </div>
+                      <div className="ml-0 sm:ml-5 text-center sm:text-left">
+                        <h3 className="text-xl font-bold text-primary">{professional.name}</h3>
+                        <p className="text-neutral-dark mb-3">{professional.description}</p>
+                        <div className="flex flex-wrap justify-center sm:justify-start">
                           {Array.isArray(services) && services.filter((service: any) => 
                             (professional.services_offered as number[]).includes(service.id)
                           ).map((service: any) => (
