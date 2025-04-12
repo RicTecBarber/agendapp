@@ -134,7 +134,20 @@ const ProfessionalsPage = () => {
   // Create professional mutation
   const createProfessionalMutation = useMutation({
     mutationFn: async (data: InsertProfessional & { tenant_id?: number }) => {
-      const res = await apiRequest("POST", "/api/professionals", data);
+      console.log("ProfessionalsPage.createProfessionalMutation - Enviando dados:", JSON.stringify(data));
+      
+      // Garantir que tenant_id seja um número ou null, nunca undefined
+      const sanitizedData = {
+        ...data,
+        tenant_id: data.tenant_id !== undefined ? data.tenant_id : null
+      };
+      
+      // Garantir explicitamente que estamos usando o tenant correto na URL
+      const tenantQueryParam = tenantParam ? `?tenant=${tenantParam}` : '';
+      const url = `/api/professionals${tenantQueryParam}`;
+      console.log(`ProfessionalsPage.createProfessionalMutation - URL da requisição: ${url}`);
+      
+      const res = await apiRequest("POST", url, sanitizedData);
       return res.json();
     },
     onSuccess: () => {
@@ -159,8 +172,20 @@ const ProfessionalsPage = () => {
   // Update professional mutation
   const updateProfessionalMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Removemos o tenant_id da URL, pois o middleware requireTenant já irá capturar o tenant_id da URL atual
-      const res = await apiRequest("PUT", `/api/professionals/${data.id}`, data);
+      console.log("ProfessionalsPage.updateProfessionalMutation - Enviando dados:", JSON.stringify(data));
+      
+      // Garantir que tenant_id seja um número ou null, nunca undefined
+      const sanitizedData = {
+        ...data,
+        tenant_id: data.tenant_id !== undefined ? data.tenant_id : null
+      };
+      
+      // Garantir explicitamente que estamos usando o tenant correto na URL
+      const tenantQueryParam = tenantParam ? `?tenant=${tenantParam}` : '';
+      const url = `/api/professionals/${data.id}${tenantQueryParam}`;
+      console.log(`ProfessionalsPage.updateProfessionalMutation - URL da requisição: ${url}`);
+      
+      const res = await apiRequest("PUT", url, sanitizedData);
       return res.json();
     },
     onSuccess: () => {
@@ -186,8 +211,14 @@ const ProfessionalsPage = () => {
   // Delete professional mutation
   const deleteProfessionalMutation = useMutation({
     mutationFn: async (data: { id: number, tenant_id: number | undefined }) => {
-      // Removemos o tenant_id da URL, pois o middleware requireTenant já irá capturar o tenant_id da URL atual
-      await apiRequest("DELETE", `/api/professionals/${data.id}`);
+      console.log("ProfessionalsPage.deleteProfessionalMutation - Enviando dados:", JSON.stringify(data));
+      
+      // Garantir explicitamente que estamos usando o tenant correto na URL
+      const tenantQueryParam = tenantParam ? `?tenant=${tenantParam}` : '';
+      const url = `/api/professionals/${data.id}${tenantQueryParam}`;
+      console.log(`ProfessionalsPage.deleteProfessionalMutation - URL da requisição: ${url}`);
+      
+      await apiRequest("DELETE", url);
     },
     onSuccess: () => {
       toast({
