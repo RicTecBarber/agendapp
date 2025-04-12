@@ -106,6 +106,7 @@ type ServiceFormValues = z.infer<typeof serviceSchema>;
 
 const ServicesPage = () => {
   const { toast } = useToast();
+  const { tenant } = useTenant();
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<any | null>(null);
@@ -213,7 +214,10 @@ const ServicesPage = () => {
       const formData = new FormData();
       formData.append('image', file);
       
-      const res = await fetch('/api/upload/service', {
+      // Incluir o parâmetro de tenant na URL
+      const url = tenant ? `/api/upload/service?tenant=${tenant}` : '/api/upload/service';
+      
+      const res = await fetch(url, {
         method: 'POST',
         body: formData,
       });
