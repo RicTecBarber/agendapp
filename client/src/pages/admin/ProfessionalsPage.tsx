@@ -238,8 +238,15 @@ const ProfessionalsPage = () => {
       
       console.log("Iniciando upload de imagem para profissional");
       
-      // Usar a URL direta e deixar os headers cuidarem do tenant
-      const res = await fetch('/api/upload/professional', {
+      // Adicionamos o tenant na URL
+      let uploadUrl = '/api/upload/professional';
+      if (tenantParam) {
+        uploadUrl += `?tenant=${tenantParam}`;
+      }
+      console.log(`ProfessionalsPage.uploadImageMutation - Fazendo upload para: ${uploadUrl}`);
+      
+      // Usar a URL com tenant explícito para garantir o contexto correto
+      const res = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
         // Adicionamos os headers padrão do apiRequest, menos o Content-Type que é definido automaticamente pelo FormData
@@ -342,9 +349,12 @@ const ProfessionalsPage = () => {
     }
     
     // Adiciona o tenant_id ao payload
+    const tenantId = tenantParam ? parseInt(tenantParam) : null;
+    console.log(`ProfessionalsPage.onSubmit - convertendo tenant para tenant_id: ${tenantParam} -> ${tenantId}`);
+    
     createProfessionalMutation.mutate({
       ...data,
-      tenant_id: Number(tenantParam)
+      tenant_id: tenantId
     });
   };
   
@@ -364,9 +374,12 @@ const ProfessionalsPage = () => {
       }
     }
     
+    const tenantId = tenantParam ? parseInt(tenantParam) : null;
+    console.log(`ProfessionalsPage.onSubmitEdit - convertendo tenant para tenant_id: ${tenantParam} -> ${tenantId}`);
+    
     updateProfessionalMutation.mutate({
       id: selectedProfessional.id,
-      tenant_id: Number(tenantParam),
+      tenant_id: tenantId,
       ...data
     });
   };
@@ -395,9 +408,12 @@ const ProfessionalsPage = () => {
   // Handler for confirming delete
   const confirmDelete = () => {
     if (selectedProfessional) {
+      const tenantId = tenantParam ? parseInt(tenantParam) : null;
+      console.log(`ProfessionalsPage.confirmDelete - convertendo tenant para tenant_id: ${tenantParam} -> ${tenantId}`);
+      
       deleteProfessionalMutation.mutate({
         id: selectedProfessional.id,
-        tenant_id: Number(tenantParam)
+        tenant_id: tenantId
       });
     }
   };
