@@ -123,15 +123,33 @@ const AppointmentsPage = () => {
           .filter(id => !isNaN(id)) // Remover qualquer ID inválido
   });
 
+  // Extrair o tenant da URL para incluir em todas as requisições
+  const params = new URLSearchParams(window.location.search);
+  const tenantParam = params.get('tenant');
+  
   // Get professionals for filter
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery({
-    queryKey: ["/api/professionals"],
+    queryKey: ["/api/professionals", tenantParam],
+    queryFn: async () => {
+      // Construir URL com o tenant de forma explícita
+      let url = "/api/professionals";
+      if (tenantParam) {
+        url += `?tenant=${tenantParam}`;
+      }
+      
+      console.log("Buscando profissionais, URL:", url);
+      
+      const res = await apiRequest("GET", url);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Erro ao buscar profissionais:", errorText);
+        throw new Error("Erro ao buscar profissionais");
+      }
+      return res.json();
+    }
   });
 
   // Get services for new appointment
-  // Extrair o tenant da URL para incluir na requisição
-  const params = new URLSearchParams(window.location.search);
-  const tenantParam = params.get('tenant');
   
   const { data: services, isLoading: isLoadingServices } = useQuery({
     queryKey: ["/api/services", tenantParam],
@@ -161,10 +179,6 @@ const AppointmentsPage = () => {
     queryFn: async () => {
       if (!selectedService) return [];
       
-      // Extrair o tenant da URL para incluir na requisição
-      const params = new URLSearchParams(window.location.search);
-      const tenantParam = params.get('tenant');
-      
       // Construir URL com o tenant, se disponível
       let url = `/api/professionals/service/${selectedService}`;
       if (tenantParam) {
@@ -190,10 +204,6 @@ const AppointmentsPage = () => {
     enabled: !!selectedProfessional && !!selectedDate, // Only run query when both are selected
     queryFn: async () => {
       if (!selectedProfessional || !selectedDate) return [];
-      
-      // Extrair o tenant da URL para incluir na requisição
-      const params = new URLSearchParams(window.location.search);
-      const tenantParam = params.get('tenant');
       
       const formattedDate = format(selectedDate, "yyyy-MM-dd");
       
