@@ -1819,10 +1819,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // BARBERSHOP SETTINGS ENDPOINTS
+  // BUSINESS SETTINGS ENDPOINTS
 
-  // GET /api/barbershop-settings - Get barbershop settings
-  app.get("/api/barbershop-settings", async (req: Request, res: Response) => {
+  // GET /api/business-settings - Get business settings
+  app.get("/api/business-settings", async (req: Request, res: Response) => {
     try {
       // Verificar se um tenant está identificado
       if (!req.tenantId && !req.isAuthenticated()) {
@@ -1833,8 +1833,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Buscar configurações da barbearia com o tenant_id
-      const settings = await storage.getBarbershopSettings(req.tenantId);
+      // Buscar configurações da empresa com o tenant_id
+      const settings = await storage.getBusinessSettings(req.tenantId);
       
       // Verificar se há um tenant_id
       if (!req.tenantId) {
@@ -1889,8 +1889,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/barbershop-settings - Create barbershop settings (admin only)
-  app.post("/api/barbershop-settings", async (req: Request, res: Response) => {
+  // POST /api/business-settings - Create business settings (admin only)
+  app.post("/api/business-settings", async (req: Request, res: Response) => {
     try {
       // Verificar autenticação
       if (!req.isAuthenticated()) {
@@ -1948,8 +1948,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PUT /api/barbershop-settings - Update barbershop settings (admin only)
-  app.put("/api/barbershop-settings", async (req: Request, res: Response) => {
+  // PUT /api/business-settings - Update business settings (admin only)
+  app.put("/api/business-settings", async (req: Request, res: Response) => {
     try {
       // Verificar autenticação
       if (!req.isAuthenticated()) {
@@ -1979,7 +1979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Obter as configurações atuais com o tenant_id
-      const settings = await storage.getBarbershopSettings(targetTenantId);
+      const settings = await storage.getBusinessSettings(targetTenantId);
       
       // Verificar se as configurações existem
       if (!settings) {
