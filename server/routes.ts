@@ -432,7 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/upload/product - Upload de imagem de produto
-  app.post("/api/upload/product", uploadProduct.single('image'), (req: Request, res: Response) => {
+  app.post("/api/upload/product", requireTenant, isAdmin, uploadProduct.single('image'), (req: Request, res: Response) => {
     try {
       console.log("Upload de produto iniciado para tenant:", req.tenantId);
       console.log("Headers da requisição:", req.headers);
@@ -1892,7 +1892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PUT /api/products/:id - Update product (admin only)
-  app.put("/api/products/:id", async (req: Request, res: Response) => {
+  app.put("/api/products/:id", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated() || req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Unauthorized" });
@@ -1913,7 +1913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DELETE /api/products/:id - Delete product (admin only)
-  app.delete("/api/products/:id", async (req: Request, res: Response) => {
+  app.delete("/api/products/:id", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated() || req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Unauthorized" });
@@ -1933,7 +1933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PUT /api/products/:id/stock - Update product stock (admin only)
-  app.put("/api/products/:id/stock", async (req: Request, res: Response) => {
+  app.put("/api/products/:id/stock", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated() || req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Unauthorized" });
