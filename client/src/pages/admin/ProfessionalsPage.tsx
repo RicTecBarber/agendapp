@@ -377,7 +377,7 @@ const ProfessionalsPage = () => {
   
   // Handler for opening availability management
   const handleManageAvailability = (professional: any) => {
-    navigate(`/admin/professionals/${professional.id}/availability`);
+    navigate(`/admin/professionals/${professional.id}/availability?tenant=${tenantParam}`);
   };
 
   return (
