@@ -104,12 +104,30 @@ const ProfessionalsPage = () => {
 
   // Fetch professionals
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery({
-    queryKey: ["/api/professionals"],
+    queryKey: ["/api/professionals", tenantParam],
+    queryFn: async () => {
+      console.log("Buscando profissionais para tenant:", tenantParam);
+      const response = await apiRequest("GET", "/api/professionals");
+      if (!response.ok) {
+        throw new Error("Erro ao buscar profissionais");
+      }
+      return response.json();
+    },
+    enabled: !!tenantParam,
   });
 
   // Fetch services for selection
   const { data: services, isLoading: isLoadingServices } = useQuery({
-    queryKey: ["/api/services"],
+    queryKey: ["/api/services", tenantParam],
+    queryFn: async () => {
+      console.log("Buscando serviços para tenant:", tenantParam);
+      const response = await apiRequest("GET", "/api/services");
+      if (!response.ok) {
+        throw new Error("Erro ao buscar serviços");
+      }
+      return response.json();
+    },
+    enabled: !!tenantParam,
   });
 
   // Create professional mutation
@@ -217,22 +235,28 @@ const ProfessionalsPage = () => {
       const formData = new FormData();
       formData.append('image', file);
       
-      // Adiciona o tenant como um parâmetro de consulta se disponível
-      let url = '/api/upload/professional';
-      if (tenantParam) {
-        url += `?tenant=${tenantParam}`;
-      }
+      console.log("Iniciando upload de imagem para profissional");
       
-      const res = await fetch(url, {
+      // Usar a URL direta e deixar os headers cuidarem do tenant
+      const res = await fetch('/api/upload/professional', {
         method: 'POST',
         body: formData,
+        // Adicionamos os headers padrão do apiRequest, menos o Content-Type que é definido automaticamente pelo FormData
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
       });
       
       if (!res.ok) {
-        throw new Error('Erro ao fazer upload da imagem');
+        const errorText = await res.text();
+        console.error("Erro no upload:", res.status, errorText);
+        throw new Error(`Falha ao fazer upload da imagem: ${res.status} ${errorText}`);
       }
       
-      return res.json();
+      const result = await res.json();
+      console.log("Upload de imagem concluído com sucesso:", result);
+      return result;
     },
     onError: (error: Error) => {
       toast({
