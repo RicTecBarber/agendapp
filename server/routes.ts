@@ -202,15 +202,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
       
-      // Super admin pode atualizar qualquer usuário
+      // Verificar se o usuário atual é um administrador do sistema
+      const isSuperAdmin = req.user.role === 'super_admin' || req.user.isSystemAdmin === true;
+      
+      // Verificar se o usuário que está sendo editado é um super administrador do sistema
+      const isTargetSuperAdmin = existingUser.role === 'super_admin' || existingUser.isSystemAdmin === true;
+      
+      // RESTRIÇÃO DE SEGURANÇA: Super Administrador só pode ser alterado pelo portal do Super Administrador
+      if (isTargetSuperAdmin && !req.user.isSystemAdmin) {
+        console.warn(`ALERTA DE SEGURANÇA: Tentativa de modificar super administrador a partir do ambiente de tenant. User ID: ${userId}, Solicitante: ${req.user.username}, Tenant ID: ${req.tenantId}`);
+        return res.status(403).json({ 
+          message: "Acesso negado: Usuários administradores do sistema só podem ser modificados pelo portal do sistema" 
+        });
+      }
+      
+      // Super admin pode atualizar qualquer usuário (exceto pelo caso anterior)
       // Admin só pode atualizar usuários do seu tenant
-      if (req.user.role !== 'super_admin' && existingUser.tenant_id !== req.tenantId) {
+      if (!isSuperAdmin && existingUser.tenant_id !== req.tenantId) {
         return res.status(403).json({ message: "Acesso não autorizado a este usuário" });
       }
       
       // Admin não pode promover usuários para admin
-      if (req.user.role !== 'super_admin' && userData.role === 'admin' && existingUser.role !== 'admin') {
+      if (!isSuperAdmin && userData.role === 'admin' && existingUser.role !== 'admin') {
         return res.status(403).json({ message: "Você não tem permissão para promover usuários a administradores" });
+      }
+      
+      // Administradores não podem modificar usuários para serem super administradores
+      if (!req.user.isSystemAdmin && (userData.role === 'super_admin' || userData.isSystemAdmin === true)) {
+        return res.status(403).json({ 
+          message: "Acesso negado: Você não tem permissão para criar ou promover super administradores do sistema" 
+        });
       }
       
       // Se senha for fornecida, criptografar
@@ -220,6 +241,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Se não for fornecida, manter a senha antiga
         delete userData.password;
       }
+      
+      // Registrar a edição de usuário (importante para auditoria de segurança)
+      console.log(`Edição de usuário: ID ${userId} por ${req.user.username} (${req.user.id}). Tenant: ${req.tenantId}. Role original: ${existingUser.role}, Nova role: ${userData.role || existingUser.role}`);
       
       const updatedUser = await storage.updateUser(userId, userData);
       res.json(updatedUser);
@@ -243,14 +267,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
       
-      // Super admin pode excluir qualquer usuário
+      // Verificar se o usuário atual é um administrador do sistema
+      const isSuperAdmin = req.user.role === 'super_admin' || req.user.isSystemAdmin === true;
+      
+      // Verificar se o usuário que está sendo excluído é um super administrador do sistema
+      const isTargetSuperAdmin = existingUser.role === 'super_admin' || existingUser.isSystemAdmin === true;
+      
+      // RESTRIÇÃO DE SEGURANÇA: Super Administrador só pode ser excluído pelo portal do Super Administrador
+      if (isTargetSuperAdmin && !req.user.isSystemAdmin) {
+        console.warn(`ALERTA DE SEGURANÇA: Tentativa de excluir super administrador a partir do ambiente de tenant. User ID: ${userId}, Solicitante: ${req.user.username}, Tenant ID: ${req.tenantId}`);
+        return res.status(403).json({ 
+          message: "Acesso negado: Usuários administradores do sistema só podem ser gerenciados pelo portal do sistema" 
+        });
+      }
+      
+      // Super admin pode excluir qualquer usuário (exceto pelo caso anterior)
       // Admin só pode excluir usuários do seu tenant
-      if (req.user.role !== 'super_admin' && existingUser.tenant_id !== req.tenantId) {
+      if (!isSuperAdmin && existingUser.tenant_id !== req.tenantId) {
         return res.status(403).json({ message: "Acesso não autorizado a este usuário" });
       }
       
       // Admin não pode excluir outros admins
-      if (req.user.role !== 'super_admin' && existingUser.role === 'admin') {
+      if (!isSuperAdmin && existingUser.role === 'admin') {
         return res.status(403).json({ message: "Você não tem permissão para excluir usuários administradores" });
       }
       
@@ -258,6 +296,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (userId === req.user.id) {
         return res.status(400).json({ message: "Você não pode excluir sua própria conta" });
       }
+      
+      // Registrar a exclusão de usuário (importante para auditoria de segurança)
+      console.log(`Exclusão de usuário: ID ${userId} por ${req.user.username} (${req.user.id}). Tenant: ${req.tenantId}. Role do usuário excluído: ${existingUser.role}`);
+      
       
       const deleted = await storage.deleteUser(userId);
       
