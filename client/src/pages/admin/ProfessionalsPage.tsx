@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useTenant } from "@/hooks/use-tenant";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -89,11 +90,17 @@ type ProfessionalFormValues = z.infer<typeof professionalSchema>;
 
 const ProfessionalsPage = () => {
   const { toast } = useToast();
+  const { getTenantFromUrl } = useTenant();
+  const tenantParam = getTenantFromUrl();
   const [, navigate] = useLocation();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProfessional, setSelectedProfessional] = useState<any>(null);
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [editUploadedImage, setEditUploadedImage] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
 
   // Fetch professionals
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery({
@@ -202,14 +209,129 @@ const ProfessionalsPage = () => {
     },
   });
 
+  // Upload image mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      // Adiciona o tenant como um parâmetro de consulta se disponível
+      let url = '/api/upload/professional';
+      if (tenantParam) {
+        url += `?tenant=${tenantParam}`;
+      }
+      
+      const res = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        throw new Error('Erro ao fazer upload da imagem');
+      }
+      
+      return res.json();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao fazer upload da imagem",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Image upload handler
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditForm = false) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      
+      // Verifica se o arquivo é uma imagem
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Tipo de arquivo inválido",
+          description: "Por favor, selecione uma imagem",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Limite de tamanho (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Arquivo muito grande",
+          description: "O tamanho máximo permitido é 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Criar preview da imagem
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (isEditForm) {
+          setEditUploadedImage(file);
+          setEditImagePreview(event.target?.result as string);
+        } else {
+          setUploadedImage(file);
+          setImagePreview(event.target?.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Reset image handler
+  const handleResetImage = (isEditForm = false) => {
+    if (isEditForm) {
+      setEditUploadedImage(null);
+      setEditImagePreview(null);
+      
+      // Se houver um profissional selecionado, restaura a URL da imagem
+      if (selectedProfessional?.avatar_url) {
+        editForm.setValue('avatar_url', selectedProfessional.avatar_url);
+      } else {
+        editForm.setValue('avatar_url', '');
+      }
+    } else {
+      setUploadedImage(null);
+      setImagePreview(null);
+      form.setValue('avatar_url', '');
+    }
+  };
+
   // Submit handler for create form
-  const onSubmit = (data: ProfessionalFormValues) => {
+  const onSubmit = async (data: ProfessionalFormValues) => {
+    // Se houver uma imagem selecionada, primeiro faz o upload
+    if (uploadedImage) {
+      try {
+        const uploadResult = await uploadImageMutation.mutateAsync(uploadedImage);
+        // Atualiza a URL da imagem no payload
+        data.avatar_url = uploadResult.imageUrl;
+      } catch (error) {
+        // Erro já tratado no mutation
+        return;
+      }
+    }
+    
     createProfessionalMutation.mutate(data);
   };
   
   // Submit handler for edit form
-  const onSubmitEdit = (data: ProfessionalFormValues) => {
+  const onSubmitEdit = async (data: ProfessionalFormValues) => {
     if (!selectedProfessional) return;
+    
+    // Se houver uma imagem selecionada, primeiro faz o upload
+    if (editUploadedImage) {
+      try {
+        const uploadResult = await uploadImageMutation.mutateAsync(editUploadedImage);
+        // Atualiza a URL da imagem no payload
+        data.avatar_url = uploadResult.imageUrl;
+      } catch (error) {
+        // Erro já tratado no mutation
+        return;
+      }
+    }
     
     updateProfessionalMutation.mutate({
       id: selectedProfessional.id,
@@ -414,14 +536,56 @@ const ProfessionalsPage = () => {
                 name="avatar_url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>URL da Foto (opcional)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="https://exemplo.com/foto.jpg" 
-                        {...field} 
-                        value={field.value || ""}
-                      />
-                    </FormControl>
+                    <FormLabel>Foto do Profissional (opcional)</FormLabel>
+                    <div className="space-y-4">
+                      {imagePreview ? (
+                        <div className="relative w-24 h-24 mx-auto">
+                          <img 
+                            src={imagePreview} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover rounded-md"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                            onClick={() => handleResetImage(false)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-4">
+                            <FormControl>
+                              <Input 
+                                type="file"
+                                onChange={(e) => handleImageUpload(e, false)}
+                                accept="image/*"
+                                className="hidden"
+                                id="professional-image"
+                              />
+                            </FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => document.getElementById('professional-image')?.click()}
+                              className="w-full"
+                            >
+                              Selecionar Imagem
+                            </Button>
+                          </div>
+                          <FormControl>
+                            <Input 
+                              placeholder="Ou informe a URL da imagem" 
+                              {...field} 
+                              value={field.value || ""}
+                            />
+                          </FormControl>
+                        </>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
