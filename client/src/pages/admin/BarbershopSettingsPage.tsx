@@ -44,7 +44,7 @@ const BRAZIL_TIMEZONES = [
 
 // Esquema para validação do formulário
 const barbershopSettingsSchema = z.object({
-  name: z.string().min(1, "Nome da barbearia é obrigatório"),
+  name: z.string().min(1, "Nome da empresa é obrigatório"),
   address: z.string().min(1, "Endereço é obrigatório"),
   phone: z.string().min(1, "Telefone é obrigatório"),
   email: z.string().email("Email inválido"),
@@ -263,7 +263,7 @@ export default function BarbershopSettingsPage() {
   // Se estiver carregando, mostrar spinner
   if (isLoading) {
     return (
-      <AdminLayout title="Configurações da Barbearia">
+      <AdminLayout title="Configurações da Empresa">
         <div className="flex justify-center items-center h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -275,7 +275,7 @@ export default function BarbershopSettingsPage() {
   const currentTenantName = settings?.name || tenantParam || "Desconhecido";
   
   return (
-    <AdminLayout title="Configurações da Barbearia">
+    <AdminLayout title="Configurações da Empresa">
       {/* Alerta para administradores do sistema quando não há tenant */}
       {isSystemAdmin && (
         <div className="mb-4">
@@ -400,9 +400,9 @@ export default function BarbershopSettingsPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome da Barbearia</FormLabel>
+                      <FormLabel>Nome da Empresa</FormLabel>
                       <FormControl>
-                        <Input placeholder="BarberSync" {...field} />
+                        <Input placeholder="AgendApp Serviços" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
