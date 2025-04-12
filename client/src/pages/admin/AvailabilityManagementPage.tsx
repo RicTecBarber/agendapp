@@ -93,6 +93,9 @@ const AvailabilityManagementPage = () => {
   const [selectedDay, setSelectedDay] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
+  const [lunchStart, setLunchStart] = useState<string>("");
+  const [lunchEnd, setLunchEnd] = useState<string>("");
+  const [hasLunchBreak, setHasLunchBreak] = useState<boolean>(false);
   const [isAvailable, setIsAvailable] = useState<boolean>(true);
 
   // Buscar profissional
@@ -198,6 +201,9 @@ const AvailabilityManagementPage = () => {
     setSelectedDay("");
     setStartTime("");
     setEndTime("");
+    setLunchStart("");
+    setLunchEnd("");
+    setHasLunchBreak(false);
     setIsAvailable(true);
   };
 
