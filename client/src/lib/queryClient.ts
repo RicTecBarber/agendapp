@@ -216,11 +216,10 @@ export async function apiRequest(
     const hasTenanParam = urlObj.searchParams.has('tenant');
     
     if (!hasTenanParam) {
-      // Tentar obter o tenant da URL atual
-      const currentUrl = new URL(window.location.href);
-      const tenantParam = currentUrl.searchParams.get('tenant');
+      // Usar a função aprimorada de extração de tenant
+      const tenantParam = extractTenantFromUrl(window.location.href);
       
-      // Se tivermos um tenant na URL atual, adicione-o à URL da requisição
+      // Se tivermos um tenant, adicione-o à URL da requisição
       if (tenantParam) {
         urlObj.searchParams.append('tenant', tenantParam);
         finalUrl = urlObj.toString();
@@ -237,6 +236,14 @@ export async function apiRequest(
     }
   } catch (error) {
     console.error("Erro ao processar URL com tenant:", error);
+    // Registrar mais detalhes para diagnóstico
+    console.debug("URL que causou o erro:", url);
+    console.debug("URL da janela:", window.location.href);
+    try {
+      console.debug("Tenant da URL atual:", extractTenantFromUrl(window.location.href));
+    } catch (innerError) {
+      console.error("Erro secundário ao tentar extrair tenant:", innerError);
+    }
   }
   
   // Lógica de retry com exponential backoff
@@ -308,11 +315,10 @@ export const getQueryFn: <T>(options: {
       const hasTenanParam = urlObj.searchParams.has('tenant');
       
       if (!hasTenanParam) {
-        // Tentar obter o tenant da URL atual
-        const currentUrl = new URL(window.location.href);
-        const tenantParam = currentUrl.searchParams.get('tenant');
+        // Usar a função aprimorada de extração de tenant
+        const tenantParam = extractTenantFromUrl(window.location.href);
         
-        // Se tivermos um tenant na URL atual, adicione-o à URL da requisição
+        // Se tivermos um tenant, adicione-o à URL da requisição
         if (tenantParam) {
           urlObj.searchParams.append('tenant', tenantParam);
           url = urlObj.toString();
@@ -329,6 +335,14 @@ export const getQueryFn: <T>(options: {
       }
     } catch (error) {
       console.error("Erro ao processar URL com tenant em QueryFn:", error);
+      // Registrar mais detalhes para diagnóstico
+      console.debug("QueryFn: URL que causou o erro:", url);
+      console.debug("QueryFn: URL da janela:", window.location.href);
+      try {
+        console.debug("QueryFn: Tenant da URL atual:", extractTenantFromUrl(window.location.href));
+      } catch (innerError) {
+        console.error("QueryFn: Erro secundário ao tentar extrair tenant:", innerError);
+      }
     }
     
     // Em dispositivos de baixo desempenho, tentar buscar do cache primeiro

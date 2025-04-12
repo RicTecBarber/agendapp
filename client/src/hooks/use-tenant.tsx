@@ -131,24 +131,28 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   // Função para garantir que o tenant está definido
   const ensureTenant = (): boolean => {
-    const currentTenant = tenant || getTenantFromUrl();
+    // Tentar obter o tenant de várias fontes
+    const currentTenant = tenant || extractTenantFromUrl() || localStorage.getItem('lastTenant');
     
     if (!currentTenant) {
-      const lastTenant = localStorage.getItem('lastTenant');
+      console.warn('Nenhum tenant identificado em nenhuma fonte (URL, estado ou localStorage)');
+      return false;
+    }
+    
+    // Se o tenant não estiver na URL, mas existir em outra fonte, redirecionar
+    const tenantInUrl = extractTenantFromUrl();
+    if (!tenantInUrl && currentTenant) {
+      console.log(`Tenant não está na URL, redirecionando com tenant=${currentTenant}`);
       
-      if (lastTenant) {
-        // Redireciona para a mesma URL, mas com o tenant do localStorage
-        const path = window.location.pathname + window.location.search;
-        const hasParams = path.includes('?');
-        const redirectUrl = hasParams 
-          ? `${path}&tenant=${lastTenant}`
-          : `${path}?tenant=${lastTenant}`;
-        
-        window.location.href = redirectUrl;
-        return false;
-      }
+      // Redireciona para a mesma URL, mas com o tenant
+      const path = window.location.pathname + window.location.search;
+      const hasParams = path.includes('?');
+      const redirectUrl = hasParams 
+        ? `${path}&tenant=${currentTenant}`
+        : `${path}?tenant=${currentTenant}`;
       
-      // Se não tiver um tenant no localStorage, retorna false
+      // Usar navigate para manter o contexto React
+      navigate(redirectUrl);
       return false;
     }
     
@@ -157,7 +161,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   // Função para redirecionar mantendo o tenant
   const redirectWithTenant = (path: string) => {
-    navigate(getUrlWithTenant(path));
+    const urlWithTenant = getUrlWithTenant(path);
+    console.log(`Redirecionando para: ${urlWithTenant} (de: ${path})`);
+    navigate(urlWithTenant);
   };
 
   return (
