@@ -429,15 +429,21 @@ function ProductsPage() {
   // Handler para adicionar produto
   const handleAddProduct = async (data: any) => {
     try {
+      console.log("Iniciando adição de produto com dados:", JSON.stringify(data));
+      
       // Faz upload da imagem, se houver
       if (data.image && data.image.length > 0) {
         const file = data.image[0];
+        console.log("Imagem encontrada para upload:", file.name);
         
         // Processar upload da imagem
         const uploadResult = await uploadImageMutation.mutateAsync(file);
+        console.log("Upload concluído com resultado:", uploadResult);
         
         // Atualiza a URL da imagem com o resultado do upload
         data.image_url = uploadResult.url;
+      } else {
+        console.log("Nenhuma imagem para upload");
       }
       
       // Remove o campo 'image' antes de enviar ao backend
@@ -445,14 +451,19 @@ function ProductsPage() {
       
       // Adiciona tenant_id aos dados do produto
       const tenantId = tenant ? Number(tenant) : null;
+      console.log("Tenant ID para o produto:", tenantId);
+      
       const productDataWithTenant = {
         ...productData,
         tenant_id: tenantId
       };
       
+      console.log("Enviando dados do produto:", JSON.stringify(productDataWithTenant));
+      
       // Enviar dados do produto
       addProductMutation.mutate(productDataWithTenant);
     } catch (error: any) {
+      console.error("Erro ao processar adição de produto:", error);
       toast({
         title: "Erro ao adicionar produto",
         description: error.message,
@@ -466,15 +477,21 @@ function ProductsPage() {
     if (!editProduct) return;
     
     try {
+      console.log("Iniciando atualização de produto:", editProduct.id, JSON.stringify(data));
+      
       // Faz upload da imagem, se houver uma nova imagem
       if (data.image && data.image.length > 0) {
         const file = data.image[0];
+        console.log("Nova imagem encontrada para upload:", file.name);
         
         // Processar upload da imagem
         const uploadResult = await uploadImageMutation.mutateAsync(file);
+        console.log("Upload concluído com resultado:", uploadResult);
         
         // Atualiza a URL da imagem com o resultado do upload
         data.image_url = uploadResult.url;
+      } else {
+        console.log("Mantendo imagem existente:", data.image_url);
       }
       
       // Remove o campo 'image' antes de enviar ao backend
@@ -482,14 +499,19 @@ function ProductsPage() {
       
       // Adiciona tenant_id aos dados do produto
       const tenantId = tenant ? Number(tenant) : null;
+      console.log("Tenant ID para o produto:", tenantId);
+      
       const productDataWithTenant = {
         ...productData,
         tenant_id: tenantId
       };
       
+      console.log("Enviando dados atualizados:", JSON.stringify(productDataWithTenant));
+      
       // Enviar dados do produto atualizado
       updateProductMutation.mutate({ id: editProduct.id, data: productDataWithTenant });
     } catch (error: any) {
+      console.error("Erro ao atualizar produto:", error);
       toast({
         title: "Erro ao atualizar produto",
         description: error.message,
@@ -502,6 +524,7 @@ function ProductsPage() {
   const handleDeleteProduct = (id: number) => {
     if (confirm("Tem certeza que deseja excluir este produto?")) {
       const tenantId = tenant ? Number(tenant) : null;
+      console.log("Excluindo produto:", id, "do tenant:", tenantId);
       deleteProductMutation.mutate({id, tenant_id: tenantId});
     }
   };
