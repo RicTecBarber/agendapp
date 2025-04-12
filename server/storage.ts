@@ -61,7 +61,7 @@ export interface IStorage {
   useReward(clientPhone: string): Promise<ClientReward | undefined>;
   
   // Barbershop Settings operations
-  getBarbershopSettings(): Promise<BarbershopSettings>;
+  getBarbershopSettings(tenantId?: number | null): Promise<BarbershopSettings | undefined>;
   createBarbershopSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings>;
   updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings>;
   
@@ -636,20 +636,34 @@ export class MemStorage implements IStorage {
   }
   
   // Barbershop Settings operations
-  async getBarbershopSettings(): Promise<BarbershopSettings> {
+  async getBarbershopSettings(tenantId?: number | null): Promise<BarbershopSettings | undefined> {
+    // Se temos configurações E um tenantId fornecido, verificar se corresponde
+    if (this.barbershopSettings && tenantId !== undefined) {
+      // Se as configurações não pertencem ao tenant solicitado, retornar undefined
+      if (this.barbershopSettings.tenant_id !== tenantId) {
+        return undefined;
+      }
+      return this.barbershopSettings;
+    }
+    
+    // Se não temos configurações OU não foi fornecido um tenantId, retornar as configurações existentes
     if (!this.barbershopSettings) {
       // Inicializar configurações com valores padrão se ainda não existirem
+      // Se foi fornecido um tenantId, incluí-lo nas configurações padrão
       return this.createBarbershopSettings({
         name: "BarberSync",
         address: "Rua Exemplo, 123",
         phone: "(11) 99999-9999",
         email: "contato@barbersync.com",
+        timezone: "America/Sao_Paulo",
         open_time: "08:00",
         close_time: "20:00",
         open_days: [1, 2, 3, 4, 5, 6],
-        description: "A melhor barbearia da cidade"
+        description: "A melhor barbearia da cidade",
+        tenant_id: tenantId || null
       });
     }
+    
     return this.barbershopSettings;
   }
   
