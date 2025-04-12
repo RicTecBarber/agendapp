@@ -114,7 +114,7 @@ const ProfessionalsPage = () => {
 
   // Create professional mutation
   const createProfessionalMutation = useMutation({
-    mutationFn: async (data: InsertProfessional) => {
+    mutationFn: async (data: InsertProfessional & { tenant_id?: number }) => {
       const res = await apiRequest("POST", "/api/professionals", data);
       return res.json();
     },
