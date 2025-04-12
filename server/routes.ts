@@ -1873,7 +1873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               tenant_id: req.tenantId
             };
             
-            const newSettings = await storage.createBarbershopSettings(defaultSettings);
+            const newSettings = await storage.createBusinessSettings(defaultSettings);
             return res.json(newSettings);
           } catch (err) {
             console.error("Erro ao criar configurações padrão:", err);
