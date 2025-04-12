@@ -262,7 +262,7 @@ const ServicesPage = () => {
     const { image, ...dataToSubmit } = formData;
     
     // Adiciona o tenant_id 
-    const tenantId = tenant ? Number(tenant) : null;
+    const tenantId = tenantParam ? Number(tenantParam) : null;
     const dataWithTenant = {
       ...dataToSubmit,
       tenant_id: tenantId
@@ -319,7 +319,7 @@ const ServicesPage = () => {
   const confirmDelete = () => {
     if (serviceToDelete) {
       // Usando tenant_id do tenant atual
-      const tenantId = tenant ? Number(tenant) : null;
+      const tenantId = tenantParam ? Number(tenantParam) : null;
       deleteServiceMutation.mutate({
         id: serviceToDelete.id,
         tenant_id: tenantId
