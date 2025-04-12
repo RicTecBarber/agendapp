@@ -726,18 +726,31 @@ export class MemStorage implements IStorage {
   
   // Seed initial data for development
   // Product operations
-  async getAllProducts(): Promise<Product[]> {
-    return Array.from(this.products.values());
+  async getAllProducts(tenantId?: number | null): Promise<Product[]> {
+    const products = Array.from(this.products.values());
+    if (tenantId !== undefined) {
+      console.log(`Filtrando produtos para o tenant ${tenantId}`);
+      return products.filter(product => product.tenant_id === tenantId);
+    }
+    return products;
   }
   
   async getProduct(id: number): Promise<Product | undefined> {
     return this.products.get(id);
   }
   
-  async getProductsByCategory(category: string): Promise<Product[]> {
-    return Array.from(this.products.values()).filter(
-      product => product.category === category
-    );
+  async getProductsByCategory(category: string, tenantId?: number | null): Promise<Product[]> {
+    const products = Array.from(this.products.values());
+    
+    // Primeiro filtra pela categoria
+    let filteredProducts = products.filter(product => product.category === category);
+    
+    // Se tenantId foi fornecido, filtra também pelo tenant
+    if (tenantId !== undefined) {
+      filteredProducts = filteredProducts.filter(product => product.tenant_id === tenantId);
+    }
+    
+    return filteredProducts;
   }
   
   async createProduct(productData: InsertProduct): Promise<Product> {
@@ -795,8 +808,15 @@ export class MemStorage implements IStorage {
   }
   
   // Order (Comanda) operations
-  async getAllOrders(): Promise<Order[]> {
-    return Array.from(this.orders.values());
+  async getAllOrders(tenantId?: number | null): Promise<Order[]> {
+    const orders = Array.from(this.orders.values());
+    
+    // Se tenantId foi fornecido, filtra os resultados
+    if (tenantId !== undefined) {
+      return orders.filter(order => order.tenant_id === tenantId);
+    }
+    
+    return orders;
   }
   
   async getOrdersByAppointmentId(appointmentId: number): Promise<Order[]> {

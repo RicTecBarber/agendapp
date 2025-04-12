@@ -1733,16 +1733,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products", async (req: Request, res: Response) => {
     try {
       console.log("GET /api/products - Requisição recebida para tenant_id:", req.tenantId);
-      let products = await storage.getAllProducts();
       
-      console.log(`Total de produtos na base: ${products.length}`);
-      console.log("Produtos antes do filtro:", products.map(p => ({id: p.id, name: p.name, tenant_id: p.tenant_id})));
+      // Usar a função atualizada que aceita filtro de tenant
+      const products = await storage.getAllProducts(req.tenantId);
       
-      // Filtrar produtos pelo tenant atual
-      products = products.filter(p => p.tenant_id === req.tenantId);
-      
-      console.log(`Produtos filtrados para tenant ${req.tenantId}: ${products.length}`);
-      console.log("Produtos após filtro:", products.map(p => ({id: p.id, name: p.name, tenant_id: p.tenant_id})));
+      console.log(`Produtos para tenant ${req.tenantId}: ${products.length}`);
+      console.log("Lista de produtos:", products.map(p => ({id: p.id, name: p.name, tenant_id: p.tenant_id})));
       
       res.json(products);
     } catch (error) {
@@ -1754,10 +1750,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/products/categories - Get all distinct product categories
   app.get("/api/products/categories", async (req: Request, res: Response) => {
     try {
-      let products = await storage.getAllProducts();
-      
-      // Filtrar produtos pelo tenant atual
-      products = products.filter(p => p.tenant_id === req.tenantId);
+      // Usar a função atualizada que aceita filtro de tenant
+      const products = await storage.getAllProducts(req.tenantId);
       
       // Extract unique categories
       const categories = [...new Set(products.map(p => p.category))];
@@ -1788,10 +1782,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products/category/:category", async (req: Request, res: Response) => {
     try {
       const category = req.params.category;
-      let products = await storage.getProductsByCategory(category);
-      
-      // Filtrar produtos pelo tenant atual
-      products = products.filter(p => p.tenant_id === req.tenantId);
+      // Usar a função atualizada que aceita filtro de tenant
+      const products = await storage.getProductsByCategory(category, req.tenantId);
       
       res.json(products);
     } catch (error) {
@@ -1817,7 +1809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verificar se podemos recuperar o produto recém-criado
       const allProducts = await storage.getAllProducts();
-      const tenantProducts = allProducts.filter(p => p.tenant_id === req.tenantId);
+      const tenantProducts = await storage.getAllProducts(req.tenantId);
       console.log(`Total de produtos cadastrados: ${allProducts.length}, produtos deste tenant: ${tenantProducts.length}`);
       
       res.status(201).json(product);
@@ -1909,10 +1901,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //   return res.status(403).json({ message: "Unauthorized" });
       // }
       
-      let orders = await storage.getAllOrders();
-      
-      // Filtrar ordens pelo tenant atual
-      orders = orders.filter(o => o.tenant_id === req.tenantId);
+      // Atualizar a função para usar o filtro de tenant
+      const orders = await storage.getAllOrders(req.tenantId);
       
       res.json(orders);
     } catch (error) {
