@@ -41,6 +41,7 @@ export interface IStorage {
   
   // Availability operations
   getAvailabilityByProfessionalId(professionalId: number): Promise<Availability[]>;
+  getAvailabilityById(id: number): Promise<Availability | undefined>;
   createAvailability(availability: InsertAvailability): Promise<Availability>;
   updateAvailability(id: number, availability: Partial<InsertAvailability>): Promise<Availability | undefined>;
   deleteAvailability(id: number): Promise<boolean>;
@@ -380,6 +381,10 @@ export class MemStorage implements IStorage {
     this._professionalAvailabilityCache.set(professionalId, results);
     
     return results;
+  }
+  
+  async getAvailabilityById(id: number): Promise<Availability | undefined> {
+    return this.availability.get(id);
   }
   
   async createAvailability(availabilityData: InsertAvailability): Promise<Availability> {
