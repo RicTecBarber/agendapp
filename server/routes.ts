@@ -818,15 +818,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filtrar apenas agendamentos da data específica e que não estejam cancelados
       const dateAppointments = appointments.filter(app => {
         const appDate = new Date(app.appointment_date);
-        return (
+        const isSameDate = (
           appDate.getFullYear() === dateObj.getFullYear() &&
           appDate.getMonth() === dateObj.getMonth() &&
-          appDate.getDate() === dateObj.getDate() &&
-          app.status !== 'cancelled'
+          appDate.getDate() === dateObj.getDate()
         );
+        const isActiveStatus = app.status !== 'cancelled';
+        
+        // Log detalhado para debug
+        if (isSameDate) {
+          console.log(`Agendamento #${app.id} na data ${dateStr}: status=${app.status}, hora=${appDate.getHours()}:${appDate.getMinutes()}, cliente=${app.client_name}`);
+        }
+        
+        return isSameDate && isActiveStatus;
       });
       
-      console.log(`Agendamentos para a data: ${dateAppointments.length}`);
+      console.log(`Agendamentos ativos para a data ${dateStr}: ${dateAppointments.length}`);
       
       // Extrair horários já agendados
       const bookedSlots = dateAppointments.map(app => {

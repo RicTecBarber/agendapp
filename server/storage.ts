@@ -489,9 +489,24 @@ export class MemStorage implements IStorage {
   }
   
   async getAppointmentsByProfessionalId(professionalId: number): Promise<Appointment[]> {
-    return Array.from(this.appointments.values()).filter(
-      appointment => appointment.professional_id === professionalId
-    );
+    console.log(`Buscando agendamentos para o profissional ID: ${professionalId}`);
+    
+    // Filtragem com log detalhado para diagnóstico
+    const appointments = Array.from(this.appointments.values()).filter(appointment => {
+      const isMatch = appointment.professional_id === professionalId;
+      
+      if (isMatch) {
+        // Log detalhado com data e status para verificar se estamos considerando todos os agendamentos
+        const appointmentDate = new Date(appointment.appointment_date);
+        console.log(`Encontrado agendamento #${appointment.id} para o profissional ${professionalId}: ${appointmentDate.toLocaleString()} | Status: ${appointment.status}`);
+      }
+      
+      return isMatch;
+    });
+    
+    console.log(`Total de agendamentos encontrados para o profissional ${professionalId}: ${appointments.length}`);
+    
+    return appointments;
   }
   
   async getAppointmentsByClientPhone(clientPhone: string): Promise<Appointment[]> {
