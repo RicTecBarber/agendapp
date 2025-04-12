@@ -295,9 +295,9 @@ function ProductsPage() {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["/api/products", tenant],
     queryFn: async () => {
-      const url = tenant ? `/api/products?tenant=${tenant}` : "/api/products";
-      console.log("Buscando produtos com URL:", url);
-      const response = await fetch(url);
+      console.log("Buscando produtos para tenant:", tenant);
+      // Usar apiRequest para manter o contexto do tenant
+      const response = await apiRequest("GET", "/api/products");
       if (!response.ok) {
         throw new Error("Erro ao buscar produtos");
       }
@@ -312,9 +312,9 @@ function ProductsPage() {
   const { data: categories = [] } = useQuery({
     queryKey: ["/api/products/categories", tenant],
     queryFn: async () => {
-      const url = tenant ? `/api/products/categories?tenant=${tenant}` : "/api/products/categories";
-      console.log("Buscando categorias com URL:", url);
-      const response = await fetch(url);
+      console.log("Buscando categorias para tenant:", tenant);
+      // Usar apiRequest para manter o contexto do tenant
+      const response = await apiRequest("GET", "/api/products/categories");
       if (!response.ok) {
         throw new Error("Erro ao buscar categorias");
       }
@@ -399,15 +399,19 @@ function ProductsPage() {
         const formData = new FormData();
         formData.append("image", file);
         
-        // Usar o endpoint correto e incluir o parâmetro de tenant na URL
-        const endpoint = tenant ? `/api/upload/product?tenant=${tenant}` : '/api/upload/product';
-        console.log("Enviando para:", endpoint);
+        // Usar a URL direta e deixar os headers cuidarem do tenant
+        console.log("Enviando upload para: /api/upload/product");
         
-        const response = await fetch(endpoint, {
+        const response = await fetch('/api/upload/product', {
           method: "POST",
           // Importante: não definir o Content-Type ao enviar FormData
           // O navegador configurará automaticamente o boundary correto
           body: formData,
+          // Adicionamos os headers padrão do apiRequest, menos o Content-Type que é definido automaticamente pelo FormData
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
         });
         
         if (!response.ok) {
