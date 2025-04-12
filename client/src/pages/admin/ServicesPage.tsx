@@ -321,32 +321,67 @@ const ServicesPage = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {services?.map((service: any) => (
-            <Card key={service.id}>
-              <CardHeader>
+            <Card key={service.id} className="overflow-hidden">
+              {service.image_url ? (
+                <div className="w-full h-40 relative">
+                  <img 
+                    src={service.image_url} 
+                    alt={service.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-2 right-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="sm" className="shadow-md opacity-90 hover:opacity-100">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleEditClick(service)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-red-600"
+                          onClick={() => handleDeleteClick(service)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ) : null}
+              <CardHeader className={service.image_url ? "pt-3" : ""}>
                 <div className="flex justify-between items-start">
                   <CardTitle>{service.name}</CardTitle>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleEditClick(service)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-red-600"
-                        onClick={() => handleDeleteClick(service)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {!service.image_url && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleEditClick(service)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-red-600"
+                          onClick={() => handleDeleteClick(service)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
                 <CardDescription>{service.description}</CardDescription>
               </CardHeader>
@@ -557,12 +592,23 @@ const ServicesPage = () => {
           </AlertDialogHeader>
           {serviceToDelete && (
             <div className="py-4">
-              <div className="p-4 border rounded-lg">
-                <h3 className="font-medium">{serviceToDelete.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{serviceToDelete.description}</p>
-                <div className="mt-2 text-sm flex justify-between">
-                  <span>R$ {serviceToDelete.price.toFixed(2)}</span>
-                  <span>{serviceToDelete.duration} minutos</span>
+              <div className="p-4 border rounded-lg space-y-3">
+                {serviceToDelete.image_url && (
+                  <div className="w-full h-32 rounded-md overflow-hidden">
+                    <img 
+                      src={serviceToDelete.image_url} 
+                      alt={serviceToDelete.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-medium">{serviceToDelete.name}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{serviceToDelete.description}</p>
+                  <div className="mt-2 text-sm flex justify-between">
+                    <span>R$ {serviceToDelete.price.toFixed(2)}</span>
+                    <span>{serviceToDelete.duration} minutos</span>
+                  </div>
                 </div>
               </div>
             </div>
