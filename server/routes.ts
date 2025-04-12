@@ -277,10 +277,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/services - Get all services (filtered by tenant)
   app.get("/api/services", async (req: Request, res: Response) => {
     try {
-      // Filtrar por tenant_id
+      // Filtrar por tenant_id - Garantir que o tenantId seja explicitamente passado
+      // Adicionar logs para depuração
+      console.log("GET /api/services - req.tenantId:", req.tenantId, "origin:", req.get('origin'), "referer:", req.get('referer'));
+      
+      if (req.tenantId === null || req.tenantId === undefined) {
+        console.warn(`Requisição para /api/services sem tenant_id definido. Query params: ${JSON.stringify(req.query)}`);
+        
+        // Se não houver tenant_id, retornar um erro para evitar vazamento de dados
+        return res.status(400).json({ 
+          message: "Tenant não especificado na requisição", 
+          details: "É necessário especificar um tenant para acessar serviços"
+        });
+      }
+      
       const services = await storage.getAllServices(req.tenantId);
+      console.log(`Retornando ${services.length} serviços para o tenant ${req.tenantId}`);
       res.json(services);
     } catch (error) {
+      console.error("Erro ao buscar serviços:", error);
       res.status(500).json({ message: "Failed to get services" });
     }
   });
@@ -288,15 +303,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/services/:id - Get service by id
   app.get("/api/services/:id", async (req: Request, res: Response) => {
     try {
-      const serviceId = parseInt(req.params.id);
-      const service = await storage.getService(serviceId);
+      console.log(`GET /api/services/${req.params.id} - req.tenantId: ${req.tenantId}`, "query params:", req.query);
       
-      if (!service) {
-        return res.status(404).json({ message: "Service not found" });
+      if (req.tenantId === null || req.tenantId === undefined) {
+        console.warn(`Requisição para /api/services/${req.params.id} sem tenant_id definido.`);
+        
+        // Se não houver tenant_id, retornar um erro para evitar vazamento de dados
+        return res.status(400).json({ 
+          message: "Tenant não especificado na requisição", 
+          details: "É necessário especificar um tenant para acessar serviços"
+        });
       }
       
+      const serviceId = parseInt(req.params.id);
+      // Passar explicitamente o tenant_id para filtrar serviços apenas desse tenant
+      const service = await storage.getService(serviceId, req.tenantId);
+      
+      if (!service) {
+        return res.status(404).json({ message: "Service not found or doesn't belong to this tenant" });
+      }
+      
+      console.log(`Retornando serviço ${serviceId} do tenant ${req.tenantId}:`, service.name);
       res.json(service);
     } catch (error) {
+      console.error(`Erro ao buscar serviço:`, error);
       res.status(500).json({ message: "Failed to get service" });
     }
   });
@@ -327,8 +357,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const serviceId = parseInt(req.params.id);
       
       // Verificar se o serviço existe e pertence ao tenant atual
-      const existingService = await storage.getService(serviceId);
-      if (!existingService || existingService.tenant_id !== req.tenantId) {
+      // Passar explicitamente o tenant_id para filtrar serviços apenas desse tenant
+      const existingService = await storage.getService(serviceId, req.tenantId);
+      if (!existingService) {
         return res.status(404).json({ message: "Service not found or doesn't belong to this tenant" });
       }
       
@@ -356,8 +387,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const serviceId = parseInt(req.params.id);
       
       // Verificar se o serviço existe e pertence ao tenant atual
-      const existingService = await storage.getService(serviceId);
-      if (!existingService || existingService.tenant_id !== req.tenantId) {
+      // Passar explicitamente o tenant_id para filtrar serviços apenas desse tenant
+      const existingService = await storage.getService(serviceId, req.tenantId);
+      if (!existingService) {
         return res.status(404).json({ message: "Service not found or doesn't belong to this tenant" });
       }
       
