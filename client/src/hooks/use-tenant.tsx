@@ -1,6 +1,17 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
+// Função para extrair o tenant da URL (exportada para uso direto)
+export function getTenantFromUrl(): string | null {
+  try {
+    const url = new URL(window.location.href);
+    return url.searchParams.get('tenant');
+  } catch (error) {
+    console.error("Erro ao extrair o tenant da URL:", error);
+    return null;
+  }
+}
+
 interface TenantContextType {
   tenant: string | null;
   setTenant: (tenant: string | null) => void;
