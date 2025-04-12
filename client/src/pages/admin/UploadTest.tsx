@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AdminLayout } from "@/components/layout/AdminLayout";
+import AdminLayout from "@/components/layout/AdminLayout";
 import { toast } from "@/hooks/use-toast";
 
 function UploadTest() {

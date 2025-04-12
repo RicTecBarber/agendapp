@@ -30,6 +30,7 @@ import BarbershopSettingsPage from "@/pages/admin/BarbershopSettingsPage";
 import ProductsPage from "@/pages/admin/ProductsPage";
 import OrdersPage from "@/pages/admin/OrdersPage";
 import CreateOrderPage from "@/pages/admin/CreateOrderPage";
+import UploadTest from "@/pages/admin/UploadTest";
 
 // System Admin Pages
 import SystemAuthPage from "@/pages/system/SystemAuthPage";
@@ -67,6 +68,7 @@ function Router() {
       <ProtectedRoute path="/admin/products" component={ProductsPage} />
       <ProtectedRoute path="/admin/orders" component={OrdersPage} />
       <ProtectedRoute path="/admin/orders/new" component={CreateOrderPage} />
+      <Route path="/admin/upload-test" component={UploadTest} />
       
       {/* System Admin Routes */}
       <Route path="/system/auth" component={SystemAuthPage} />

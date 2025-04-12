@@ -8,6 +8,7 @@ import { storage } from './storage';
 import { setupAuth, hashPassword } from './auth';
 import passport from 'passport';
 import path from 'path';
+import fs from 'fs';
 import { uploadProduct, uploadProfessional, uploadService } from "./upload";
 import { 
   isSystemAdmin, isAdmin, applyTenantId, requireTenant 
@@ -379,6 +380,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/test-upload", uploadProduct.single('image'), (req: Request, res: Response) => {
     try {
       console.log("Teste de upload - Headers:", req.headers);
+      console.log("Teste de upload - Body:", req.body);
+      console.log("Teste de upload - File:", req.file);
+      
+      // Verificar se diretórios existem
+      const uploadDir = path.join(process.cwd(), "uploads", "products");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+        console.log(`Diretório criado: ${uploadDir}`);
+      } else {
+        console.log(`Diretório já existe: ${uploadDir}`);
+      }
       
       if (!req.file) {
         console.error("Nenhum arquivo encontrado na requisição de teste");
@@ -392,6 +404,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mimetype: req.file.mimetype,
         path: req.file.path
       });
+      
+      // Verificar se o arquivo foi salvo corretamente
+      try {
+        const stats = fs.statSync(req.file.path);
+        console.log("Arquivo salvo com sucesso, tamanho:", stats.size);
+      } catch (e) {
+        console.error("Erro ao verificar o arquivo:", e);
+      }
       
       // Cria a URL do arquivo
       const fileUrl = `/uploads/products/${req.file.filename}`;
@@ -407,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Erro no teste de upload:", error);
-      res.status(500).json({ message: "Erro no teste de upload" });
+      res.status(500).json({ message: "Erro no teste de upload", error: String(error) });
     }
   });
 
