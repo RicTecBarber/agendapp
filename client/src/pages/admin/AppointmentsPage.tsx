@@ -1044,12 +1044,27 @@ const filteredAppointments = appointments?.filter((appointment: any) => {
                           <>
                             <p className="font-semibold">Nenhum horário disponível nesta data</p>
                             <p className="text-xs mt-1 text-gray-500">{availability.message}</p>
-                            <p className="text-xs mt-2">Motivo: O profissional não possui disponibilidade configurada para este dia. Acesse a página de Disponibilidade para configurar.</p>
+                            <p className="text-xs mt-2">Motivo: O profissional não possui disponibilidade configurada para este dia ou todos os horários já estão ocupados.</p>
                           </>
                         ) : (
                           "Nenhum horário disponível nesta data"
                         )}
                       </span>
+                      {/* Mostrar informações sobre conflitos se houver */}
+                      {availability && availability.debug_info && availability.debug_info.slot_details && (
+                        <div className="mt-3 border-t pt-2">
+                          <p className="text-xs font-semibold text-amber-600">Horários com agendamentos existentes:</p>
+                          <div className="mt-1 grid grid-cols-3 gap-1 max-h-32 overflow-y-auto">
+                            {availability.debug_info.slot_details
+                              .filter((slot: any) => !slot.available && slot.conflicts && slot.conflicts.length > 0)
+                              .map((slot: any, index: number) => (
+                                <div key={index} className="text-xs py-1 px-2 bg-red-50 text-red-800 rounded">
+                                  {slot.time} {slot.conflicts && `(ID: ${slot.conflicts.join(', ')})`}
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   
@@ -1079,6 +1094,34 @@ const filteredAppointments = appointments?.filter((appointment: any) => {
                       {selectedTime && (
                         <div className="mt-3 p-2 bg-blue-50 text-blue-700 rounded border border-blue-200">
                           Horário selecionado: <strong>{selectedTime}</strong>
+                        </div>
+                      )}
+                      
+                      {/* Mostrar informações sobre conflitos mesmo se houver slots disponíveis */}
+                      {availability && availability.debug_info && availability.debug_info.slot_details && (
+                        <div className="mt-3 border-t pt-2">
+                          <div className="flex items-center">
+                            <p className="text-xs font-semibold text-amber-600 mr-2">Horários já agendados nesta data:</p>
+                            <span className="text-xs text-gray-500">(não aparecem na lista acima)</span>
+                          </div>
+                          
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {availability.debug_info.slot_details
+                              .filter((slot: any) => !slot.available && slot.conflicts && slot.conflicts.length > 0)
+                              .map((slot: any, index: number) => (
+                                <div key={index} className="text-xs py-1 px-2 bg-red-50 text-red-800 rounded">
+                                  <span className="mr-1">{slot.time}</span>
+                                  <span className="text-gray-400 text-[10px]">#{slot.conflicts.join(', ')}</span>
+                                </div>
+                              ))}
+                              
+                            {availability.debug_info.slot_details.filter((slot: any) => 
+                              !slot.available && slot.conflicts && slot.conflicts.length > 0).length === 0 && (
+                              <div className="text-xs py-1 px-2 bg-green-50 text-green-700 rounded">
+                                Nenhum agendamento existente para esta data
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
