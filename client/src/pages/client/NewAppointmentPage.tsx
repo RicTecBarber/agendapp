@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { createUtcDateFromLocalTime } from "@/lib/timezone-utils";
+import { useTenant } from "@/hooks/use-tenant";
 import { 
   Card, 
   CardContent 
@@ -51,25 +52,28 @@ const NewAppointmentPage = () => {
   const [appointment, setAppointment] = useState<any>(null);
   const [isRewardRedemption, setIsRewardRedemption] = useState(false);
   
+  // Obter o tenant atual
+  const { tenant, getUrlWithTenant } = useTenant();
+  
   // Query for services
   const { data: services, isLoading: isLoadingServices } = useQuery({
-    queryKey: ["/api/services"],
+    queryKey: ["/api/services", tenant],
   });
   
   // Query for professionals based on selected service
   const { data: professionals, isLoading: isLoadingProfessionals } = useQuery({
-    queryKey: [`/api/professionals/service/${selectedService?.id}`],
+    queryKey: [`/api/professionals/service/${selectedService?.id}`, tenant],
     enabled: !!selectedService?.id,
   });
   
   // Query for loyalty data
   const { data: loyaltyData, isLoading: isLoadingLoyalty } = useQuery<LoyaltyData>({
-    queryKey: ["/api/loyalty", clientPhone],
+    queryKey: ["/api/loyalty", clientPhone, tenant],
     enabled: !!clientPhone && currentStep === "info",
     queryFn: async () => {
       if (!clientPhone) throw new Error("Telefone não informado");
       try {
-        const response = await apiRequest("POST", "/api/loyalty/lookup", { client_phone: clientPhone });
+        const response = await apiRequest("POST", "/api/loyalty/lookup", { client_phone: clientPhone, tenant_id: tenant });
         return await response.json();
       } catch (error) {
         console.error("Erro ao buscar fidelidade:", error);
@@ -81,20 +85,26 @@ const NewAppointmentPage = () => {
   // Mutation to create appointment
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
-      const res = await apiRequest("POST", "/api/appointments", appointmentData);
+      // Adicionar tenant_id aos dados do agendamento
+      const appointmentWithTenant = {
+        ...appointmentData,
+        tenant_id: tenant
+      };
+      
+      const res = await apiRequest("POST", "/api/appointments", appointmentWithTenant);
       return await res.json();
     },
     onSuccess: (data) => {
       setAppointment(data);
       setCurrentStep("confirmation");
       // Invalidar consultas para atualizar dados
-      queryClient.invalidateQueries({ queryKey: ["/api/loyalty", clientPhone] });
+      queryClient.invalidateQueries({ queryKey: ["/api/loyalty", clientPhone, tenant] });
       
       // Invalidar a consulta de disponibilidade para que os horários sejam atualizados
       if (selectedDate && selectedProfessional) {
         const formattedDate = format(selectedDate, "yyyy-MM-dd");
         queryClient.invalidateQueries({ 
-          queryKey: [`/api/availability/${selectedProfessional.id}/${formattedDate}`] 
+          queryKey: [`/api/availability/${selectedProfessional.id}/${formattedDate}`, tenant] 
         });
       }
     },
@@ -110,8 +120,8 @@ const NewAppointmentPage = () => {
   // Query para buscar horários disponíveis
   const { data: availabilityData, isLoading: isLoadingAvailability } = useQuery({
     queryKey: selectedDate && selectedProfessional 
-      ? [`/api/availability/${selectedProfessional.id}/${format(selectedDate, "yyyy-MM-dd")}`]
-      : ['no-availability'],
+      ? [`/api/availability/${selectedProfessional.id}/${format(selectedDate, "yyyy-MM-dd")}`, tenant]
+      : ['no-availability', tenant],
     enabled: !!(selectedDate && selectedProfessional),
     staleTime: 0, // Não armazenar em cache para sempre garantir dados atualizados
     refetchOnWindowFocus: true, // Recarregar quando o usuário volta para a janela
