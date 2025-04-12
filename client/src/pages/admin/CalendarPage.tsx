@@ -477,8 +477,8 @@ const CalendarPage = () => {
     }
   };
   
-  // Verificar se o usuário é admin ou profissional para mostrar ou não o seletor de profissional
-  const showProfessionalSelector = currentUser?.role === 'admin';
+  // Permitir que todos os usuários possam filtrar por profissional
+  const showProfessionalSelector = true;
 
   return (
     <div className="container mx-auto py-6">
