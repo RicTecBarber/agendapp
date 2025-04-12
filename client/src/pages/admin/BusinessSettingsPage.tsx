@@ -84,9 +84,9 @@ export default function BusinessSettingsPage() {
   const [location] = useLocation();
   const tenantParam = getTenantFromUrl(location);
   
-  // Buscar configurações da barbearia
+  // Buscar configurações da empresa
   const { data: settings, isLoading, error } = useQuery<any, Error>({
-    queryKey: ["/api/barbershop-settings", tenantParam],
+    queryKey: ["/api/business-settings", tenantParam],
     // Usar o getQueryFn padrão configurado no setup do queryClient
   });
   
@@ -181,8 +181,8 @@ export default function BusinessSettingsPage() {
       
       // Adiciona o parâmetro tenant à URL, se existir
       const url = tenantParam
-        ? `/api/barbershop-settings?tenant=${tenantParam}`
-        : `/api/barbershop-settings`;
+        ? `/api/business-settings?tenant=${tenantParam}`
+        : `/api/business-settings`;
       
       const response = await apiRequest("POST", url, data);
       return response.json();
@@ -192,7 +192,7 @@ export default function BusinessSettingsPage() {
         title: "Configurações criadas com sucesso",
         description: "As configurações da empresa foram salvas.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/barbershop-settings", tenantParam] });
+      queryClient.invalidateQueries({ queryKey: ["/api/business-settings", tenantParam] });
       setIsCreating(false);
     },
     onError: (error) => {
@@ -219,8 +219,8 @@ export default function BusinessSettingsPage() {
       
       // Adiciona o parâmetro tenant à URL, se existir
       const url = tenantParam
-        ? `/api/barbershop-settings?tenant=${tenantParam}`
-        : `/api/barbershop-settings`;
+        ? `/api/business-settings?tenant=${tenantParam}`
+        : `/api/business-settings`;
       
       const response = await apiRequest("PUT", url, data);
       return response.json();
@@ -230,7 +230,7 @@ export default function BusinessSettingsPage() {
         title: "Configurações atualizadas com sucesso",
         description: "As alterações foram salvas com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/barbershop-settings", tenantParam] });
+      queryClient.invalidateQueries({ queryKey: ["/api/business-settings", tenantParam] });
     },
     onError: (error) => {
       toast({
