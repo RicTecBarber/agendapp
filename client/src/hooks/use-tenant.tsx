@@ -2,8 +2,17 @@ import { createContext, ReactNode, useContext, useEffect, useState } from "react
 import { useLocation } from "wouter";
 
 // Função para extrair o tenant da URL (exportada para uso direto)
-export function getTenantFromUrl(): string | null {
+export function getTenantFromUrl(locationPath?: string): string | null {
   try {
+    // Se um path for fornecido, usa-o para extrair o tenant
+    if (locationPath) {
+      // Verifica se o path contém '?'
+      const searchParams = locationPath.includes('?') 
+        ? new URLSearchParams(locationPath.split('?')[1]) 
+        : new URLSearchParams();
+      return searchParams.get('tenant');
+    } 
+    // Caso contrário, usa a URL atual
     const url = new URL(window.location.href);
     return url.searchParams.get('tenant');
   } catch (error) {
@@ -36,7 +45,7 @@ interface TenantContextType {
   tenant: string | null;
   setTenant: (tenant: string | null) => void;
   getUrlWithTenant: (path: string) => string;
-  getTenantFromUrl: () => string | null;
+  getTenantFromUrl: (locationPath?: string) => string | null;
   ensureTenant: () => boolean; // Retorna true se o tenant está definido
   redirectWithTenant: (path: string) => void;
 }
@@ -56,8 +65,17 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [location]);
 
   // Função para extrair o tenant da URL atual
-  const getTenantFromUrl = (): string | null => {
+  const getTenantFromUrl = (locationPath?: string): string | null => {
     try {
+      // Se um path for fornecido, usa-o para extrair o tenant
+      if (locationPath) {
+        // Verifica se o path contém '?'
+        const searchParams = locationPath.includes('?') 
+          ? new URLSearchParams(locationPath.split('?')[1]) 
+          : new URLSearchParams();
+        return searchParams.get('tenant');
+      } 
+      // Caso contrário, usa a URL atual
       const url = new URL(window.location.href);
       return url.searchParams.get('tenant');
     } catch (error) {

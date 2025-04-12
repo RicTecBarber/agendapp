@@ -77,7 +77,8 @@ const AvailabilityManagementPage = () => {
   const { id } = useParams();
   const professionalId = parseInt(id || "0");
   const { tenant, getTenantFromUrl } = useTenant();
-  const tenantParam = getTenantFromUrl();
+  const [location] = useLocation();
+  const tenantParam = getTenantFromUrl(location);
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<string>("regularHours");

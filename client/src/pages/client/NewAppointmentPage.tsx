@@ -53,7 +53,8 @@ const NewAppointmentPage = () => {
   const [isRewardRedemption, setIsRewardRedemption] = useState(false);
   
   // Obter o tenant atual a partir da URL
-  const tenantParam = getTenantFromUrl();
+  const [location] = useLocation();
+  const tenantParam = getTenantFromUrl(location);
   const getUrlWithTenant = (url: string) => {
     return `${url}${url.includes('?') ? '&' : '?'}tenant=${tenantParam}`;
   };

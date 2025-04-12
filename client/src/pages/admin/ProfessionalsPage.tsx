@@ -91,7 +91,8 @@ type ProfessionalFormValues = z.infer<typeof professionalSchema>;
 const ProfessionalsPage = () => {
   const { toast } = useToast();
   const { getTenantFromUrl } = useTenant();
-  const tenantParam = getTenantFromUrl();
+  const [location] = useLocation();
+  const tenantParam = getTenantFromUrl(location);
   const [, navigate] = useLocation();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
