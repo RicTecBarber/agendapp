@@ -214,12 +214,15 @@ const ServicesPage = () => {
       const formData = new FormData();
       formData.append('image', file);
       
-      // Incluir o parâmetro de tenant na URL
-      const url = tenant ? `/api/upload/service?tenant=${tenant}` : '/api/upload/service';
-      
-      const res = await fetch(url, {
+      // Usar apiRequest para manter o contexto do tenant
+      const res = await fetch('/api/upload/service', {
         method: 'POST',
         body: formData,
+        // Adicionamos os headers padrão do apiRequest, menos o Content-Type que é definido automaticamente pelo FormData
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
       });
       
       if (!res.ok) {

@@ -128,20 +128,8 @@ function OrderDetail({ order }: { order: Order }) {
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       console.log(`Enviando atualização de status para comanda #${id}: ${status}`);
-      const res = await fetch(`/api/orders/${id}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
-      });
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Erro na resposta:", errorText);
-        throw new Error(`Erro ao atualizar status: ${errorText}`);
-      }
-      
+      // Usamos apiRequest em vez de fetch direto para manter o contexto do tenant
+      const res = await apiRequest("PUT", `/api/orders/${id}/status`, { status });
       return res.json();
     },
     onSuccess: () => {
@@ -323,7 +311,8 @@ function OrdersPage() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["/api/orders"],
     queryFn: async () => {
-      const response = await fetch("/api/orders");
+      // Usamos apiRequest em vez de fetch direto para manter o contexto do tenant
+      const response = await apiRequest("GET", "/api/orders");
       if (!response.ok) {
         throw new Error("Erro ao buscar comandas");
       }
@@ -444,7 +433,7 @@ function OrdersPage() {
                     <Button
                       variant="secondary"
                       className="w-full"
-                      onClick={() => navigate(`/admin/orders/new?action=add_items&orderId=${order.id}&clientName=${encodeURIComponent(order.client_name)}&clientPhone=${encodeURIComponent(order.client_phone)}`)}
+                      onClick={navigateToAddItems}
                     >
                       <Plus className="h-4 w-4 mr-2" /> Adicionar Itens
                     </Button>
