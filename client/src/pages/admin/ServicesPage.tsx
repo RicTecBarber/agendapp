@@ -134,7 +134,7 @@ const ServicesPage = () => {
   
   // Create service mutation
   const createServiceMutation = useMutation({
-    mutationFn: async (data: ServiceFormValues) => {
+    mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/services", data);
       return res.json();
     },
@@ -159,7 +159,7 @@ const ServicesPage = () => {
   
   // Update service mutation
   const updateServiceMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number, data: ServiceFormValues }) => {
+    mutationFn: async ({ id, data }: { id: number, data: any }) => {
       const res = await apiRequest("PUT", `/api/services/${id}`, data);
       return res.json();
     },
@@ -185,8 +185,8 @@ const ServicesPage = () => {
   
   // Delete service mutation
   const deleteServiceMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest("DELETE", `/api/services/${id}`);
+    mutationFn: async ({id, tenant_id}: {id: number, tenant_id: number | null}) => {
+      const res = await apiRequest("DELETE", `/api/services/${id}`, {tenant_id});
       return res;
     },
     onSuccess: () => {
@@ -256,11 +256,18 @@ const ServicesPage = () => {
     // Limpa o campo image para não enviar no request JSON
     const { image, ...dataToSubmit } = formData;
     
+    // Adiciona o tenant_id 
+    const tenantId = tenant ? Number(tenant) : null;
+    const dataWithTenant = {
+      ...dataToSubmit,
+      tenant_id: tenantId
+    };
+    
     // Procede com a criação/atualização do serviço
     if (editingService) {
-      updateServiceMutation.mutate({ id: editingService.id, data: dataToSubmit });
+      updateServiceMutation.mutate({ id: editingService.id, data: dataWithTenant });
     } else {
-      createServiceMutation.mutate(dataToSubmit);
+      createServiceMutation.mutate(dataWithTenant);
     }
   };
   
@@ -306,7 +313,12 @@ const ServicesPage = () => {
   
   const confirmDelete = () => {
     if (serviceToDelete) {
-      deleteServiceMutation.mutate(serviceToDelete.id);
+      // Usando tenant_id do tenant atual
+      const tenantId = tenant ? Number(tenant) : null;
+      deleteServiceMutation.mutate({
+        id: serviceToDelete.id,
+        tenant_id: tenantId
+      });
     }
   };
   
