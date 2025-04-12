@@ -129,8 +129,29 @@ const AppointmentsPage = () => {
   });
 
   // Get services for new appointment
+  // Extrair o tenant da URL para incluir na requisição
+  const params = new URLSearchParams(window.location.search);
+  const tenantParam = params.get('tenant');
+  
   const { data: services, isLoading: isLoadingServices } = useQuery({
-    queryKey: ["/api/services"],
+    queryKey: ["/api/services", tenantParam],
+    queryFn: async () => {
+      // Construir URL com o tenant de forma explícita
+      let url = "/api/services";
+      if (tenantParam) {
+        url += `?tenant=${tenantParam}`;
+      }
+      
+      console.log("Buscando serviços, URL:", url);
+      
+      const res = await apiRequest("GET", url);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Erro ao buscar serviços:", errorText);
+        throw new Error("Erro ao buscar serviços");
+      }
+      return res.json();
+    }
   });
   
   // Get professionals by service for new appointment
