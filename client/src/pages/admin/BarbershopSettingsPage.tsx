@@ -80,8 +80,9 @@ export default function BarbershopSettingsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [tenantError, setTenantError] = useState<string | null>(null);
   const { user, isSystemAdmin } = useAuth();
-  const { tenant: tenantParam, getTenantFromUrl } = useTenant();
+  const { getTenantFromUrl } = useTenant();
   const [location] = useLocation();
+  const tenantParam = getTenantFromUrl(location);
   
   // Buscar configurações da barbearia
   const { data: settings, isLoading, error } = useQuery<any, Error>({
