@@ -121,7 +121,7 @@ const AvailabilityManagementPage = () => {
   // Mutation para criar disponibilidade
   const createAvailabilityMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", `/api/availability?tenant=${data.tenant_id}`, data);
+      const res = await apiRequest("POST", "/api/availability", data);
       return await res.json();
     },
     onSuccess: () => {
@@ -146,7 +146,7 @@ const AvailabilityManagementPage = () => {
   // Mutation para atualizar disponibilidade
   const updateAvailabilityMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("PUT", `/api/availability/${data.id}?tenant=${data.tenant_id}`, data);
+      const res = await apiRequest("PUT", `/api/availability/${data.id}`, data);
       return await res.json();
     },
     onSuccess: () => {
@@ -170,7 +170,7 @@ const AvailabilityManagementPage = () => {
   // Mutation para excluir disponibilidade
   const deleteAvailabilityMutation = useMutation({
     mutationFn: async (data: { id: number, tenant_id: number | undefined }) => {
-      const res = await apiRequest("DELETE", `/api/availability/${data.id}?tenant=${data.tenant_id}`);
+      const res = await apiRequest("DELETE", `/api/availability/${data.id}`);
       return await res.json();
     },
     onSuccess: () => {
