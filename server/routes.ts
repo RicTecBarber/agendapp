@@ -1,5 +1,5 @@
 import { format, addDays, parseISO, startOfWeek, endOfWeek } from 'date-fns';
-import type { Express, Request, Response, NextFunction } from 'express';
+import express, { type Express, Request, Response, NextFunction } from 'express';
 import { z } from "zod";
 import { createServer, type Server } from 'http';
 import WebSocket from 'ws';
@@ -7,6 +7,8 @@ import { WebSocketServer } from 'ws';
 import { storage } from './storage';
 import { setupAuth, hashPassword } from './auth';
 import passport from 'passport';
+import path from 'path';
+import { uploadProduct, uploadProfessional, uploadService } from "./upload";
 import { 
   isSystemAdmin, isAdmin, applyTenantId, requireTenant 
 } from './middleware';
@@ -57,6 +59,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     next();
   });
+  
+  // Servir arquivos de uploads estáticos
+  app.use('/uploads', (req, res, next) => {
+    // Verificar se está acessando um arquivo no diretório uploads
+    if (req.path && req.path.includes('..')) {
+      return res.status(403).send('Acesso proibido');
+    }
+    next();
+  }, express.static(path.join(process.cwd(), 'uploads')));
   
   // Middleware para logging
   app.use((req, res, next) => {
@@ -359,6 +370,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao excluir serviço:", error);
       res.status(500).json({ message: "Failed to delete service" });
+    }
+  });
+  
+  // API de Upload de Arquivos
+  
+  // POST /api/upload/product - Upload de imagem de produto
+  app.post("/api/upload/product", requireTenant, isAdmin, uploadProduct.single('image'), (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+      
+      // Cria a URL do arquivo
+      const fileUrl = `/uploads/products/${req.file.filename}`;
+      
+      res.status(200).json({
+        url: fileUrl,
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+    } catch (error) {
+      console.error("Erro ao fazer upload de imagem do produto:", error);
+      res.status(500).json({ message: "Falha ao fazer upload do arquivo" });
+    }
+  });
+  
+  // POST /api/upload/service - Upload de imagem de serviço
+  app.post("/api/upload/service", requireTenant, isAdmin, uploadService.single('image'), (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+      
+      // Cria a URL do arquivo
+      const fileUrl = `/uploads/services/${req.file.filename}`;
+      
+      res.status(200).json({
+        url: fileUrl,
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+    } catch (error) {
+      console.error("Erro ao fazer upload de imagem do serviço:", error);
+      res.status(500).json({ message: "Falha ao fazer upload do arquivo" });
+    }
+  });
+  
+  // POST /api/upload/professional - Upload de imagem de profissional
+  app.post("/api/upload/professional", requireTenant, isAdmin, uploadProfessional.single('image'), (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+      
+      // Cria a URL do arquivo
+      const fileUrl = `/uploads/professionals/${req.file.filename}`;
+      
+      res.status(200).json({
+        url: fileUrl,
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+    } catch (error) {
+      console.error("Erro ao fazer upload de imagem do profissional:", error);
+      res.status(500).json({ message: "Falha ao fazer upload do arquivo" });
     }
   });
   
