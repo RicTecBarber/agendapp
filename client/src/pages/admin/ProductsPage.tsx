@@ -51,7 +51,36 @@ const productSchema = z.object({
   price: z.coerce.number().min(0.01, "Preço deve ser maior que zero"),
   stock_quantity: z.coerce.number().int().min(0, "Quantidade não pode ser negativa"),
   category: z.string().min(1, "Categoria é obrigatória"),
-  image_url: z.string().url("URL da imagem inválida").optional().nullable(),
+  image_url: z.string().optional().nullable(),
+  image: z
+    .instanceof(FileList)
+    .optional()
+    .refine(
+      (files) => {
+        if (!files) return true;
+        if (files.length === 0) return true;
+        return Array.from(files).every(
+          (file) => 
+            file.type === "image/jpeg" || 
+            file.type === "image/png" || 
+            file.type === "image/gif" || 
+            file.type === "image/webp"
+        );
+      },
+      {
+        message: "Apenas imagens JPEG, PNG, GIF e WebP são permitidas",
+      }
+    )
+    .refine(
+      (files) => {
+        if (!files) return true;
+        if (files.length === 0) return true;
+        return Array.from(files).every((file) => file.size <= 5 * 1024 * 1024);
+      },
+      {
+        message: "O tamanho máximo do arquivo é 5MB",
+      }
+    ),
 });
 
 type Product = {
@@ -91,6 +120,9 @@ function ProductForm({
       image_url: "",
     }
   });
+  
+  // Estado para mostrar prévia da imagem (quando disponível)
+  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null);
 
   return (
     <Form {...form}>
@@ -181,20 +213,67 @@ function ProductForm({
           )}
         />
 
+        {/* Campo para upload de imagem */}
         <FormField
           control={form.control}
-          name="image_url"
-          render={({ field }) => (
+          name="image"
+          render={({ field: { value, onChange, ...field } }) => (
             <FormItem>
-              <FormLabel>URL da Imagem</FormLabel>
+              <FormLabel>Imagem do Produto</FormLabel>
               <FormControl>
-                <Input {...field} value={field.value || ""} />
+                <div className="space-y-4">
+                  {/* Exibe a prévia da imagem quando disponível */}
+                  {imagePreview && (
+                    <div className="w-full h-40 relative rounded-md overflow-hidden">
+                      <img 
+                        src={imagePreview} 
+                        alt="Prévia da imagem" 
+                        className="w-full h-full object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => {
+                          setImagePreview(null);
+                          onChange(null);
+                          form.setValue("image_url", "");
+                        }}
+                      >
+                        Remover
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Input para seleção de arquivo */}
+                  <Input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        onChange(files);
+                        
+                        // Criar URL temporária para prévia da imagem
+                        const previewUrl = URL.createObjectURL(files[0]);
+                        setImagePreview(previewUrl);
+                      }
+                    }}
+                    {...field}
+                  />
+                </div>
               </FormControl>
-              <FormDescription>URL da imagem do produto (opcional)</FormDescription>
+              <FormDescription>
+                Selecione uma imagem para o produto (máximo 5MB, formatos aceitos: JPG, PNG, GIF, WebP)
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
+        
+        {/* Campo oculto para URL da imagem - será preenchida pelo backend após upload */}
+        <input type="hidden" {...form.register("image_url")} />
 
         <DialogFooter>
           <Button type="submit">Salvar</Button>
@@ -301,15 +380,80 @@ function ProductsPage() {
     },
   });
 
+  // Mutation para upload de imagem
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("image", file);
+      
+      const response = await fetch("/api/upload/product", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error("Falha ao fazer upload da imagem");
+      }
+      
+      return response.json();
+    },
+  });
+
   // Handler para adicionar produto
-  const handleAddProduct = (data: any) => {
-    addProductMutation.mutate(data);
+  const handleAddProduct = async (data: any) => {
+    try {
+      // Faz upload da imagem, se houver
+      if (data.image && data.image.length > 0) {
+        const file = data.image[0];
+        
+        // Processar upload da imagem
+        const uploadResult = await uploadImageMutation.mutateAsync(file);
+        
+        // Atualiza a URL da imagem com o resultado do upload
+        data.image_url = uploadResult.url;
+      }
+      
+      // Remove o campo 'image' antes de enviar ao backend
+      const { image, ...productData } = data;
+      
+      // Enviar dados do produto
+      addProductMutation.mutate(productData);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao adicionar produto",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   // Handler para atualizar produto
-  const handleUpdateProduct = (data: any) => {
-    if (editProduct) {
-      updateProductMutation.mutate({ id: editProduct.id, data });
+  const handleUpdateProduct = async (data: any) => {
+    if (!editProduct) return;
+    
+    try {
+      // Faz upload da imagem, se houver uma nova imagem
+      if (data.image && data.image.length > 0) {
+        const file = data.image[0];
+        
+        // Processar upload da imagem
+        const uploadResult = await uploadImageMutation.mutateAsync(file);
+        
+        // Atualiza a URL da imagem com o resultado do upload
+        data.image_url = uploadResult.url;
+      }
+      
+      // Remove o campo 'image' antes de enviar ao backend
+      const { image, ...productData } = data;
+      
+      // Enviar dados do produto atualizado
+      updateProductMutation.mutate({ id: editProduct.id, data: productData });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar produto",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 

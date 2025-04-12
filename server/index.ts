@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { tenantMiddleware, requireTenant } from "./middleware";
@@ -6,6 +7,9 @@ import { tenantMiddleware, requireTenant } from "./middleware";
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Servir arquivos estáticos da pasta de uploads
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Aplicar middleware de tenant para todas as requisições
 app.use(tenantMiddleware);
