@@ -503,11 +503,11 @@ const ServicesPage = () => {
                       <div className="space-y-4">
                         {/* Exibe a prévia da imagem quando disponível */}
                         {imagePreview && (
-                          <div className="w-full h-40 relative rounded-md overflow-hidden">
+                          <div className="w-full max-h-32 relative rounded-md overflow-hidden border">
                             <img 
                               src={imagePreview} 
                               alt="Prévia da imagem" 
-                              className="w-full h-full object-cover"
+                              className="w-auto max-w-full h-32 object-contain mx-auto"
                             />
                             <Button
                               type="button"
