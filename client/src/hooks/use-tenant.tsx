@@ -12,6 +12,26 @@ export function getTenantFromUrl(): string | null {
   }
 }
 
+// Função para adicionar o tenant a uma URL (exportada para uso direto)
+export function getUrlWithTenant(path: string): string {
+  const currentTenant = getTenantFromUrl();
+  
+  if (!currentTenant) {
+    return path;
+  }
+
+  // Verifica se o path já tem parâmetros de query
+  const hasQueryParams = path.includes('?');
+  
+  if (hasQueryParams) {
+    // Se já tiver parâmetros, adiciona o tenant como um parâmetro adicional
+    return `${path}&tenant=${currentTenant}`;
+  } else {
+    // Se não tiver parâmetros, adiciona o tenant como o primeiro parâmetro
+    return `${path}?tenant=${currentTenant}`;
+  }
+}
+
 interface TenantContextType {
   tenant: string | null;
   setTenant: (tenant: string | null) => void;

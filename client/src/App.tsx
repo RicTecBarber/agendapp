@@ -57,6 +57,7 @@ function Router() {
       <ProtectedRoute path="/admin/calendar" component={CalendarPage} />
       <ProtectedRoute path="/admin/agendamentos/novo" component={AppointmentsPage} />
       <ProtectedRoute path="/admin/clients" component={ClientsPage} />
+      <ProtectedRoute path="/admin/clientes" component={ClientsPage} />
       <ProtectedRoute path="/admin/loyalty" component={LoyaltyManagementPage} />
       <ProtectedRoute path="/admin/services" component={ServicesPage} />
       <ProtectedRoute path="/admin/professionals" component={ProfessionalsPage} />

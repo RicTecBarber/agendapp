@@ -298,7 +298,9 @@ const ClientsPage = () => {
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => {
                                     // Fechar o dropdown e abrir a página de agendamento
-                                    const url = `/admin/agendamentos/novo?cliente=${encodeURIComponent(client.client_name)}&telefone=${encodeURIComponent(client.client_phone)}`;
+                                    const baseUrl = `/admin/agendamentos/novo?cliente=${encodeURIComponent(client.client_name)}&telefone=${encodeURIComponent(client.client_phone)}`;
+                                    // Usar getUrlWithTenant para manter o contexto do tenant
+                                    const url = getUrlWithTenant(baseUrl);
                                     window.location.href = url;
                                   }}>
                                     Agendar serviço
@@ -411,7 +413,9 @@ const ClientsPage = () => {
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => {
                                     // Fechar o dropdown e abrir a página de agendamento
-                                    const url = `/admin/agendamentos/novo?cliente=${encodeURIComponent(client.client_name)}&telefone=${encodeURIComponent(client.client_phone)}`;
+                                    const baseUrl = `/admin/agendamentos/novo?cliente=${encodeURIComponent(client.client_name)}&telefone=${encodeURIComponent(client.client_phone)}`;
+                                    // Usar getUrlWithTenant para manter o contexto do tenant
+                                    const url = getUrlWithTenant(baseUrl);
                                     window.location.href = url;
                                   }}>
                                     Agendar serviço
@@ -576,7 +580,9 @@ const ClientsPage = () => {
               
               // Redirecionar para a página de novo agendamento com os dados do cliente
               if (selectedClient) {
-                const url = `/admin/agendamentos/novo?cliente=${encodeURIComponent(selectedClient.client_name)}&telefone=${encodeURIComponent(selectedClient.client_phone)}`;
+                const baseUrl = `/admin/agendamentos/novo?cliente=${encodeURIComponent(selectedClient.client_name)}&telefone=${encodeURIComponent(selectedClient.client_phone)}`;
+                // Usar getUrlWithTenant para manter o contexto do tenant
+                const url = getUrlWithTenant(baseUrl);
                 window.location.href = url;
               }
             }}>
@@ -636,7 +642,9 @@ const ClientsPage = () => {
                 }
                 
                 // Redirecionar para criar um agendamento com o novo cliente
-                const url = `/admin/agendamentos/novo?cliente=${encodeURIComponent(newClientData.name)}&telefone=${encodeURIComponent(newClientData.phone)}`;
+                const baseUrl = `/admin/agendamentos/novo?cliente=${encodeURIComponent(newClientData.name)}&telefone=${encodeURIComponent(newClientData.phone)}`;
+                // Usar getUrlWithTenant para manter o contexto do tenant
+                const url = getUrlWithTenant(baseUrl);
                 window.location.href = url;
               }}
               disabled={!newClientData.name || !newClientData.phone}
