@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction, DefaultOptions } from "@tanstack/react-query";
+import { extractTenantFromUrl } from "@/hooks/use-tenant";
 
 // Cache TTL padrão em milissegundos
 const DEFAULT_STALE_TIME = 5 * 60 * 1000; // 5 minutos

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
+import { useTenant } from '@/hooks/use-tenant';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -34,10 +35,14 @@ interface BarbershopSettings {
 const AuthPage = () => {
   const [location, navigate] = useLocation();
   const { user, loginMutation } = useAuth();
+  const { getUrlWithTenant, redirectWithTenant, getTenantFromUrl } = useTenant();
+  
+  // Obtém o tenant da URL atual para a query
+  const tenantParam = getTenantFromUrl();
   
   // Buscar as configurações da barbearia
   const { data: barbershopSettings } = useQuery<BarbershopSettings>({
-    queryKey: ['/api/barbershop-settings'],
+    queryKey: ['/api/barbershop-settings', tenantParam],
     refetchOnWindowFocus: false,
   });
 
@@ -52,18 +57,14 @@ const AuthPage = () => {
   // If user is already logged in, redirect to dashboard
   useEffect(() => {
     if (user) {
-      // Pegar o parâmetro tenant da URL atual
-      const url = new URL(window.location.href);
-      const tenant = url.searchParams.get('tenant');
-      
-      // Construir a nova URL mantendo o parâmetro tenant
-      const tenantParam = tenant ? `?tenant=${tenant}` : '';
-      
-      navigate(`/admin/dashboard${tenantParam}`);
+      // Usar redirectWithTenant para preservar o contexto do tenant
+      redirectWithTenant('/admin/dashboard');
     }
-  }, [user, navigate]);
+  }, [user, redirectWithTenant]);
 
   const onLoginSubmit = (data: z.infer<typeof loginSchema>) => {
+    // Registra no console para diagnóstico
+    console.log("Iniciando login com tenant:", tenantParam);
     loginMutation.mutate(data);
   };
 
@@ -130,15 +131,8 @@ const AuthPage = () => {
         
         <div className="text-center mt-6">
           <Button variant="link" onClick={() => {
-            // Pegar o parâmetro tenant da URL atual
-            const url = new URL(window.location.href);
-            const tenant = url.searchParams.get('tenant');
-            
-            // Construir a nova URL mantendo o parâmetro tenant
-            const tenantParam = tenant ? `?tenant=${tenant}` : '';
-            
-            // Redirecionar de volta para a interface do cliente com o parâmetro tenant
-            navigate(`/${tenantParam}`);
+            // Usar redirectWithTenant para manter o contexto do tenant
+            redirectWithTenant('/');
           }}>
             Voltar para área do cliente
           </Button>
