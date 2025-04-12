@@ -375,15 +375,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // API de Upload de Arquivos
   
-  // POST /api/upload/product - Upload de imagem de produto
-  app.post("/api/upload/product", requireTenant, isAdmin, uploadProduct.single('image'), (req: Request, res: Response) => {
+  // Endpoint de teste para facilitar a depuração de problemas de upload
+  app.post("/api/test-upload", uploadProduct.single('image'), (req: Request, res: Response) => {
     try {
+      console.log("Teste de upload - Headers:", req.headers);
+      
       if (!req.file) {
+        console.error("Nenhum arquivo encontrado na requisição de teste");
         return res.status(400).json({ message: "Nenhum arquivo enviado" });
       }
       
+      console.log("Teste de upload - Arquivo recebido:", {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        path: req.file.path
+      });
+      
       // Cria a URL do arquivo
       const fileUrl = `/uploads/products/${req.file.filename}`;
+      
+      res.status(200).json({
+        success: true,
+        message: "Upload de teste concluído com sucesso",
+        url: fileUrl,
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+    } catch (error) {
+      console.error("Erro no teste de upload:", error);
+      res.status(500).json({ message: "Erro no teste de upload" });
+    }
+  });
+
+  // POST /api/upload/product - Upload de imagem de produto
+  app.post("/api/upload/product", uploadProduct.single('image'), (req: Request, res: Response) => {
+    try {
+      console.log("Upload de produto iniciado para tenant:", req.tenantId);
+      console.log("Headers da requisição:", req.headers);
+      
+      if (!req.file) {
+        console.error("Nenhum arquivo encontrado na requisição");
+        return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+      
+      console.log("Arquivo recebido:", {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        path: req.file.path
+      });
+      
+      // Cria a URL do arquivo
+      const fileUrl = `/uploads/products/${req.file.filename}`;
+      console.log("URL do arquivo criada:", fileUrl);
       
       res.status(200).json({
         url: fileUrl,

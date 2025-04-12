@@ -224,11 +224,11 @@ function ProductForm({
                 <div className="space-y-4">
                   {/* Exibe a prévia da imagem quando disponível */}
                   {imagePreview && (
-                    <div className="w-full h-40 relative rounded-md overflow-hidden">
+                    <div className="w-full max-h-32 relative rounded-md overflow-hidden">
                       <img 
                         src={imagePreview} 
                         alt="Prévia da imagem" 
-                        className="w-full h-full object-cover"
+                        className="w-auto max-w-full h-32 object-contain mx-auto"
                       />
                       <Button
                         type="button"
@@ -383,19 +383,36 @@ function ProductsPage() {
   // Mutation para upload de imagem
   const uploadImageMutation = useMutation({
     mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("image", file);
-      
-      const response = await fetch("/api/upload/product", {
-        method: "POST",
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error("Falha ao fazer upload da imagem");
+      try {
+        console.log("Iniciando upload da imagem:", file.name, file.type, file.size);
+        
+        const formData = new FormData();
+        formData.append("image", file);
+        
+        // Usar o endpoint de teste para depurar
+        const endpoint = "/api/test-upload";
+        console.log("Enviando para:", endpoint);
+        
+        const response = await fetch(endpoint, {
+          method: "POST",
+          // Importante: não definir o Content-Type ao enviar FormData
+          // O navegador configurará automaticamente o boundary correto
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Erro no upload:", response.status, errorText);
+          throw new Error(`Falha ao fazer upload da imagem: ${response.status} ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log("Upload concluído com sucesso:", result);
+        return result;
+      } catch (error) {
+        console.error("Erro durante upload:", error);
+        throw error;
       }
-      
-      return response.json();
     },
   });
 

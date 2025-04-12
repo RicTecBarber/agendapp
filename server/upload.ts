@@ -13,15 +13,19 @@ const ensureDirectoryExists = (directory: string) => {
 // Configuração do armazenamento para produtos
 const productStorage = multer.diskStorage({
   destination: function (req, file, cb) {
+    console.log("Configurando destino do upload para:", file.originalname);
     const uploadDir = path.join("uploads", "products");
     ensureDirectoryExists(uploadDir);
+    console.log("Diretório de upload:", uploadDir);
     cb(null, uploadDir);
   },
   filename: function (req: Request, file, cb) {
     // Adicionar tenant_id ao nome do arquivo para evitar conflitos entre tenants
     const tenantId = req.tenantId || "default";
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, `tenant_${tenantId}-${uniqueSuffix}${path.extname(file.originalname)}`);
+    const filename = `tenant_${tenantId}-${uniqueSuffix}${path.extname(file.originalname)}`;
+    console.log(`Gerando nome de arquivo: ${filename} para ${file.originalname}`);
+    cb(null, filename);
   }
 });
 
