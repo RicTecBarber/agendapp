@@ -1861,7 +1861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Criando configurações padrão para tenant ${req.tenantId}`);
           try {
             const defaultSettings = {
-              name: "Barbearia",
+              name: "AgendApp Serviços",
               address: "Endereço não configurado",
               phone: "Telefone não configurado",
               email: "email@exemplo.com",
@@ -1987,7 +1987,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Criando configurações padrão para tenant ${targetTenantId} durante atualização`);
         try {
           const defaultSettings = {
-            name: req.body.name || "Barbearia",
+            name: req.body.name || "AgendApp Serviços",
             address: req.body.address || "Endereço não configurado",
             phone: req.body.phone || "Telefone não configurado",
             email: req.body.email || "email@exemplo.com",
