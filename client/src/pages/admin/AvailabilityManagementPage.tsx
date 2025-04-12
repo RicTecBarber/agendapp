@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
+import { useTenant } from "@/hooks/use-tenant";
 import { 
   Card, 
   CardContent, 
@@ -75,6 +76,7 @@ const AvailabilityManagementPage = () => {
   const [, navigate] = useLocation();
   const { id } = useParams();
   const professionalId = parseInt(id || "0");
+  const { tenant } = useTenant();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<string>("regularHours");
@@ -167,8 +169,8 @@ const AvailabilityManagementPage = () => {
 
   // Mutation para excluir disponibilidade
   const deleteAvailabilityMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest("DELETE", `/api/availability/${id}`);
+    mutationFn: async (data: { id: number, tenant_id: number | undefined }) => {
+      const res = await apiRequest("DELETE", `/api/availability/${data.id}?tenant=${data.tenant_id}`);
       return await res.json();
     },
     onSuccess: () => {
@@ -229,7 +231,8 @@ const AvailabilityManagementPage = () => {
       day_of_week: parseInt(selectedDay),
       start_time: startTime,
       end_time: endTime,
-      is_available: isAvailable
+      is_available: isAvailable,
+      tenant_id: tenant?.id
     });
   };
 
@@ -250,14 +253,18 @@ const AvailabilityManagementPage = () => {
       day_of_week: parseInt(selectedDay),
       start_time: startTime,
       end_time: endTime,
-      is_available: isAvailable
+      is_available: isAvailable,
+      tenant_id: tenant?.id
     });
   };
 
   // Confirmar exclusão
   const confirmDelete = () => {
     if (selectedAvailability) {
-      deleteAvailabilityMutation.mutate(selectedAvailability.id);
+      deleteAvailabilityMutation.mutate({
+        id: selectedAvailability.id,
+        tenant_id: tenant?.id
+      });
     }
   };
 

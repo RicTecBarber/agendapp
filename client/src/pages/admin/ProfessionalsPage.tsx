@@ -729,14 +729,79 @@ const ProfessionalsPage = () => {
                 name="avatar_url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>URL da Foto (opcional)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="https://exemplo.com/foto.jpg" 
-                        {...field} 
-                        value={field.value || ""}
-                      />
-                    </FormControl>
+                    <FormLabel>Foto do Profissional (opcional)</FormLabel>
+                    <div className="space-y-4">
+                      {editImagePreview ? (
+                        <div className="relative w-24 h-24 mx-auto">
+                          <img 
+                            src={editImagePreview} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover rounded-md"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                            onClick={() => handleResetImage(true)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : selectedProfessional?.avatar_url ? (
+                        <div className="relative w-24 h-24 mx-auto">
+                          <img 
+                            src={selectedProfessional.avatar_url} 
+                            alt="Imagem atual" 
+                            className="w-full h-full object-cover rounded-md"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                            onClick={() => {
+                              editForm.setValue('avatar_url', '');
+                              setSelectedProfessional({
+                                ...selectedProfessional,
+                                avatar_url: ''
+                              });
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-4">
+                            <FormControl>
+                              <Input 
+                                type="file"
+                                onChange={(e) => handleImageUpload(e, true)}
+                                accept="image/*"
+                                className="hidden"
+                                id="professional-image-edit"
+                              />
+                            </FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => document.getElementById('professional-image-edit')?.click()}
+                              className="w-full"
+                            >
+                              Selecionar Imagem
+                            </Button>
+                          </div>
+                          <FormControl>
+                            <Input 
+                              placeholder="Ou informe a URL da imagem" 
+                              {...field} 
+                              value={field.value || ""}
+                            />
+                          </FormControl>
+                        </>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
