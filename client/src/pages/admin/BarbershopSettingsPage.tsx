@@ -43,7 +43,7 @@ const BRAZIL_TIMEZONES = [
 ];
 
 // Esquema para validação do formulário
-const barbershopSettingsSchema = z.object({
+const businessSettingsSchema = z.object({
   name: z.string().min(1, "Nome da empresa é obrigatório"),
   address: z.string().min(1, "Endereço é obrigatório"),
   phone: z.string().min(1, "Telefone é obrigatório"),
@@ -64,7 +64,7 @@ const barbershopSettingsSchema = z.object({
   admin_url: z.string().optional(),
 });
 
-type BarbershopSettingsFormData = z.infer<typeof barbershopSettingsSchema>;
+type BusinessSettingsFormData = z.infer<typeof businessSettingsSchema>;
 
 const WEEKDAYS = [
   { value: 0, label: "Domingo" },
@@ -76,7 +76,7 @@ const WEEKDAYS = [
   { value: 6, label: "Sábado" },
 ];
 
-export default function BarbershopSettingsPage() {
+export default function BusinessSettingsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [tenantError, setTenantError] = useState<string | null>(null);
   const { user, isSystemAdmin } = useAuth();
