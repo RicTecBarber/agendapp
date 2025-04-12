@@ -140,7 +140,8 @@ const ProfessionalsPage = () => {
   // Update professional mutation
   const updateProfessionalMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("PUT", `/api/professionals/${data.id}?tenant=${data.tenant_id}`, data);
+      // Removemos o tenant_id da URL, pois o middleware requireTenant já irá capturar o tenant_id da URL atual
+      const res = await apiRequest("PUT", `/api/professionals/${data.id}`, data);
       return res.json();
     },
     onSuccess: () => {
@@ -166,7 +167,8 @@ const ProfessionalsPage = () => {
   // Delete professional mutation
   const deleteProfessionalMutation = useMutation({
     mutationFn: async (data: { id: number, tenant_id: number | undefined }) => {
-      await apiRequest("DELETE", `/api/professionals/${data.id}?tenant=${data.tenant_id}`);
+      // Removemos o tenant_id da URL, pois o middleware requireTenant já irá capturar o tenant_id da URL atual
+      await apiRequest("DELETE", `/api/professionals/${data.id}`);
     },
     onSuccess: () => {
       toast({
