@@ -1307,13 +1307,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let appointments = await storage.getAllAppointments();
       let professionals = await storage.getAllProfessionals();
       let services = await storage.getAllServices();
-      let orders = await storage.getAllOrders();
+      let orders = await storage.getAllOrders(req.tenantId);
       
       // Filtrar dados pelo tenant atual
       appointments = appointments.filter(a => a.tenant_id === req.tenantId);
       professionals = professionals.filter(p => p.tenant_id === req.tenantId);
       services = services.filter(s => s.tenant_id === req.tenantId);
-      orders = orders.filter(o => o.tenant_id === req.tenantId);
       
       // Estatísticas gerais
       const totalAppointments = appointments.length;
@@ -1385,11 +1384,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let appointments = await storage.getAllAppointments();
       
       // Get orders
-      let orders = await storage.getAllOrders();
+      let orders = await storage.getAllOrders(req.tenantId);
       
       // Filtrar dados pelo tenant atual
       appointments = appointments.filter(a => a.tenant_id === req.tenantId);
-      orders = orders.filter(o => o.tenant_id === req.tenantId);
       
       // Current date
       const now = new Date();
@@ -1944,10 +1942,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const appointmentId = parseInt(req.params.appointmentId);
-      let orders = await storage.getOrdersByAppointmentId(appointmentId);
-      
-      // Filtrar ordens pelo tenant atual
-      orders = orders.filter(o => o.tenant_id === req.tenantId);
+      // Usar tenantId diretamente na função storage
+      const orders = await storage.getOrdersByAppointmentId(appointmentId, req.tenantId);
       
       res.json(orders);
     } catch (error) {
@@ -1963,10 +1959,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const phone = req.params.phone;
-      let orders = await storage.getOrdersByClientPhone(phone);
-      
-      // Filtrar ordens pelo tenant atual
-      orders = orders.filter(o => o.tenant_id === req.tenantId);
+      // Usar tenantId diretamente na função storage
+      const orders = await storage.getOrdersByClientPhone(phone, req.tenantId);
       
       res.json(orders);
     } catch (error) {
@@ -2103,8 +2097,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar se a comanda existe
       const existingOrder = await storage.getOrderById(orderId);
       if (!existingOrder) {
-        console.error(`Comanda ${orderId} não encontrada para adicionar itens. Todas as comandas existentes:`, 
-                      await storage.getAllOrders());
+        console.error(`Comanda ${orderId} não encontrada para adicionar itens. Todas as comandas existentes para tenant ${req.tenantId}:`, 
+                      await storage.getAllOrders(req.tenantId));
         return res.status(404).json({ 
           message: "Comanda não encontrada", 
           detail: `A comanda com ID ${orderId} não existe. Isto pode ocorrer se o servidor foi reiniciado e os dados em memória foram perdidos.` 

@@ -819,20 +819,36 @@ export class MemStorage implements IStorage {
     return orders;
   }
   
-  async getOrdersByAppointmentId(appointmentId: number): Promise<Order[]> {
-    return Array.from(this.orders.values()).filter(
-      order => order.appointment_id === appointmentId
-    );
+  async getOrdersByAppointmentId(appointmentId: number, tenantId?: number | null): Promise<Order[]> {
+    const orders = Array.from(this.orders.values());
+    
+    // Primeiro filtra pelo appointmentId
+    let filteredOrders = orders.filter(order => order.appointment_id === appointmentId);
+    
+    // Se tenantId foi fornecido, filtra também pelo tenant
+    if (tenantId !== undefined) {
+      filteredOrders = filteredOrders.filter(order => order.tenant_id === tenantId);
+    }
+    
+    return filteredOrders;
   }
   
   async getOrderById(id: number): Promise<Order | undefined> {
     return this.orders.get(id);
   }
   
-  async getOrdersByClientPhone(clientPhone: string): Promise<Order[]> {
-    return Array.from(this.orders.values()).filter(
-      order => order.client_phone === clientPhone
-    );
+  async getOrdersByClientPhone(clientPhone: string, tenantId?: number | null): Promise<Order[]> {
+    const orders = Array.from(this.orders.values());
+    
+    // Primeiro filtra pelo telefone do cliente
+    let filteredOrders = orders.filter(order => order.client_phone === clientPhone);
+    
+    // Se tenantId foi fornecido, filtra também pelo tenant
+    if (tenantId !== undefined) {
+      filteredOrders = filteredOrders.filter(order => order.tenant_id === tenantId);
+    }
+    
+    return filteredOrders;
   }
   
   async createOrder(orderData: InsertOrder): Promise<Order> {
