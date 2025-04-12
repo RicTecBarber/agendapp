@@ -109,16 +109,20 @@ const CheckAppointmentPage = () => {
   const handleLookup = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!phone) {
+    if (!phone && !name) {
       toast({
         title: "Campo obrigatório",
-        description: "Por favor, preencha seu telefone para buscar os agendamentos.",
+        description: "Por favor, preencha pelo menos o telefone ou nome para buscar seus agendamentos.",
         variant: "destructive",
       });
       return;
     }
     
-    lookupMutation.mutate({ client_name: name, client_phone: phone });
+    // Enviar os dados preenchidos para a API
+    lookupMutation.mutate({ 
+      client_name: name,
+      client_phone: phone 
+    });
   };
   
   const handleCancelClick = (appointment: Appointment) => {
@@ -158,7 +162,6 @@ const CheckAppointmentPage = () => {
                     onChange={(e) => setPhone(e.target.value)}
                     className="mt-1"
                     placeholder="(00) 00000-0000"
-                    required
                   />
                 </div>
               </div>

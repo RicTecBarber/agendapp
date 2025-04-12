@@ -515,6 +515,14 @@ export class MemStorage implements IStorage {
     );
   }
   
+  async getAppointmentsByClientName(clientName: string): Promise<Appointment[]> {
+    // Busca case-insensitive e por nome parcial (contains)
+    const searchName = clientName.toLowerCase();
+    return Array.from(this.appointments.values()).filter(
+      appointment => appointment.client_name.toLowerCase().includes(searchName)
+    );
+  }
+  
   async getAppointmentById(id: number): Promise<Appointment | undefined> {
     return this.appointments.get(id);
   }

@@ -1127,20 +1127,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/appointments/lookup - Lookup appointment by client phone
+  // POST /api/appointments/lookup - Lookup appointment by client phone or name
   app.post("/api/appointments/lookup", async (req: Request, res: Response) => {
     try {
-      const { phone } = req.body;
+      const { client_name, client_phone } = req.body;
       
-      if (!phone) {
-        return res.status(400).json({ message: "Phone number is required" });
+      // Verificar se pelo menos um dos campos foi fornecido
+      if (!client_phone && !client_name) {
+        return res.status(400).json({ 
+          message: "É necessário informar pelo menos o telefone ou o nome do cliente" 
+        });
       }
       
       // Obter todos os agendamentos do cliente
-      let appointments = await storage.getAppointmentsByClientPhone(phone);
+      let appointments = [];
       
-      // Filtrar apenas os agendamentos do tenant atual
+      if (client_phone) {
+        // Buscar por telefone (prioridade, mais preciso)
+        appointments = await storage.getAppointmentsByClientPhone(client_phone);
+      } else if (client_name) {
+        // Buscar por nome
+        appointments = await storage.getAppointmentsByClientName(client_name);
+      }
+      
+      // Garantir que estamos filtrando apenas os agendamentos do tenant atual
       appointments = appointments.filter(a => a.tenant_id === req.tenantId);
+      
+      console.log(`Encontrados ${appointments.length} agendamentos para tenant_id=${req.tenantId}`);
       
       // Ordenar por data, mais recente primeiro
       appointments.sort((a, b) => {
@@ -1149,16 +1162,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return dateB.getTime() - dateA.getTime();
       });
       
-      // Verificar pontos de fidelidade
-      const clientReward = await storage.getClientRewardByPhone(phone);
+      // Verificar pontos de fidelidade (apenas se tiver telefone)
+      let rewardPoints = 0;
+      let hasReward = false;
       
-      res.json({
-        appointments,
-        rewardPoints: clientReward ? clientReward.attendance_count : 0,
-        hasReward: clientReward ? clientReward.attendance_count >= 10 : false
-      });
+      if (client_phone) {
+        const clientReward = await storage.getClientRewardByPhone(client_phone);
+        if (clientReward) {
+          rewardPoints = clientReward.total_attendances || 0;
+          hasReward = (clientReward.total_attendances || 0) >= 10;
+        }
+      }
+      
+      res.json(appointments);
     } catch (error) {
-      res.status(500).json({ message: "Failed to lookup appointments" });
+      console.error("Erro ao buscar agendamentos:", error);
+      res.status(500).json({ 
+        message: "Erro ao buscar agendamentos", 
+        error: (error as Error).message 
+      });
     }
   });
 
