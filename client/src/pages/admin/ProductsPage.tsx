@@ -363,8 +363,8 @@ function ProductsPage() {
 
   // Mutation para excluir um produto
   const deleteProductMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/products/${id}`);
+    mutationFn: async ({id, tenant_id}: {id: number, tenant_id: number | null}) => {
+      await apiRequest("DELETE", `/api/products/${id}`, {tenant_id});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -435,8 +435,15 @@ function ProductsPage() {
       // Remove o campo 'image' antes de enviar ao backend
       const { image, ...productData } = data;
       
+      // Adiciona tenant_id aos dados do produto
+      const tenantId = tenant ? Number(tenant) : null;
+      const productDataWithTenant = {
+        ...productData,
+        tenant_id: tenantId
+      };
+      
       // Enviar dados do produto
-      addProductMutation.mutate(productData);
+      addProductMutation.mutate(productDataWithTenant);
     } catch (error: any) {
       toast({
         title: "Erro ao adicionar produto",
@@ -465,8 +472,15 @@ function ProductsPage() {
       // Remove o campo 'image' antes de enviar ao backend
       const { image, ...productData } = data;
       
+      // Adiciona tenant_id aos dados do produto
+      const tenantId = tenant ? Number(tenant) : null;
+      const productDataWithTenant = {
+        ...productData,
+        tenant_id: tenantId
+      };
+      
       // Enviar dados do produto atualizado
-      updateProductMutation.mutate({ id: editProduct.id, data: productData });
+      updateProductMutation.mutate({ id: editProduct.id, data: productDataWithTenant });
     } catch (error: any) {
       toast({
         title: "Erro ao atualizar produto",
@@ -479,7 +493,8 @@ function ProductsPage() {
   // Handler para excluir produto
   const handleDeleteProduct = (id: number) => {
     if (confirm("Tem certeza que deseja excluir este produto?")) {
-      deleteProductMutation.mutate(id);
+      const tenantId = tenant ? Number(tenant) : null;
+      deleteProductMutation.mutate({id, tenant_id: tenantId});
     }
   };
 
