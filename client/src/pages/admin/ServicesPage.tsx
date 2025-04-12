@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
-import { getTenantFromUrl } from "@/hooks/use-tenant";
+import { useTenant } from "@/hooks/use-tenant";
 import {
   Card,
   CardContent,
@@ -108,7 +108,11 @@ type ServiceFormValues = z.infer<typeof serviceSchema>;
 const ServicesPage = () => {
   const { toast } = useToast();
   const [location] = useLocation();
-  const tenantParam = getTenantFromUrl(location);
+  const { getTenantFromUrl } = useTenant();
+  const tenantParam = getTenantFromUrl();
+  
+  // Log para diagnóstico
+  console.log(`ServicesPage - tenantParam: ${tenantParam}`);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<any | null>(null);
@@ -216,8 +220,15 @@ const ServicesPage = () => {
       const formData = new FormData();
       formData.append('image', file);
       
+      // Adicionamos o tenant na URL
+      let uploadUrl = '/api/upload/service';
+      if (tenantParam) {
+        uploadUrl += `?tenant=${tenantParam}`;
+      }
+      console.log(`Fazendo upload para: ${uploadUrl}`);
+      
       // Usar apiRequest para manter o contexto do tenant
-      const res = await fetch('/api/upload/service', {
+      const res = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
         // Adicionamos os headers padrão do apiRequest, menos o Content-Type que é definido automaticamente pelo FormData
@@ -244,6 +255,9 @@ const ServicesPage = () => {
   });
   
   const onSubmit = async (formData: ServiceFormValues) => {
+    // Registra informações de diagnóstico
+    console.log(`ServicesPage.onSubmit - tenantParam: ${tenantParam}`);
+    
     // Primeiro verifica se há uma imagem para upload
     if (formData.image && formData.image.length > 0) {
       try {
@@ -262,11 +276,15 @@ const ServicesPage = () => {
     const { image, ...dataToSubmit } = formData;
     
     // Adiciona o tenant_id 
-    const tenantId = tenantParam ? Number(tenantParam) : null;
+    const tenantId = tenantParam ? parseInt(tenantParam) : null;
+    console.log(`ServicesPage.onSubmit - convertendo tenant para tenant_id: ${tenantParam} -> ${tenantId}`);
+    
     const dataWithTenant = {
       ...dataToSubmit,
       tenant_id: tenantId
     };
+    
+    console.log("ServicesPage.onSubmit - Dados a enviar:", dataWithTenant);
     
     // Procede com a criação/atualização do serviço
     if (editingService) {
@@ -319,7 +337,9 @@ const ServicesPage = () => {
   const confirmDelete = () => {
     if (serviceToDelete) {
       // Usando tenant_id do tenant atual
-      const tenantId = tenantParam ? Number(tenantParam) : null;
+      const tenantId = tenantParam ? parseInt(tenantParam) : null;
+      console.log(`ServicesPage.confirmDelete - convertendo tenant para tenant_id: ${tenantParam} -> ${tenantId}`);
+      
       deleteServiceMutation.mutate({
         id: serviceToDelete.id,
         tenant_id: tenantId
