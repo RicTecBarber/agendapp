@@ -1650,13 +1650,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/products - Get all products
   app.get("/api/products", async (req: Request, res: Response) => {
     try {
+      console.log("GET /api/products - Requisição recebida para tenant_id:", req.tenantId);
       let products = await storage.getAllProducts();
+      
+      console.log(`Total de produtos na base: ${products.length}`);
+      console.log("Produtos antes do filtro:", products.map(p => ({id: p.id, name: p.name, tenant_id: p.tenant_id})));
       
       // Filtrar produtos pelo tenant atual
       products = products.filter(p => p.tenant_id === req.tenantId);
       
+      console.log(`Produtos filtrados para tenant ${req.tenantId}: ${products.length}`);
+      console.log("Produtos após filtro:", products.map(p => ({id: p.id, name: p.name, tenant_id: p.tenant_id})));
+      
       res.json(products);
     } catch (error) {
+      console.error("Erro ao obter produtos:", error);
       res.status(500).json({ message: "Failed to get products" });
     }
   });
@@ -1712,15 +1720,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/products - Create product (admin only)
   app.post("/api/products", requireTenant, isAdmin, async (req: Request, res: Response) => {
     try {
+      console.log("Iniciando criação de produto para tenant_id:", req.tenantId);
+      console.log("Dados do produto recebidos:", req.body);
+      
       const productData = insertProductSchema.parse(req.body);
+      console.log("Dados validados com schema:", productData);
       
       // Aplicar tenant_id ao produto
       const dataWithTenant = applyTenantId(productData, req.tenantId);
+      console.log("Dados com tenant_id aplicado:", dataWithTenant);
       
       const product = await storage.createProduct(dataWithTenant);
+      console.log("Produto criado com sucesso:", product);
+      
+      // Verificar se podemos recuperar o produto recém-criado
+      const allProducts = await storage.getAllProducts();
+      const tenantProducts = allProducts.filter(p => p.tenant_id === req.tenantId);
+      console.log(`Total de produtos cadastrados: ${allProducts.length}, produtos deste tenant: ${tenantProducts.length}`);
+      
       res.status(201).json(product);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Erro de validação:", error.errors);
         res.status(400).json({ message: "Invalid product data", errors: error.errors });
       } else {
         console.error("Erro ao criar produto:", error);
