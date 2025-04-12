@@ -420,8 +420,18 @@ const NewAppointmentPage = () => {
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto mb-2 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          <p>Não há horários disponíveis para esta data.</p>
-                          <p className="text-xs mt-1">Verifique outras datas ou entre em contato conosco.</p>
+                          {availabilityData && availabilityData.message ? (
+                            <>
+                              <p className="font-medium">Não há horários disponíveis para esta data.</p>
+                              <p className="text-sm mt-1">{availabilityData.message}</p>
+                              <p className="text-xs mt-3 text-gray-500">Tente selecionar outra data ou outro profissional.</p>
+                            </>
+                          ) : (
+                            <>
+                              <p>Não há horários disponíveis para esta data.</p>
+                              <p className="text-xs mt-1">Verifique outras datas ou entre em contato conosco.</p>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <div className="flex flex-col gap-4">
