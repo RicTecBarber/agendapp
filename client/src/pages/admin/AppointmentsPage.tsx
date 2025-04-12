@@ -308,6 +308,13 @@ const filteredAppointments = appointments?.filter((appointment: any) => {
       if (availability.available_slots && Array.isArray(availability.available_slots)) {
         const times = availability.available_slots;
         console.log("Horários disponíveis:", times);
+        
+        if (times.length === 0 && availability.message) {
+          console.log("Mensagem do servidor:", availability.message);
+          // Não é necessário definir uma mensagem de erro, o componente já exibe
+          // uma mensagem apropriada quando availableTimes está vazio
+        }
+        
         setAvailableTimes(times);
       } else if (Array.isArray(availability)) {
         // Suporte para resposta que seja diretamente um array
@@ -339,7 +346,7 @@ const filteredAppointments = appointments?.filter((appointment: any) => {
       setAvailableTimes([]);
       setSelectedTime(null);
     }
-  }, [availability, selectedTime]);
+  }, [availability]);
   
   // Handle appointment submission
   const handleCreateAppointment = () => {
@@ -1033,7 +1040,15 @@ const filteredAppointments = appointments?.filter((appointment: any) => {
                   {!isLoadingAvailability && selectedProfessional && selectedDate && availableTimes.length === 0 && (
                     <div className="mt-2 p-3 border rounded-md bg-muted/10">
                       <span className="text-sm text-muted-foreground">
-                        Nenhum horário disponível nesta data
+                        {availability && availability.message ? (
+                          <>
+                            <p className="font-semibold">Nenhum horário disponível nesta data</p>
+                            <p className="text-xs mt-1 text-gray-500">{availability.message}</p>
+                            <p className="text-xs mt-2">Motivo: O profissional não possui disponibilidade configurada para este dia. Acesse a página de Disponibilidade para configurar.</p>
+                          </>
+                        ) : (
+                          "Nenhum horário disponível nesta data"
+                        )}
                       </span>
                     </div>
                   )}
