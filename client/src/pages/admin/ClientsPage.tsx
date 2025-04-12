@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { getTenantFromUrl } from "@/hooks/use-tenant";
 import {
   Card,
   CardContent,
@@ -62,10 +64,14 @@ const ClientsPage = () => {
     name: "",
     phone: ""
   });
+  
+  // Get tenant information from URL
+  const [location] = useLocation();
+  const tenantParam = getTenantFromUrl(location);
 
   // Get all appointments to extract clients
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery({
-    queryKey: ["/api/appointments"],
+    queryKey: ["/api/appointments", tenantParam],
   });
 
   // Extract unique clients from appointments
@@ -107,7 +113,7 @@ const ClientsPage = () => {
       const fetchClientLoyalty = async (client: any) => {
         try {
           const phoneEncoded = encodeURIComponent(client.client_phone);
-          const response = await fetch(`/api/loyalty/${phoneEncoded}`);
+          const response = await fetch(`/api/loyalty/${phoneEncoded}?tenant=${tenantParam}`);
           if (response.ok) {
             const data = await response.json();
             if (data && data.eligible_rewards && data.eligible_rewards > 0) {
@@ -155,7 +161,7 @@ const ClientsPage = () => {
   const handleClientClick = async (client: any) => {
     try {
       // Fetch client loyalty data
-      const response = await fetch(`/api/loyalty/${encodeURIComponent(client.client_phone)}`);
+      const response = await fetch(`/api/loyalty/${encodeURIComponent(client.client_phone)}?tenant=${tenantParam}`);
       if (!response.ok) {
         throw new Error("Failed to fetch client data");
       }
