@@ -139,8 +139,26 @@ const AppointmentsPage = () => {
     enabled: !!selectedService, // Only run query when a service is selected
     queryFn: async () => {
       if (!selectedService) return [];
-      const res = await fetch(`/api/professionals/service/${selectedService}`);
-      if (!res.ok) throw new Error("Erro ao buscar profissionais");
+      
+      // Extrair o tenant da URL para incluir na requisição
+      const params = new URLSearchParams(window.location.search);
+      const tenantParam = params.get('tenant');
+      
+      // Construir URL com o tenant, se disponível
+      let url = `/api/professionals/service/${selectedService}`;
+      if (tenantParam) {
+        url += `?tenant=${tenantParam}`;
+      }
+      
+      console.log("Buscando profissionais para o serviço:", selectedService, "URL:", url);
+      
+      // Usar apiRequest para garantir que o tenant seja incluído automaticamente
+      const res = await apiRequest("GET", url);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Erro ao buscar profissionais:", errorText);
+        throw new Error("Erro ao buscar profissionais");
+      }
       return res.json();
     }
   });
@@ -151,10 +169,28 @@ const AppointmentsPage = () => {
     enabled: !!selectedProfessional && !!selectedDate, // Only run query when both are selected
     queryFn: async () => {
       if (!selectedProfessional || !selectedDate) return [];
+      
+      // Extrair o tenant da URL para incluir na requisição
+      const params = new URLSearchParams(window.location.search);
+      const tenantParam = params.get('tenant');
+      
       const formattedDate = format(selectedDate, "yyyy-MM-dd");
-      const res = await fetch(`/api/availability/${selectedProfessional}/${formattedDate}`);
-      console.log("Buscando disponibilidade para:", selectedProfessional, formattedDate);
-      if (!res.ok) throw new Error("Erro ao buscar disponibilidade");
+      
+      // Construir URL com o tenant, se disponível
+      let url = `/api/availability/${selectedProfessional}/${formattedDate}`;
+      if (tenantParam) {
+        url += `?tenant=${tenantParam}`;
+      }
+      
+      console.log("Buscando disponibilidade para:", selectedProfessional, formattedDate, "URL:", url);
+      
+      // Usar apiRequest para garantir que o tenant seja incluído automaticamente
+      const res = await apiRequest("GET", url);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Erro ao buscar disponibilidade:", errorText);
+        throw new Error("Erro ao buscar disponibilidade");
+      }
       const data = await res.json();
       console.log("Disponibilidade retornada:", data);
       return data;

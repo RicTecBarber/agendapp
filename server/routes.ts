@@ -544,7 +544,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/professionals/service/:serviceId - Get professionals by service (filtered by tenant)
-  app.get("/api/professionals/service/:serviceId", async (req: Request, res: Response) => {
+  app.get("/api/professionals/service/:serviceId", requireTenant, async (req: Request, res: Response) => {
+    console.log(`Buscando profissionais para o serviço ${req.params.serviceId} - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
     try {
       const serviceId = parseInt(req.params.serviceId);
       // Passar o tenant_id para filtrar profissionais apenas desse tenant
@@ -717,7 +718,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/availability/:professionalId/:date - Get time slots for date
-  app.get("/api/availability/:professionalId/:date", async (req: Request, res: Response) => {
+  app.get("/api/availability/:professionalId/:date", requireTenant, async (req: Request, res: Response) => {
+    console.log(`Buscando slots disponíveis para o profissional ${req.params.professionalId} na data ${req.params.date} - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
     try {
       if (!req.tenantId) {
         return res.status(400).json({ message: "Tenant não identificado. Use o parâmetro ?tenant=SLUG" });
