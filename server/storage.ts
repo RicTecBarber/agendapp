@@ -66,6 +66,11 @@ export interface IStorage {
   createBarbershopSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings>;
   updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings>;
   
+  // Aliases com nomes atualizados (mesmo comportamento, nomes diferentes)
+  getBusinessSettings(tenantId?: number | null): Promise<BarbershopSettings | undefined>;
+  createBusinessSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings>;
+  updateBusinessSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings>;
+  
   // Product operations
   getAllProducts(): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
