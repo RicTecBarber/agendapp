@@ -299,7 +299,7 @@ export default function BarbershopSettingsPage() {
       <Card className="w-full shadow-md">
         <CardHeader>
           <CardTitle>
-            {isCreating ? "Criar Configurações da Barbearia" : "Editar Configurações da Barbearia"}
+            {isCreating ? "Criar Configurações da Empresa" : "Editar Configurações da Empresa"}
           </CardTitle>
           {isSystemAdmin && settings && (
             <CardDescription>
@@ -347,7 +347,7 @@ export default function BarbershopSettingsPage() {
                           </Button>
                         </div>
                         <FormDescription>
-                          Compartilhe este link com os clientes para que eles possam acessar o sistema.
+                          Compartilhe este link com os clientes para que eles possam acessar o sistema de agendamento.
                         </FormDescription>
                       </FormItem>
                     )}
@@ -385,7 +385,7 @@ export default function BarbershopSettingsPage() {
                           </Button>
                         </div>
                         <FormDescription>
-                          Compartilhe este link com os administradores da barbearia para que eles possam acessar o painel administrativo.
+                          Compartilhe este link com os administradores da empresa para que eles possam acessar o painel administrativo.
                         </FormDescription>
                       </FormItem>
                     )}
@@ -418,7 +418,7 @@ export default function BarbershopSettingsPage() {
                       <FormLabel>Email</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="contato@barbersync.com" 
+                          placeholder="contato@agendapp.com" 
                           type="email" 
                           {...field} 
                           value={field.value || ""} 
@@ -468,7 +468,7 @@ export default function BarbershopSettingsPage() {
                       <FormLabel>Instagram</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="@barbersync" 
+                          placeholder="@agendapp" 
                           {...field} 
                           value={field.value || ""} 
                         />
@@ -487,7 +487,7 @@ export default function BarbershopSettingsPage() {
                       <FormLabel>Facebook</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="facebook.com/barbersync" 
+                          placeholder="facebook.com/agendapp" 
                           {...field} 
                           value={field.value || ""} 
                         />
@@ -526,7 +526,7 @@ export default function BarbershopSettingsPage() {
                     <FormLabel>Descrição</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Sobre a barbearia..." 
+                        placeholder="Sobre a empresa..." 
                         className="min-h-[100px]" 
                         {...field} 
                         value={field.value || ""} 
