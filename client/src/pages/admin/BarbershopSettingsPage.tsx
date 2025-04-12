@@ -84,9 +84,9 @@ export default function BusinessSettingsPage() {
   const [location] = useLocation();
   const tenantParam = getTenantFromUrl(location);
   
-  // Buscar configurações da barbearia
+  // Buscar configurações da empresa
   const { data: settings, isLoading, error } = useQuery<any, Error>({
-    queryKey: ["/api/barbershop-settings", tenantParam],
+    queryKey: ["/api/business-settings", tenantParam],
     // Usar o getQueryFn padrão configurado no setup do queryClient
   });
   
