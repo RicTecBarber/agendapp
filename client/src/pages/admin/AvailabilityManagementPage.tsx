@@ -133,7 +133,7 @@ const AvailabilityManagementPage = () => {
       });
       resetForm();
       setIsCreateDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`, tenant] });
+      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`, tenantParam] });
     },
     onError: (error: Error) => {
       toast({
@@ -157,7 +157,7 @@ const AvailabilityManagementPage = () => {
         variant: "default",
       });
       setIsEditDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`, tenant] });
+      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`, tenantParam] });
     },
     onError: (error: Error) => {
       toast({
@@ -181,7 +181,7 @@ const AvailabilityManagementPage = () => {
         variant: "default",
       });
       setIsDeleteDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`, tenant] });
+      queryClient.invalidateQueries({ queryKey: [`/api/availability/professional/${professionalId}`, tenantParam] });
     },
     onError: (error: Error) => {
       toast({
@@ -233,7 +233,7 @@ const AvailabilityManagementPage = () => {
       start_time: startTime,
       end_time: endTime,
       is_available: isAvailable,
-      tenant_id: tenant?.id
+      tenant_id: Number(tenantParam)
     });
   };
 
@@ -255,7 +255,7 @@ const AvailabilityManagementPage = () => {
       start_time: startTime,
       end_time: endTime,
       is_available: isAvailable,
-      tenant_id: tenant?.id
+      tenant_id: Number(tenantParam)
     });
   };
 
@@ -264,7 +264,7 @@ const AvailabilityManagementPage = () => {
     if (selectedAvailability) {
       deleteAvailabilityMutation.mutate({
         id: selectedAvailability.id,
-        tenant_id: tenant?.id
+        tenant_id: Number(tenantParam)
       });
     }
   };
