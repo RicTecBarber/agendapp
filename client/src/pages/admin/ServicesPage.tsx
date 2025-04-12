@@ -22,7 +22,9 @@ import {
   Trash2, 
   Loader2,
   Clock,
-  DollarSign 
+  DollarSign,
+  Scissors, 
+  Image
 } from "lucide-react";
 import {
   Dialog,
@@ -35,6 +37,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -66,6 +69,36 @@ const serviceSchema = z.object({
   description: z.string().min(1, "Descrição é obrigatória"),
   price: z.coerce.number().min(0, "Preço não pode ser negativo"),
   duration: z.coerce.number().min(5, "Duração deve ser pelo menos 5 minutos"),
+  image_url: z.string().optional().nullable(),
+  image: z
+    .instanceof(FileList)
+    .optional()
+    .refine(
+      (files) => {
+        if (!files) return true;
+        if (files.length === 0) return true;
+        return Array.from(files).every(
+          (file) => 
+            file.type === "image/jpeg" || 
+            file.type === "image/png" || 
+            file.type === "image/gif" || 
+            file.type === "image/webp"
+        );
+      },
+      {
+        message: "Apenas imagens JPEG, PNG, GIF e WebP são permitidas",
+      }
+    )
+    .refine(
+      (files) => {
+        if (!files) return true;
+        if (files.length === 0) return true;
+        return Array.from(files).every((file) => file.size <= 5 * 1024 * 1024);
+      },
+      {
+        message: "O tamanho máximo do arquivo é 5MB",
+      }
+    ),
 });
 
 type ServiceFormValues = z.infer<typeof serviceSchema>;
@@ -77,6 +110,9 @@ const ServicesPage = () => {
   const [editingService, setEditingService] = useState<any | null>(null);
   const [serviceToDelete, setServiceToDelete] = useState<any | null>(null);
   
+  // Estado para prévia da imagem
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
   // Form for service create/edit
   const form = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
@@ -85,6 +121,7 @@ const ServicesPage = () => {
       description: "",
       price: 0,
       duration: 30,
+      image_url: "",
     },
   });
   
@@ -169,33 +206,91 @@ const ServicesPage = () => {
     },
   });
   
-  const onSubmit = (data: ServiceFormValues) => {
+  // Upload de imagem
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const res = await fetch('/api/upload/service', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Erro ao fazer upload da imagem');
+      }
+      
+      return res.json();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao fazer upload da imagem",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const onSubmit = async (formData: ServiceFormValues) => {
+    // Primeiro verifica se há uma imagem para upload
+    if (formData.image && formData.image.length > 0) {
+      try {
+        // Faz o upload da imagem primeiro
+        const uploadResult = await uploadImageMutation.mutateAsync(formData.image[0]);
+        
+        // Atualiza o campo image_url com o URL retornado pelo servidor
+        formData.image_url = uploadResult.url;
+      } catch (error) {
+        // Erro tratado no onError da mutation
+        return;
+      }
+    }
+    
+    // Limpa o campo image para não enviar no request JSON
+    const { image, ...dataToSubmit } = formData;
+    
+    // Procede com a criação/atualização do serviço
     if (editingService) {
-      updateServiceMutation.mutate({ id: editingService.id, data });
+      updateServiceMutation.mutate({ id: editingService.id, data: dataToSubmit });
     } else {
-      createServiceMutation.mutate(data);
+      createServiceMutation.mutate(dataToSubmit);
     }
   };
   
   const handleAddNewClick = () => {
     setEditingService(null);
+    setImagePreview(null);
     form.reset({
       name: "",
       description: "",
       price: 0,
       duration: 30,
+      image_url: "",
     });
     setServiceDialogOpen(true);
   };
   
   const handleEditClick = (service: any) => {
     setEditingService(service);
+    
+    // Resetar o formulário com os dados existentes
     form.reset({
       name: service.name,
       description: service.description,
       price: service.price,
       duration: service.duration,
+      image_url: service.image_url || "",
     });
+    
+    // Se o serviço já tem uma imagem, mostra a prévia
+    if (service.image_url) {
+      setImagePreview(service.image_url);
+    } else {
+      setImagePreview(null);
+    }
+    
     setServiceDialogOpen(true);
   };
   
@@ -361,6 +456,68 @@ const ServicesPage = () => {
                   )}
                 />
               </div>
+              
+              {/* Campo para upload de imagem */}
+              <FormField
+                control={form.control}
+                name="image"
+                render={({ field: { value, onChange, ...field } }) => (
+                  <FormItem>
+                    <FormLabel>Imagem do Serviço</FormLabel>
+                    <FormControl>
+                      <div className="space-y-4">
+                        {/* Exibe a prévia da imagem quando disponível */}
+                        {imagePreview && (
+                          <div className="w-full h-40 relative rounded-md overflow-hidden">
+                            <img 
+                              src={imagePreview} 
+                              alt="Prévia da imagem" 
+                              className="w-full h-full object-cover"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="absolute top-2 right-2"
+                              onClick={() => {
+                                setImagePreview(null);
+                                onChange(null);
+                                form.setValue("image_url", "");
+                              }}
+                            >
+                              Remover
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {/* Input para seleção de arquivo */}
+                        <Input
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          onChange={(e) => {
+                            const files = e.target.files;
+                            if (files && files.length > 0) {
+                              onChange(files);
+                              
+                              // Criar URL temporária para prévia da imagem
+                              const previewUrl = URL.createObjectURL(files[0]);
+                              setImagePreview(previewUrl);
+                            }
+                          }}
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Selecione uma imagem para o serviço (máximo 5MB, formatos aceitos: JPG, PNG, GIF, WebP)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {/* Campo oculto para URL da imagem - será preenchida pelo backend após upload */}
+              <input type="hidden" {...form.register("image_url")} />
               
               <DialogFooter>
                 <Button 
