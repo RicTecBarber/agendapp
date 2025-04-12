@@ -140,7 +140,7 @@ const ProfessionalsPage = () => {
   // Update professional mutation
   const updateProfessionalMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("PUT", `/api/professionals/${data.id}`, data);
+      const res = await apiRequest("PUT", `/api/professionals/${data.id}?tenant=${data.tenant_id}`, data);
       return res.json();
     },
     onSuccess: () => {
@@ -165,8 +165,8 @@ const ProfessionalsPage = () => {
   
   // Delete professional mutation
   const deleteProfessionalMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/professionals/${id}`);
+    mutationFn: async (data: { id: number, tenant_id: number | undefined }) => {
+      await apiRequest("DELETE", `/api/professionals/${data.id}?tenant=${data.tenant_id}`);
     },
     onSuccess: () => {
       toast({
@@ -314,7 +314,11 @@ const ProfessionalsPage = () => {
       }
     }
     
-    createProfessionalMutation.mutate(data);
+    // Adiciona o tenant_id ao payload
+    createProfessionalMutation.mutate({
+      ...data,
+      tenant_id: Number(tenantParam)
+    });
   };
   
   // Submit handler for edit form
@@ -335,6 +339,7 @@ const ProfessionalsPage = () => {
     
     updateProfessionalMutation.mutate({
       id: selectedProfessional.id,
+      tenant_id: Number(tenantParam),
       ...data
     });
   };
@@ -363,7 +368,10 @@ const ProfessionalsPage = () => {
   // Handler for confirming delete
   const confirmDelete = () => {
     if (selectedProfessional) {
-      deleteProfessionalMutation.mutate(selectedProfessional.id);
+      deleteProfessionalMutation.mutate({
+        id: selectedProfessional.id,
+        tenant_id: Number(tenantParam)
+      });
     }
   };
   
