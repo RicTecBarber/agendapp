@@ -2,24 +2,51 @@ import { createContext, ReactNode, useContext, useEffect, useState } from "react
 import { useLocation } from "wouter";
 
 // Função para extrair o tenant da URL (exportada para uso direto)
-export function getTenantFromUrl(locationPath?: string): string | null {
+export function extractTenantFromUrl(locationPath?: string): string | null {
   try {
     // Se um path for fornecido, usa-o para extrair o tenant
     if (locationPath) {
-      // Verifica se o path contém '?'
-      const searchParams = locationPath.includes('?') 
-        ? new URLSearchParams(locationPath.split('?')[1]) 
-        : new URLSearchParams();
-      return searchParams.get('tenant');
-    } 
-    // Caso contrário, usa a URL atual
-    const url = new URL(window.location.href);
-    return url.searchParams.get('tenant');
+      // Melhorado para lidar com URLs complexas, tentando várias abordagens:
+      
+      // 1. Tenta extrair de parâmetros de query normais
+      if (locationPath.includes('?')) {
+        const searchParams = new URLSearchParams(locationPath.split('?')[1]);
+        const tenantParam = searchParams.get('tenant');
+        if (tenantParam) return tenantParam;
+      }
+      
+      // 2. Verifica se o tenant está no formato /tenant=SLUG no final da URL
+      const tenantMatch = locationPath.match(/tenant=([^&]+)/);
+      if (tenantMatch && tenantMatch[1]) {
+        return tenantMatch[1];
+      }
+    }
+    
+    // Caso contrário, usa a URL atual com a mesma lógica aprimorada
+    const currentUrl = window.location.href;
+    
+    // 1. Tenta da maneira padrão com URLSearchParams
+    const url = new URL(currentUrl);
+    const tenantParam = url.searchParams.get('tenant');
+    if (tenantParam) return tenantParam;
+    
+    // 2. Tenta extrair com regex se estiver em um formato não padrão
+    const tenantMatch = currentUrl.match(/tenant=([^&]+)/);
+    if (tenantMatch && tenantMatch[1]) {
+      return tenantMatch[1];
+    }
+    
+    return null;
   } catch (error) {
     console.error("Erro ao extrair o tenant da URL:", error);
+    // Log detalhado para diagnóstico
+    console.debug("Contexto da falha:", { locationPath, currentUrl: window.location.href });
     return null;
   }
 }
+
+// Mantém a compatibilidade com o código existente
+export const getTenantFromUrl = extractTenantFromUrl;
 
 // Função para adicionar o tenant a uma URL (exportada para uso direto)
 export function getUrlWithTenant(path: string): string {
@@ -56,33 +83,19 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenantState] = useState<string | null>(null);
   const [location, navigate] = useLocation();
 
+  // Função interna que usa a implementação exportada
+  const getTenantFromUrlInternal = (locationPath?: string): string | null => {
+    // Usa a função exportada para garantir que a lógica seja a mesma
+    return extractTenantFromUrl(locationPath);
+  };
+  
   // Ao inicializar, verifica o tenant na URL
   useEffect(() => {
-    const tenantFromUrl = getTenantFromUrl();
+    const tenantFromUrl = getTenantFromUrlInternal();
     if (tenantFromUrl) {
       setTenantState(tenantFromUrl);
     }
   }, [location]);
-
-  // Função para extrair o tenant da URL atual
-  const getTenantFromUrl = (locationPath?: string): string | null => {
-    try {
-      // Se um path for fornecido, usa-o para extrair o tenant
-      if (locationPath) {
-        // Verifica se o path contém '?'
-        const searchParams = locationPath.includes('?') 
-          ? new URLSearchParams(locationPath.split('?')[1]) 
-          : new URLSearchParams();
-        return searchParams.get('tenant');
-      } 
-      // Caso contrário, usa a URL atual
-      const url = new URL(window.location.href);
-      return url.searchParams.get('tenant');
-    } catch (error) {
-      console.error("Erro ao extrair o tenant da URL:", error);
-      return null;
-    }
-  };
 
   // Função para atualizar o tenant e também guardar no localStorage
   const setTenant = (newTenant: string | null) => {
