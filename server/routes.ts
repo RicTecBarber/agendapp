@@ -737,10 +737,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Extrair horário de início e fim da jornada das configurações
-      const settings = await storage.getBarbershopSettings();
-      const startTime = settings.open_time || '09:00';
-      const endTime = settings.close_time || '18:00';
-      const slotDuration = settings.slot_duration || 30;
+      const settings = await storage.getBarbershopSettings(req.tenantId);
+      const startTime = settings?.open_time || '09:00';
+      const endTime = settings?.close_time || '18:00';
+      const slotDuration = 30; // Usar valor padrão para slot_duration
       
       // Parse da data da requisição
       const dateObj = parseISO(dateStr);
@@ -1605,8 +1605,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Buscar configurações da barbearia
-      const settings = await storage.getBarbershopSettings();
+      // Buscar configurações da barbearia com o tenant_id
+      const settings = await storage.getBarbershopSettings(req.tenantId);
       
       // Verificar se há um tenant_id
       if (!req.tenantId) {
@@ -1624,8 +1624,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } 
       
-      // Se temos um tenant_id, verificar se as configurações pertencem a esse tenant
-      if (settings && settings.tenant_id === req.tenantId) {
+      // Se temos settings, retornar diretamente (já foi filtrado pelo tenant_id)
+      if (settings) {
         return res.json(settings);
       } else {
         // Se não houver configurações para este tenant, criar uma configuração padrão
@@ -1750,11 +1750,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Obter as configurações atuais
-      const settings = await storage.getBarbershopSettings();
+      // Obter as configurações atuais com o tenant_id
+      const settings = await storage.getBarbershopSettings(targetTenantId);
       
-      // Verificar se as configurações pertencem ao tenant atual
-      if (!settings || settings.tenant_id !== targetTenantId) {
+      // Verificar se as configurações existem
+      if (!settings) {
         // Se não houver configurações, criar configurações padrão
         console.log(`Criando configurações padrão para tenant ${targetTenantId} durante atualização`);
         try {
