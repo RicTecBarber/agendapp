@@ -106,8 +106,8 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
               )}
               
               {/* Link de Configurações disponível para todos os tipos de admin */}
-              <Link href={getUrlWithTenant("/admin/business-settings")}>
-                <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/business-settings" || location === "/admin/settings" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
+              <Link href={getUrlWithTenant("/admin/barbershop-settings")}>
+                <a className={`flex items-center py-3 px-4 rounded-lg text-white ${location === "/admin/barbershop-settings" || location === "/admin/settings" ? "bg-primary-light" : "text-white/80 hover:bg-primary-light hover:text-white"} transition`}>
                   <Settings className="h-5 w-5 mr-3" />
                   Configurações
                 </a>
