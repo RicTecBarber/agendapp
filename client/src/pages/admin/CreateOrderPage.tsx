@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenant } from "@/hooks/use-tenant";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useLocation } from "wouter";
 import {
@@ -109,6 +110,7 @@ function CreateOrderPage() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
+  const { tenant } = useTenant();
 
   // Formulário para dados do cliente e pagamento
   const orderForm = useForm<z.infer<typeof orderFormSchema>>({
@@ -224,15 +226,15 @@ function CreateOrderPage() {
 
   // Buscar produtos
   const { data: products = [], isLoading: loadingProducts } = useQuery({
-    queryKey: ["/api/products"],
+    queryKey: ["/api/products", tenant],
     queryFn: async () => {
       try {
-        const response = await fetch("/api/products");
+        const response = await apiRequest("GET", "/api/products");
         if (!response.ok) {
           console.warn("Falha ao buscar produtos da API, usando valores padrão");
           throw new Error("Erro ao buscar produtos");
         }
-        return response.json();
+        return await response.json();
       } catch (error) {
         console.error("Erro ao buscar produtos:", error);
         // Produtos de exemplo em caso de falha
@@ -243,15 +245,15 @@ function CreateOrderPage() {
 
   // Buscar serviços
   const { data: services = [], isLoading: loadingServices } = useQuery({
-    queryKey: ["/api/services"],
+    queryKey: ["/api/services", tenant],
     queryFn: async () => {
       try {
-        const response = await fetch("/api/services");
+        const response = await apiRequest("GET", "/api/services");
         if (!response.ok) {
           console.warn("Falha ao buscar serviços da API, usando valores padrão");
           throw new Error("Erro ao buscar serviços");
         }
-        return response.json();
+        return await response.json();
       } catch (error) {
         console.error("Erro ao buscar serviços:", error);
         // Serviços de exemplo em caso de falha
@@ -262,15 +264,15 @@ function CreateOrderPage() {
 
   // Buscar categorias de produtos
   const { data: categories = [] } = useQuery({
-    queryKey: ["/api/products/categories"],
+    queryKey: ["/api/products/categories", tenant],
     queryFn: async () => {
       try {
-        const response = await fetch("/api/products/categories");
+        const response = await apiRequest("GET", "/api/products/categories");
         if (!response.ok) {
           console.warn("Falha ao buscar categorias da API, usando valores padrão");
           throw new Error("Erro ao buscar categorias");
         }
-        return response.json();
+        return await response.json();
       } catch (error) {
         console.error("Erro ao buscar categorias:", error);
         // Categorias padrão em caso de falha
