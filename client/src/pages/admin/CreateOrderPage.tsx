@@ -155,6 +155,18 @@ function CreateOrderPage() {
     const action = params.get('action');
     const orderId = params.get('orderId');
     
+    // Se não temos tenant na URL mas temos outros parâmetros, recarregar a página com tenant
+    if (!tenant && (appointmentId || clientName || clientPhone)) {
+      const currentTenant = localStorage.getItem('lastTenant');
+      if (currentTenant) {
+        console.log("Redirecionando para adicionar tenant:", currentTenant);
+        const url = new URL(window.location.href);
+        url.searchParams.append('tenant', currentTenant);
+        window.location.href = url.toString();
+        return;
+      }
+    }
+    
     console.log("Configuração inicial da página com parâmetros", {
       appointmentId, clientName, clientPhone, serviceId, 
       serviceName, servicePrice, action, orderId
@@ -229,12 +241,16 @@ function CreateOrderPage() {
     queryKey: ["/api/products", tenant],
     queryFn: async () => {
       try {
+        console.log("Buscando produtos com tenant:", tenant);
         const response = await apiRequest("GET", "/api/products");
+        console.log("Resposta da API produtos:", response.status);
         if (!response.ok) {
           console.warn("Falha ao buscar produtos da API, usando valores padrão");
           throw new Error("Erro ao buscar produtos");
         }
-        return await response.json();
+        const data = await response.json();
+        console.log("Dados de produtos recebidos:", data.length);
+        return data;
       } catch (error) {
         console.error("Erro ao buscar produtos:", error);
         // Produtos de exemplo em caso de falha
@@ -248,12 +264,16 @@ function CreateOrderPage() {
     queryKey: ["/api/services", tenant],
     queryFn: async () => {
       try {
+        console.log("Buscando serviços com tenant:", tenant);
         const response = await apiRequest("GET", "/api/services");
+        console.log("Resposta da API serviços:", response.status);
         if (!response.ok) {
           console.warn("Falha ao buscar serviços da API, usando valores padrão");
           throw new Error("Erro ao buscar serviços");
         }
-        return await response.json();
+        const data = await response.json();
+        console.log("Dados de serviços recebidos:", data.length);
+        return data;
       } catch (error) {
         console.error("Erro ao buscar serviços:", error);
         // Serviços de exemplo em caso de falha
@@ -267,12 +287,16 @@ function CreateOrderPage() {
     queryKey: ["/api/products/categories", tenant],
     queryFn: async () => {
       try {
+        console.log("Buscando categorias com tenant:", tenant);
         const response = await apiRequest("GET", "/api/products/categories");
+        console.log("Resposta da API categorias:", response.status);
         if (!response.ok) {
           console.warn("Falha ao buscar categorias da API, usando valores padrão");
           throw new Error("Erro ao buscar categorias");
         }
-        return await response.json();
+        const data = await response.json();
+        console.log("Dados de categorias recebidos:", data.length);
+        return data;
       } catch (error) {
         console.error("Erro ao buscar categorias:", error);
         // Categorias padrão em caso de falha
