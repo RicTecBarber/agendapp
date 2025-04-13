@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { useTenant } from "@/hooks/use-tenant";
 import {
   Card,
   CardContent,
@@ -166,6 +167,10 @@ function OrderDetail({ order }: { order: Order }) {
       action: 'add_items' // Indicar que estamos adicionando itens a uma comanda existente
     });
     
+    // Garantir que o tenant seja incluído nos parâmetros
+    if (tenant) {
+      queryParams.append('tenant', tenant);
+    }
     navigate(`/admin/orders/new?${queryParams.toString()}`);
   };
 
@@ -433,7 +438,10 @@ function OrdersPage() {
                     <Button
                       variant="secondary"
                       className="w-full"
-                      onClick={navigateToAddItems}
+                      onClick={() => {
+                        // Precisamos passar o objeto order para a função
+                        navigateToAddItems(order);
+                      }}
                     >
                       <Plus className="h-4 w-4 mr-2" /> Adicionar Itens
                     </Button>
