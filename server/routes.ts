@@ -2193,7 +2193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ORDER ENDPOINTS
 
   // GET /api/orders - Get all orders (auth required)
-  app.get("/api/orders", async (req: Request, res: Response) => {
+  app.get("/api/orders", requireTenant, async (req: Request, res: Response) => {
     try {
       // Removemos a verificação de auth para facilitar o desenvolvimento
       // if (!req.isAuthenticated()) {
@@ -2210,7 +2210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/orders/:id - Get order by id (auth required)
-  app.get("/api/orders/:id", async (req: Request, res: Response) => {
+  app.get("/api/orders/:id", requireTenant, async (req: Request, res: Response) => {
     try {
       // Removemos a verificação de auth para facilitar o desenvolvimento
       // if (!req.isAuthenticated()) {
@@ -2281,7 +2281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/orders - Create order (auth required)
-  app.post("/api/orders", async (req: Request, res: Response) => {
+  app.post("/api/orders", requireTenant, async (req: Request, res: Response) => {
     try {
       // Removemos a verificação de auth para facilitar o desenvolvimento
       // if (!req.isAuthenticated()) {
@@ -2341,7 +2341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PUT /api/orders/:id/status - Update order status (auth required)
-  app.put("/api/orders/:id/status", async (req: Request, res: Response) => {
+  app.put("/api/orders/:id/status", requireTenant, async (req: Request, res: Response) => {
     try {
       // Removemos a verificação de auth para desenvolvimento
       // if (!req.isAuthenticated()) {
@@ -2385,7 +2385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PUT /api/orders/:id/items - Update order items (auth required)
-  app.put("/api/orders/:id/items", async (req: Request, res: Response) => {
+  app.put("/api/orders/:id/items", requireTenant, async (req: Request, res: Response) => {
     try {
       // Removemos a verificação de req.isAuthenticated() porque ela pode estar causando problemas
       // Podemos implementar um método alternativo de autenticação, se necessário
