@@ -735,6 +735,7 @@ export class MemStorage implements IStorage {
   }
   
   async updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings> {
+    console.log("Atualizando configurações da barbearia:", settings);
     if (!this.barbershopSettings) {
       // Se as configurações não existirem, crie-as com o nome fornecido ou um valor padrão
       return this.createBarbershopSettings({
@@ -742,10 +743,12 @@ export class MemStorage implements IStorage {
         address: settings.address || "Rua Exemplo, 123",
         phone: settings.phone || "(11) 99999-9999",
         email: settings.email || "contato@agendapp.com",
+        timezone: settings.timezone || "America/Sao_Paulo",
         open_time: settings.open_time || "08:00",
         close_time: settings.close_time || "20:00",
         open_days: settings.open_days || [1, 2, 3, 4, 5, 6],
         description: settings.description || "Configuração inicial",
+        tenant_id: settings.tenant_id || null,
         ...settings
       });
     }
@@ -770,6 +773,13 @@ export class MemStorage implements IStorage {
     if (settings.instagram !== undefined) updatedSettings.instagram = settings.instagram || null;
     if (settings.facebook !== undefined) updatedSettings.facebook = settings.facebook || null;
     
+    // Garantir que o tenant_id seja preservado corretamente
+    if (settings.tenant_id !== undefined) {
+      console.log(`Atualizando tenant_id para: ${settings.tenant_id}`);
+      updatedSettings.tenant_id = settings.tenant_id;
+    }
+    
+    console.log("Configurações atualizadas:", updatedSettings);
     this.barbershopSettings = updatedSettings;
     return updatedSettings;
   }
@@ -1117,7 +1127,11 @@ export class MemStorage implements IStorage {
   }
   
   async updateBusinessSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings> {
-    console.log("Chamando updateBusinessSettings (alias)");
+    console.log("Chamando updateBusinessSettings com dados:", settings);
+    // Certificar-se de que o tenant_id está sendo incluído corretamente
+    if (settings.tenant_id !== undefined) {
+      console.log(`Business Settings: tenant_id informado: ${settings.tenant_id}`);
+    }
     return this.updateBarbershopSettings(settings);
   }
   
