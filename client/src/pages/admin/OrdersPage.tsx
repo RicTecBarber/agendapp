@@ -125,6 +125,7 @@ function OrderDetail({ order }: { order: Order }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { tenant } = useTenant();
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
@@ -308,6 +309,7 @@ function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [, navigate] = useLocation();
+  const { tenant } = useTenant();
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -439,8 +441,21 @@ function OrdersPage() {
                       variant="secondary"
                       className="w-full"
                       onClick={() => {
-                        // Precisamos passar o objeto order para a função
-                        navigateToAddItems(order);
+                        // Criamos um objeto com os parâmetros necessários para preencher a página de nova comanda
+                        const queryParams = new URLSearchParams({
+                          orderId: order.id.toString(),
+                          appointmentId: order.appointment_id ? order.appointment_id.toString() : '',
+                          clientName: order.client_name,
+                          clientPhone: order.client_phone,
+                          paymentMethod: order.payment_method,
+                          action: 'add_items' // Indicar que estamos adicionando itens a uma comanda existente
+                        });
+                        
+                        // Garantir que o tenant seja incluído nos parâmetros
+                        if (tenant) {
+                          queryParams.append('tenant', tenant);
+                        }
+                        navigate(`/admin/orders/new?${queryParams.toString()}`);
                       }}
                     >
                       <Plus className="h-4 w-4 mr-2" /> Adicionar Itens
