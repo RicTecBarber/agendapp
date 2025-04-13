@@ -119,8 +119,28 @@ const AvailabilityManagementPage = () => {
   });
   
   // Buscar configurações da barbearia para obter horário de funcionamento
-  const { data: barbershopSettings } = useQuery({
+  const { data: barbershopSettings, isLoading: isLoadingSettings } = useQuery({
     queryKey: ['/api/business-settings', tenantParam],
+    enabled: !!tenantParam,
+    onSuccess: (data: any) => {
+      console.log("Configurações carregadas com sucesso:", data);
+      
+      // Se não houver dados ou se os horários estiverem faltando, vamos gerar horários padrão
+      if (!data || !data.open_time || !data.close_time) {
+        console.warn("Configurações de horário não encontradas, usando valores padrão");
+        
+        // Gerar horários padrão de 8h às 18h
+        const timeList: string[] = [];
+        
+        for (let hour = 8; hour <= 18; hour++) {
+          timeList.push(`${hour.toString().padStart(2, '0')}:00`);
+          timeList.push(`${hour.toString().padStart(2, '0')}:30`);
+        }
+        
+        console.log("Horários padrão gerados:", timeList);
+        setTimeOptions(timeList);
+      }
+    }
   });
 
   // Mutation para criar disponibilidade
@@ -330,25 +350,23 @@ const AvailabilityManagementPage = () => {
     }
   };
 
-  // Gerar opções de horário com base nas configurações da barbearia
+  // Gerar opções de horário com base nas configurações da barbearia ou usar valores padrão
   useEffect(() => {
-    if (barbershopSettings) {
-      // Parse dos horários de abertura e fechamento da barbearia
-      const parseTime = (timeStr: string) => {
+    const parseTime = (timeStr: string) => {
+      try {
         const [hours, minutes] = timeStr.split(':').map(Number);
         return { hours, minutes };
-      };
-      
-      const openTime = parseTime(barbershopSettings.open_time);
-      const closeTime = parseTime(barbershopSettings.close_time);
-      
-      console.log(`Gerando horários de ${openTime.hours}:${openTime.minutes} até ${closeTime.hours}:${closeTime.minutes}`);
-      
+      } catch (error) {
+        console.error(`Erro ao processar horário: ${timeStr}`, error);
+        return { hours: 0, minutes: 0 };
+      }
+    };
+    
+    const generateTimeList = (startHour: number, startMinute: number, endHour: number, endMinute: number) => {
       const timeList: string[] = [];
       
-      // Começamos do horário de abertura da barbearia
-      let currentHour = openTime.hours;
-      let currentMinute = openTime.minutes;
+      let currentHour = startHour;
+      let currentMinute = startMinute;
       
       // Arredondar para o intervalo de 30 minutos mais próximo
       if (currentMinute > 0 && currentMinute < 30) {
@@ -360,8 +378,8 @@ const AvailabilityManagementPage = () => {
       
       // Gerar horários até o fechamento
       while (
-        currentHour < closeTime.hours || 
-        (currentHour === closeTime.hours && currentMinute <= closeTime.minutes)
+        currentHour < endHour || 
+        (currentHour === endHour && currentMinute <= endMinute)
       ) {
         timeList.push(
           `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`
@@ -377,14 +395,46 @@ const AvailabilityManagementPage = () => {
       
       // Adicionar explicitamente o horário de fechamento se ele não estiver na lista
       // e não for múltiplo de 30 minutos
-      if (closeTime.minutes % 30 !== 0) {
+      if (endMinute % 30 !== 0) {
         timeList.push(
-          `${closeTime.hours.toString().padStart(2, '0')}:${closeTime.minutes.toString().padStart(2, '0')}`
+          `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`
         );
       }
       
-      console.log("Horários gerados:", timeList);
-      setTimeOptions(timeList);
+      return timeList;
+    };
+    
+    try {
+      // Verificar se tem configurações válidas
+      if (barbershopSettings && 
+          typeof barbershopSettings === 'object' && 
+          barbershopSettings.open_time && 
+          barbershopSettings.close_time) {
+        
+        const openTime = parseTime(barbershopSettings.open_time);
+        const closeTime = parseTime(barbershopSettings.close_time);
+        
+        console.log(`Gerando horários de ${openTime.hours}:${openTime.minutes} até ${closeTime.hours}:${closeTime.minutes}`);
+        
+        const timeList = generateTimeList(openTime.hours, openTime.minutes, closeTime.hours, closeTime.minutes);
+        console.log("Horários gerados:", timeList);
+        setTimeOptions(timeList);
+      } else {
+        // Usar valores padrão se não tiver configurações
+        console.warn("Usando valores padrão para horários (8h às 18h)");
+        const timeList = generateTimeList(8, 0, 18, 0);
+        console.log("Horários padrão gerados:", timeList);
+        setTimeOptions(timeList);
+      }
+    } catch (error) {
+      console.error("Erro ao gerar horários:", error);
+      // Em caso de erro, usar valores padrão simples
+      const defaultTimes = [
+        "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+        "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+        "16:00", "16:30", "17:00", "17:30", "18:00"
+      ];
+      setTimeOptions(defaultTimes);
     }
   }, [barbershopSettings]);
 
