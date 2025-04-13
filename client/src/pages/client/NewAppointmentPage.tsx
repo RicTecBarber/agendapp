@@ -166,7 +166,16 @@ const NewAppointmentPage = () => {
       }
       
       // Só atualizar com os horários que realmente estão disponíveis
-      setAvailableTimes(availabilityData.available_slots);
+      const slots = availabilityData.available_slots;
+      console.log("Horários disponíveis antes de processamento:", slots);
+      
+      // Garantir que estamos recebendo um array válido
+      if (Array.isArray(slots)) {
+        setAvailableTimes(slots);
+      } else {
+        console.error("Formato inválido de slots disponíveis:", availabilityData);
+        setAvailableTimes([]);
+      }
     } else {
       console.error("Formato inválido de dados recebidos:", availabilityData);
       toast({
