@@ -365,7 +365,7 @@ function CreateOrderPage() {
         ];
       }
     },
-    enabled: !!tenant // Só executar a query quando tiver o tenant
+    enabled: !!tenant, staleTime: 0, retry: 3 // Só executar a query quando tiver o tenant
   });
 
   // Buscar métodos de pagamento

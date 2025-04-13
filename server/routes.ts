@@ -2029,7 +2029,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PRODUCT ENDPOINTS
   
   // GET /api/products - Get all products
-  app.get("/api/products", async (req: Request, res: Response) => {
+  app.get("/api/products", requireTenant, async (req: Request, res: Response) => {
     try {
       console.log("GET /api/products - Requisição recebida para tenant_id:", req.tenantId);
       
@@ -2047,7 +2047,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // GET /api/products/categories - Get all distinct product categories
-  app.get("/api/products/categories", async (req: Request, res: Response) => {
+  app.get("/api/products/categories", requireTenant, async (req: Request, res: Response) => {
     try {
       // Usar a função atualizada que aceita filtro de tenant
       const products = await storage.getAllProducts(req.tenantId);
