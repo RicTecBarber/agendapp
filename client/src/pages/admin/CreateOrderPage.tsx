@@ -1089,7 +1089,12 @@ function CreateOrderPage() {
                         className="w-full"
                         onClick={() => {
                           setCartItems([]);
-                          setCartTotal(0);
+                          setDiscountPercent(0);
+                          setDiscountValue(0);
+                          setDiscountType('none');
+                          orderForm.setValue('discount_type', 'none');
+                          orderForm.setValue('discount_percent', 0);
+                          orderForm.setValue('discount_value', 0);
                         }}
                         disabled={cartItems.length === 0}
                       >
