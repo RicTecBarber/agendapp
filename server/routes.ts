@@ -1999,7 +1999,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tenant_id: targetTenantId
           };
           
-          const newSettings = await storage.createBarbershopSettings(defaultSettings);
+          // Usar o método createBusinessSettings para garantir compatibilidade
+          console.log("Criando configurações padrão:", defaultSettings);
+          const newSettings = await storage.createBusinessSettings(defaultSettings);
           return res.status(201).json(newSettings);
         } catch (err) {
           console.error("Erro ao criar configurações padrão:", err);
