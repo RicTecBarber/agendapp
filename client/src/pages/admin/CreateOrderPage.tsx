@@ -110,7 +110,7 @@ function CreateOrderPage() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
-  const { tenant } = useTenant();
+  const { tenant, ensureTenant } = useTenant();
 
   // Formulário para dados do cliente e pagamento
   const orderForm = useForm<z.infer<typeof orderFormSchema>>({
@@ -131,6 +131,12 @@ function CreateOrderPage() {
   // Efeito para preencher dados do cliente a partir dos parâmetros da URL
   // e adicionar o serviço principal ao carrinho
   // Verificar se o usuário não está autenticado
+  // Verificar se o tenant está presente e redirecionando se necessário
+  useEffect(() => {
+    // Verifica e garante que o tenant esteja presente na URL
+    ensureTenant();
+  }, [ensureTenant]);
+  
   useEffect(() => {
     if (!authLoading && !user) {
       toast({
