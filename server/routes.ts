@@ -980,11 +980,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           slotMinutes >= lunchStartMinutes && 
           slotMinutes < lunchEndMinutes;
         
-        // Verificar se há conflito com agendamento existente
+        // Verificar se há conflito com agendamento existente 
+        // Também considerar a duração do serviço (para evitar que novos agendamentos 
+        // comecem durante um serviço ainda em andamento)
         const conflicts = dateAppointments
           .filter(app => {
             const appDate = new Date(app.appointment_date);
-            return appDate.getHours() === hours && appDate.getMinutes() === minutes;
+            const appHours = appDate.getHours();
+            const appMinutes = appDate.getMinutes();
+            const appSlotMinutes = appHours * 60 + appMinutes;
+            const currentSlotMinutes = hours * 60 + minutes;
+            
+            // Obter a duração do serviço (padrão: 30 minutos)
+            const serviceDuration = app.service_duration || 30;
+            
+            // Verificar se o horário atual conflita com um agendamento existente considerando a duração
+            // Conflito ocorre se:
+            // 1. O novo horário é exatamente igual ao início de um agendamento existente
+            // 2. O novo horário está dentro da duração de um agendamento existente
+            return (
+              // Mesmo horário exato
+              (appHours === hours && appMinutes === minutes) ||
+              // Novo horário está dentro da duração de um agendamento existente
+              (currentSlotMinutes > appSlotMinutes && 
+               currentSlotMinutes < (appSlotMinutes + serviceDuration))
+            );
           })
           .map(app => app.id);
         
@@ -1109,18 +1129,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Filtrar apenas agendamentos deste tenant
         const appointments = allAppointments.filter(a => a.tenant_id === req.tenantId);
         
-        // Filtrar agendamentos na mesma data e hora
+        // Filtrar agendamentos na mesma data e hora, considerando duração do serviço
         const conflictingAppointments = appointments.filter(app => {
+          if (app.status === 'cancelled') return false; // Ignorar agendamentos cancelados
+          
           const appDate = new Date(app.appointment_date);
-          const isSameDate = (
+          
+          // Verificar se é o mesmo dia
+          const isSameDay = (
             appDate.getFullYear() === appointmentDate.getFullYear() &&
             appDate.getMonth() === appointmentDate.getMonth() &&
-            appDate.getDate() === appointmentDate.getDate() &&
-            appDate.getHours() === appointmentDate.getHours() &&
-            appDate.getMinutes() === appointmentDate.getMinutes()
+            appDate.getDate() === appointmentDate.getDate()
           );
           
-          return isSameDate && app.status !== 'cancelled';
+          if (!isSameDay) return false;
+          
+          // Calcular os horários em minutos para facilitar a comparação considerando a duração
+          const appStartMinutes = appDate.getHours() * 60 + appDate.getMinutes();
+          const newStartMinutes = appointmentDate.getHours() * 60 + appointmentDate.getMinutes();
+          
+          // Obter durações dos serviços
+          const existingServiceDuration = app.service_duration || 30; // Duração padrão: 30 minutos
+          const newServiceDuration = service.duration || 30; // Duração do novo serviço
+          
+          // Calcular o horário de término de cada agendamento
+          const appEndMinutes = appStartMinutes + existingServiceDuration;
+          const newEndMinutes = newStartMinutes + newServiceDuration;
+          
+          // Verificar se há sobreposição:
+          // Existe conflito se: 
+          // - O início do novo agendamento está dentro da duração de um agendamento existente
+          // - O fim do novo agendamento está dentro da duração de um agendamento existente
+          // - O novo agendamento contém inteiramente um agendamento existente
+          const hasOverlap = (
+            // Início do novo agendamento está durante um agendamento existente
+            (newStartMinutes >= appStartMinutes && newStartMinutes < appEndMinutes) ||
+            // Fim do novo agendamento está durante um agendamento existente
+            (newEndMinutes > appStartMinutes && newEndMinutes <= appEndMinutes) ||
+            // Novo agendamento engloba um agendamento existente
+            (newStartMinutes <= appStartMinutes && newEndMinutes >= appEndMinutes)
+          );
+          
+          return hasOverlap;
         });
         
         if (conflictingAppointments.length > 0) {
