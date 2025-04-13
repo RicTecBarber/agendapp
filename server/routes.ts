@@ -2014,7 +2014,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tenant_id: targetTenantId
       };
       
-      const updated = await storage.updateBarbershopSettings(settingsData);
+      // Usar updateBusinessSettings em vez de updateBarbershopSettings para garantir compatibilidade
+      console.log("Atualizando configurações da empresa:", settingsData);
+      const updated = await storage.updateBusinessSettings(settingsData);
       res.json(updated);
     } catch (error) {
       console.error("Erro ao atualizar configurações da barbearia:", error);
