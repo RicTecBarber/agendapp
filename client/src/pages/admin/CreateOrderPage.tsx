@@ -400,7 +400,7 @@ function CreateOrderPage() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", tenant] });
       toast({
         title: "Comanda criada",
         description: "A comanda foi criada com sucesso",
@@ -446,7 +446,7 @@ function CreateOrderPage() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", tenant] });
       toast({
         title: "Itens adicionados",
         description: "Os itens foram adicionados à comanda com sucesso",
