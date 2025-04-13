@@ -12,9 +12,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -24,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import {
   Form,
   FormControl,
@@ -45,8 +49,16 @@ import {
   AlertCircle,
   ArrowLeft as ArrowLeftIcon,
   Scissors,
+  RefreshCcw,
+  Percent,
+  CreditCard,
+  Tag,
+  ShoppingBag,
+  Gift,
+  Users,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Product = {
   id: number;
@@ -83,6 +95,9 @@ type OrderFormData = {
   payment_method: string;
   notes?: string;
   appointment_id?: number | null;
+  discount_percent?: number;
+  discount_value?: number;
+  discount_type?: 'percent' | 'value' | 'none';
 };
 
 const orderFormSchema = z.object({
@@ -91,6 +106,9 @@ const orderFormSchema = z.object({
   payment_method: z.string().min(1, "Método de pagamento é obrigatório"),
   notes: z.string().optional(),
   appointment_id: z.number().optional().nullable(),
+  discount_percent: z.number().min(0).max(100).optional(),
+  discount_value: z.number().min(0).optional(),
+  discount_type: z.enum(['percent', 'value', 'none']).default('none'),
 });
 
 function CreateOrderPage() {
@@ -112,6 +130,11 @@ function CreateOrderPage() {
   const { user, isLoading: authLoading } = useAuth();
   const { tenant, ensureTenant } = useTenant();
 
+  // Estados para gerenciar desconto
+  const [discountType, setDiscountType] = useState<'none' | 'percent' | 'value'>('none');
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountValue, setDiscountValue] = useState<number>(0);
+  
   // Formulário para dados do cliente e pagamento
   const orderForm = useForm<z.infer<typeof orderFormSchema>>({
     resolver: zodResolver(orderFormSchema),
@@ -121,6 +144,9 @@ function CreateOrderPage() {
       payment_method: "dinheiro",
       notes: "",
       appointment_id: null,
+      discount_type: 'none',
+      discount_percent: 0,
+      discount_value: 0,
     },
   });
 
