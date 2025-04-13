@@ -277,7 +277,9 @@ function CreateOrderPage() {
         return [];
       }
     },
-    enabled: !!tenant // Só executar a query quando tiver o tenant
+    enabled: !!tenant, // Só executar a query quando tiver o tenant
+    staleTime: 0, // Não usar cache para forçar atualização dos dados
+    retry: 3 // Tenta 3 vezes em caso de falha
   });
 
   // Buscar serviços
@@ -315,7 +317,7 @@ function CreateOrderPage() {
         return [];
       }
     },
-    enabled: !!tenant // Só executar a query quando tiver o tenant
+    enabled: !!tenant, staleTime: 0, retry: 3 // Só executar a query quando tiver o tenant
   });
 
   // Buscar categorias de produtos
