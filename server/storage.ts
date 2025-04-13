@@ -66,6 +66,10 @@ export interface IStorage {
   createBarbershopSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings>;
   updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings>;
   
+  // Aliases com nomes atualizados (mesmo comportamento, nomes diferentes)
+  getBusinessSettings(tenantId?: number | null): Promise<BarbershopSettings | undefined>;
+  createBusinessSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings>;
+  updateBusinessSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings>;
 
   
   // Product operations
@@ -1099,6 +1103,22 @@ export class MemStorage implements IStorage {
   
   async deleteSystemAdmin(id: number): Promise<boolean> {
     return this.systemAdmins.delete(id);
+  }
+  
+  // Métodos alias para compatibilidade
+  async getBusinessSettings(tenantId?: number | null): Promise<BarbershopSettings | undefined> {
+    console.log("Chamando getBusinessSettings (alias) para tenant_id", tenantId);
+    return this.getBarbershopSettings(tenantId);
+  }
+  
+  async createBusinessSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings> {
+    console.log("Chamando createBusinessSettings (alias)");
+    return this.createBarbershopSettings(settings);
+  }
+  
+  async updateBusinessSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings> {
+    console.log("Chamando updateBusinessSettings (alias)");
+    return this.updateBarbershopSettings(settings);
   }
   
 
