@@ -242,21 +242,36 @@ function CreateOrderPage() {
     queryFn: async () => {
       try {
         console.log("Buscando produtos com tenant:", tenant);
-        const response = await apiRequest("GET", "/api/products");
+        // Garantir que o tenant está sendo passado na URL
+        let url = "/api/products";
+        if (tenant && !url.includes("tenant=")) {
+          url += (url.includes("?") ? "&" : "?") + `tenant=${tenant}`;
+        }
+        console.log("URL de busca de produtos:", url);
+        
+        const response = await apiRequest("GET", url);
         console.log("Resposta da API produtos:", response.status);
         if (!response.ok) {
           console.warn("Falha ao buscar produtos da API, usando valores padrão");
           throw new Error("Erro ao buscar produtos");
         }
         const data = await response.json();
-        console.log("Dados de produtos recebidos:", data.length);
+        console.log("Dados de produtos recebidos:", Array.isArray(data) ? data.length : "Formato não é array");
+        
+        // Validar se temos um array
+        if (!Array.isArray(data)) {
+          console.error("Resposta de produtos não é um array:", data);
+          return [];
+        }
+        
         return data;
       } catch (error) {
         console.error("Erro ao buscar produtos:", error);
         // Produtos de exemplo em caso de falha
         return [];
       }
-    }
+    },
+    enabled: !!tenant // Só executar a query quando tiver o tenant
   });
 
   // Buscar serviços
@@ -265,21 +280,36 @@ function CreateOrderPage() {
     queryFn: async () => {
       try {
         console.log("Buscando serviços com tenant:", tenant);
-        const response = await apiRequest("GET", "/api/services");
+        // Garantir que o tenant está sendo passado na URL
+        let url = "/api/services";
+        if (tenant && !url.includes("tenant=")) {
+          url += (url.includes("?") ? "&" : "?") + `tenant=${tenant}`;
+        }
+        console.log("URL de busca de serviços:", url);
+        
+        const response = await apiRequest("GET", url);
         console.log("Resposta da API serviços:", response.status);
         if (!response.ok) {
           console.warn("Falha ao buscar serviços da API, usando valores padrão");
           throw new Error("Erro ao buscar serviços");
         }
         const data = await response.json();
-        console.log("Dados de serviços recebidos:", data.length);
+        console.log("Dados de serviços recebidos:", Array.isArray(data) ? data.length : "Formato não é array");
+        
+        // Validar se temos um array
+        if (!Array.isArray(data)) {
+          console.error("Resposta de serviços não é um array:", data);
+          return [];
+        }
+        
         return data;
       } catch (error) {
         console.error("Erro ao buscar serviços:", error);
         // Serviços de exemplo em caso de falha
         return [];
       }
-    }
+    },
+    enabled: !!tenant // Só executar a query quando tiver o tenant
   });
 
   // Buscar categorias de produtos
@@ -288,14 +318,33 @@ function CreateOrderPage() {
     queryFn: async () => {
       try {
         console.log("Buscando categorias com tenant:", tenant);
-        const response = await apiRequest("GET", "/api/products/categories");
+        // Garantir que o tenant está sendo passado na URL
+        let url = "/api/products/categories";
+        if (tenant && !url.includes("tenant=")) {
+          url += (url.includes("?") ? "&" : "?") + `tenant=${tenant}`;
+        }
+        console.log("URL de busca de categorias:", url);
+        
+        const response = await apiRequest("GET", url);
         console.log("Resposta da API categorias:", response.status);
         if (!response.ok) {
           console.warn("Falha ao buscar categorias da API, usando valores padrão");
           throw new Error("Erro ao buscar categorias");
         }
         const data = await response.json();
-        console.log("Dados de categorias recebidos:", data.length);
+        console.log("Dados de categorias recebidos:", Array.isArray(data) ? data.length : "Formato não é array");
+        
+        // Validar se temos um array
+        if (!Array.isArray(data)) {
+          console.error("Resposta de categorias não é um array:", data);
+          return [
+            { value: "cabelo", label: "Cabelo" },
+            { value: "barba", label: "Barba" },
+            { value: "produtos", label: "Produtos" },
+            { value: "acessorios", label: "Acessórios" }
+          ];
+        }
+        
         return data;
       } catch (error) {
         console.error("Erro ao buscar categorias:", error);
@@ -307,7 +356,8 @@ function CreateOrderPage() {
           { value: "acessorios", label: "Acessórios" }
         ];
       }
-    }
+    },
+    enabled: !!tenant // Só executar a query quando tiver o tenant
   });
 
   // Buscar métodos de pagamento
