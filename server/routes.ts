@@ -2112,7 +2112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/products/:id - Get product by id
-  app.get("/api/products/:id", async (req: Request, res: Response) => {
+  app.get("/api/products/:id", requireTenant, async (req: Request, res: Response) => {
     try {
       const productId = parseInt(req.params.id);
       const product = await storage.getProduct(productId);
@@ -2128,7 +2128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/products/category/:category - Get products by category
-  app.get("/api/products/category/:category", async (req: Request, res: Response) => {
+  app.get("/api/products/category/:category", requireTenant, async (req: Request, res: Response) => {
     try {
       const category = req.params.category;
       // Usar a função atualizada que aceita filtro de tenant
@@ -2286,7 +2286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/orders/appointment/:appointmentId - Get orders by appointment id (auth required)
-  app.get("/api/orders/appointment/:appointmentId", async (req: Request, res: Response) => {
+  app.get("/api/orders/appointment/:appointmentId", requireTenant, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated()) {
         return res.status(403).json({ message: "Unauthorized" });
@@ -2303,7 +2303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/orders/client/:phone - Get orders by client phone (auth required)
-  app.get("/api/orders/client/:phone", async (req: Request, res: Response) => {
+  app.get("/api/orders/client/:phone", requireTenant, async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated()) {
         return res.status(403).json({ message: "Unauthorized" });
