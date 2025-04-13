@@ -870,73 +870,232 @@ function CreateOrderPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {cartItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`flex items-center justify-between border-b pb-3 ${
-                          item.type === 'service' ? 'bg-primary/5 rounded-lg p-2' : ''
-                        }`}
-                      >
-                        <div className="flex-1 flex items-start gap-2">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            item.type === 'service' 
-                              ? 'bg-primary/20 text-primary' 
-                              : 'bg-muted text-muted-foreground'
-                          }`}>
-                            {item.type === 'service' 
-                              ? <Scissors className="h-4 w-4" /> 
-                              : <Package className="h-4 w-4" />}
+                    <div className="max-h-64 overflow-y-auto pr-1">
+                      {cartItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`flex items-center justify-between border-b pb-3 mb-3 ${
+                            item.type === 'service' ? 'bg-primary/5 rounded-lg p-2' : ''
+                          }`}
+                        >
+                          <div className="flex-1 flex items-start gap-2">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              item.type === 'service' 
+                                ? 'bg-primary/20 text-primary' 
+                                : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {item.type === 'service' 
+                                ? <Scissors className="h-4 w-4" /> 
+                                : <Package className="h-4 w-4" />}
+                            </div>
+                            <div>
+                              <p className="font-medium">{item.type === 'service' 
+                                ? item.product_name.replace(' (Serviço)', '') 
+                                : item.product_name}</p>
+                              <p className="text-sm text-muted-foreground flex items-center gap-1 flex-wrap">
+                                {item.type === 'service' && (
+                                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                                    Serviço
+                                  </Badge>
+                                )}
+                                <span>R$ {item.price.toFixed(2)} x {item.quantity}</span>
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{item.type === 'service' 
-                              ? item.product_name.replace(' (Serviço)', '') 
-                              : item.product_name}</p>
-                            <p className="text-sm text-muted-foreground flex items-center gap-1">
-                              {item.type === 'service' && (
-                                <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">
-                                  Serviço
-                                </span>
-                              )}
-                              <span>R$ {item.price.toFixed(2)} x {item.quantity}</span>
-                            </p>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 rounded-r-none"
+                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              >
+                                -
+                              </Button>
+                              <div className="h-8 px-3 flex items-center justify-center border border-l-0 border-r-0">
+                                {item.quantity}
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 rounded-l-none"
+                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              >
+                                +
+                              </Button>
+                            </div>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeFromCart(item.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Remover item</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8 rounded-r-none"
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            >
-                              -
-                            </Button>
-                            <div className="h-8 px-3 flex items-center justify-center border border-l-0 border-r-0">
-                              {item.quantity}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8 rounded-l-none"
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            >
-                              +
-                            </Button>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeFromCart(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                      ))}
+                    </div>
+
+                    <Separator />
+                    
+                    {/* Seção de descontos */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <p className="text-sm font-medium">Tipo de desconto:</p>
+                        <div className="flex gap-2">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant={discountType === 'none' ? 'default' : 'outline'} 
+                                  size="sm"
+                                  onClick={() => {
+                                    setDiscountType('none');
+                                    orderForm.setValue('discount_type', 'none');
+                                  }}
+                                >
+                                  <Tag className="h-4 w-4 mr-1" />
+                                  Nenhum
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Sem desconto</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant={discountType === 'percent' ? 'default' : 'outline'} 
+                                  size="sm"
+                                  onClick={() => {
+                                    setDiscountType('percent');
+                                    orderForm.setValue('discount_type', 'percent');
+                                  }}
+                                >
+                                  <Percent className="h-4 w-4 mr-1" />
+                                  %
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Desconto percentual</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant={discountType === 'value' ? 'default' : 'outline'} 
+                                  size="sm"
+                                  onClick={() => {
+                                    setDiscountType('value');
+                                    orderForm.setValue('discount_type', 'value');
+                                  }}
+                                >
+                                  <CreditCard className="h-4 w-4 mr-1" />
+                                  R$
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Desconto em valor</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </div>
-                    ))}
-
-                    <div className="flex justify-between font-bold text-lg pt-2">
-                      <span>Total:</span>
-                      <span>R$ {cartTotal.toFixed(2)}</span>
+                      
+                      {discountType === 'percent' && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={discountPercent}
+                            onChange={(e) => {
+                              const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                              setDiscountPercent(value);
+                              orderForm.setValue('discount_percent', value);
+                            }}
+                            className="w-24"
+                          />
+                          <span className="text-sm">% de desconto</span>
+                          <span className="text-xs text-muted-foreground ml-auto">
+                            (R$ {(subtotal * discountPercent / 100).toFixed(2)})
+                          </span>
+                        </div>
+                      )}
+                      
+                      {discountType === 'value' && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">R$</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max={subtotal}
+                            value={discountValue}
+                            onChange={(e) => {
+                              const value = Math.min(subtotal, Math.max(0, Number(e.target.value)));
+                              setDiscountValue(value);
+                              orderForm.setValue('discount_value', value);
+                            }}
+                            className="w-24"
+                          />
+                          <span className="text-sm">de desconto</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <Separator />
+                    
+                    {/* Resumo do pedido */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal:</span>
+                        <span>R$ {subtotal.toFixed(2)}</span>
+                      </div>
+                      
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Desconto ({discountType === 'percent' ? `${discountPercent}%` : 'R$'}):</span>
+                          <span>- R$ {discountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between font-bold text-lg pt-2">
+                        <span>Total:</span>
+                        <span>R$ {cartTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Botões de ação do carrinho */}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setCartItems([]);
+                          setCartTotal(0);
+                        }}
+                        disabled={cartItems.length === 0}
+                      >
+                        <RefreshCcw className="h-4 w-4 mr-2" />
+                        Limpar
+                      </Button>
                     </div>
                   </div>
                 )}
