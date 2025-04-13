@@ -405,7 +405,12 @@ function CreateOrderPage() {
         title: "Comanda criada",
         description: "A comanda foi criada com sucesso",
       });
-      navigate("/admin/orders");
+      // Preservar o tenant ao redirecionar
+      if (tenant) {
+        navigate(`/admin/orders?tenant=${tenant}`);
+      } else {
+        navigate("/admin/orders");
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -542,7 +547,13 @@ function CreateOrderPage() {
     <AdminLayout title="Nova Comanda">
       <div className="container mx-auto py-8">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="icon" onClick={() => navigate("/admin/orders")}>
+          <Button variant="outline" size="icon" onClick={() => {
+            if (tenant) {
+              navigate(`/admin/orders?tenant=${tenant}`);
+            } else {
+              navigate("/admin/orders");
+            }
+          }}>
             <ArrowLeftIcon className="h-4 w-4" />
           </Button>
           <h1 className="text-3xl font-bold">
