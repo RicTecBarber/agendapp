@@ -161,16 +161,13 @@ function CreateOrderPage() {
     const action = params.get('action');
     const orderId = params.get('orderId');
     
-    // Se não temos tenant na URL mas temos outros parâmetros, recarregar a página com tenant
+    // Não precisamos verificar tenant aqui - o useEffect com ensureTenant já cuida disso
+    // Apenas registramos se temos valores na URL para debug
     if (!tenant && (appointmentId || clientName || clientPhone)) {
-      const currentTenant = localStorage.getItem('lastTenant');
-      if (currentTenant) {
-        console.log("Redirecionando para adicionar tenant:", currentTenant);
-        const url = new URL(window.location.href);
-        url.searchParams.append('tenant', currentTenant);
-        window.location.href = url.toString();
-        return;
-      }
+      console.log("Parametros presentes mas sem tenant na URL:", {
+        appointmentId, clientName, clientPhone
+      });
+      // O ensureTenant já foi chamado em outro useEffect e vai redirecionar se necessário
     }
     
     console.log("Configuração inicial da página com parâmetros", {
