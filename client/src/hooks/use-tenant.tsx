@@ -136,6 +136,19 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     
     if (!currentTenant) {
       console.warn('Nenhum tenant identificado em nenhuma fonte (URL, estado ou localStorage)');
+      // Tente um valor padrão específico para o seu sistema
+      const defaultTenant = 'barbearia1'; // Tenant padrão como último recurso
+      console.log(`Tentando usar tenant padrão: ${defaultTenant}`);
+      
+      // Redirecionar com o tenant padrão
+      const path = window.location.pathname + window.location.search;
+      const hasParams = path.includes('?');
+      const redirectUrl = hasParams 
+        ? `${path}&tenant=${defaultTenant}`
+        : `${path}?tenant=${defaultTenant}`;
+      
+      // Usar window.location.href para um redirecionamento completo que garanta uma nova carga
+      window.location.href = redirectUrl;
       return false;
     }
     
@@ -144,16 +157,20 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     if (!tenantInUrl && currentTenant) {
       console.log(`Tenant não está na URL, redirecionando com tenant=${currentTenant}`);
       
-      // Redireciona para a mesma URL, mas com o tenant
-      const path = window.location.pathname + window.location.search;
-      const hasParams = path.includes('?');
-      const redirectUrl = hasParams 
-        ? `${path}&tenant=${currentTenant}`
-        : `${path}?tenant=${currentTenant}`;
+      // Adicionar tenant mais robustamente
+      const url = new URL(window.location.href);
+      url.searchParams.set('tenant', currentTenant);
       
-      // Usar navigate para manter o contexto React
-      navigate(redirectUrl);
+      // Usar window.location.href para garantir um recarregamento completo
+      console.log(`Redirecionando para URL completa: ${url.toString()}`);
+      window.location.href = url.toString();
       return false;
+    }
+    
+    // Se o tenant está presente mas ainda não foi armazenado no estado, armazene-o
+    if (tenantInUrl && tenantInUrl !== tenant) {
+      console.log(`Atualizando estado do tenant: ${tenantInUrl}`);
+      setTenant(tenantInUrl);
     }
     
     return true;
