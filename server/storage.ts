@@ -712,6 +712,9 @@ export class MemStorage implements IStorage {
       throw new Error("Campos obrigatórios estão faltando");
     }
     
+    // Definir timezone padrão se não for fornecido
+    const timezone = settings.timezone || "America/Sao_Paulo";
+    
     // Garante que valores opcionais sejam null quando não fornecidos
     const barbershopSettings: BarbershopSettings = {
       id: 1,
@@ -719,6 +722,7 @@ export class MemStorage implements IStorage {
       address: settings.address,
       phone: settings.phone,
       email: settings.email,
+      timezone: timezone,
       open_time: settings.open_time,
       close_time: settings.close_time,
       open_days: settings.open_days,
@@ -727,7 +731,8 @@ export class MemStorage implements IStorage {
       instagram: settings.instagram || null,
       facebook: settings.facebook || null,
       created_at: now,
-      updated_at: now
+      updated_at: now,
+      tenant_id: settings.tenant_id || null
     };
     
     this.barbershopSettings = barbershopSettings;
