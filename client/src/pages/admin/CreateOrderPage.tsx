@@ -495,8 +495,24 @@ function CreateOrderPage() {
     setCartItems(updatedItems);
   };
 
-  // Calcular total do carrinho
-  const cartTotal = cartItems.reduce((total, item) => total + item.subtotal, 0);
+  // Calcular total do carrinho (antes do desconto)
+  const subtotal = cartItems.reduce((total, item) => total + item.subtotal, 0);
+  
+  // Calcular desconto e total final
+  const calculateDiscount = () => {
+    if (discountType === 'none' || subtotal === 0) return 0;
+    
+    if (discountType === 'percent') {
+      return (subtotal * discountPercent) / 100;
+    } else if (discountType === 'value') {
+      return Math.min(discountValue, subtotal); // Impedir desconto maior que o valor total
+    }
+    
+    return 0;
+  };
+  
+  const discountAmount = calculateDiscount();
+  const cartTotal = subtotal - discountAmount;
 
   // Mutation para criar comanda
   const createOrderMutation = useMutation({
