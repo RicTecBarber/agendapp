@@ -120,7 +120,7 @@ const AvailabilityManagementPage = () => {
   
   // Buscar configurações da barbearia para obter horário de funcionamento
   const { data: barbershopSettings } = useQuery({
-    queryKey: ['/api/barbershop-settings', tenantParam],
+    queryKey: ['/api/business-settings', tenantParam],
   });
 
   // Mutation para criar disponibilidade
