@@ -42,9 +42,9 @@ const ClientHomePage = () => {
   const { toast } = useToast();
   const { getUrlWithTenant } = useTenant();
   
-  // Buscar as configurações da barbearia
+  // Buscar as configurações da empresa
   const { data: barbershopSettings } = useQuery<BarbershopSettings>({
-    queryKey: ['/api/barbershop-settings'],
+    queryKey: ['/api/business-settings'],
     refetchOnWindowFocus: false,
   });
 
