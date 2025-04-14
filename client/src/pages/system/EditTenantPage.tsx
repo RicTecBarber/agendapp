@@ -37,12 +37,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 
-// Estender o schema para validação do formulário
+// Estender o schema para validação do formulário com tratamento adequado para campos nulos
 const tenantSchema = insertTenantSchema.extend({
   slug: z.string()
     .min(3, "Slug deve ter pelo menos 3 caracteres")
     .max(50, "Slug deve ter no máximo 50 caracteres")
     .regex(/^[a-z0-9-]+$/, "Slug deve conter apenas letras minúsculas, números e hífens"),
+  // Garantir que production_url pode ser nulo ou uma string válida
+  production_url: z.union([
+    z.string().url("Deve ser uma URL válida").optional(),
+    z.literal("").transform(() => null),
+    z.null()
+  ]).optional().nullable(),
 });
 
 type TenantData = z.infer<typeof tenantSchema>;
@@ -54,6 +60,10 @@ export default function EditTenantPage() {
   const { toast } = useToast();
   const isEditMode = !!id && id !== "new";
 
+  // Log para depuração
+  console.log("EditTenantPage - id:", id);
+  console.log("EditTenantPage - isEditMode:", isEditMode);
+
   // Formulário
   const form = useForm<TenantData>({
     resolver: zodResolver(tenantSchema),
@@ -62,7 +72,7 @@ export default function EditTenantPage() {
       slug: "",
       active: true,
       is_active: true,
-      production_url: "",
+      production_url: null, // Permitir valor nulo
     },
   });
 
@@ -71,9 +81,17 @@ export default function EditTenantPage() {
     queryKey: ["/api/system/tenants", id],
     queryFn: isEditMode 
       ? async () => {
-          const res = await apiRequest("GET", `/api/system/tenants/${id}`);
-          if (!res.ok) throw new Error("Erro ao buscar tenant");
-          return await res.json();
+          console.log("Buscando tenant com ID:", id);
+          try {
+            const res = await apiRequest("GET", `/api/system/tenants/${id}`);
+            if (!res.ok) throw new Error("Erro ao buscar tenant");
+            const data = await res.json();
+            console.log("Tenant recebido:", data);
+            return data;
+          } catch (error) {
+            console.error("Erro ao buscar tenant:", error);
+            throw error;
+          }
         }
       : () => Promise.resolve(undefined),
     enabled: isEditMode,
@@ -82,12 +100,13 @@ export default function EditTenantPage() {
   // Configurar valores do formulário quando os dados do tenant forem carregados
   useEffect(() => {
     if (tenant && isEditMode) {
+      console.log("Atualizando formulário com dados:", tenant);
       form.reset({
         name: tenant.name,
         slug: tenant.slug,
-        active: tenant.active || tenant.is_active,
-        is_active: tenant.is_active || tenant.active,
-        production_url: tenant.production_url || "",
+        active: tenant.active ?? true,
+        is_active: tenant.is_active ?? tenant.active ?? true,
+        production_url: tenant.production_url ?? null, // Use null para valor vazio
       });
     }
   }, [tenant, form, isEditMode]);

@@ -271,14 +271,18 @@ export const tenants = pgTable("tenants", {
   slug: text("slug").notNull().unique(), // URL amigável para o tenant (ex: cliente1, cliente2)
   active: boolean("active").notNull().default(true), // para compatibilidade com banco de dados existente
   is_active: boolean("is_active").notNull().default(true), // usado no código
-  production_url: text("production_url"), // URL de produção do tenant
+  production_url: text("production_url"), // URL de produção do tenant (pode ser null)
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertTenantSchema = createInsertSchema(tenants).omit({ 
-  id: true, created_at: true, updated_at: true 
-});
+// Schema para validação com tratamento adequado de tipos nulos
+export const insertTenantSchema = createInsertSchema(tenants)
+  .omit({ id: true, created_at: true, updated_at: true })
+  .extend({
+    // Tornar production_url opcional e permitir valor nulo
+    production_url: z.string().nullable().optional(),
+  });
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Tenant = typeof tenants.$inferSelect;
 
