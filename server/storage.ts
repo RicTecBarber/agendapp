@@ -1472,13 +1472,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUser(id: number, tenantId?: number | null): Promise<User | undefined> {
-    const query = eq(users.id, id);
-    const finalQuery = tenantId !== undefined 
-      ? and(query, eq(users.tenant_id, tenantId)) 
-      : query;
-    
-    const result = await db.select().from(users).where(finalQuery);
-    return result[0];
+    try {
+      const query = eq(users.id, id);
+      const finalQuery = tenantId !== undefined 
+        ? and(query, eq(users.tenant_id, tenantId)) 
+        : query;
+      
+      const result = await db.select().from(users).where(finalQuery);
+      
+      if (result.length === 0) {
+        return undefined;
+      }
+      
+      // Adaptar o usuário para incluir os campos esperados pelo schema
+      return this.adaptUserFromDb(result[0]);
+    } catch (error) {
+      console.error("Erro ao buscar usuário por ID:", error);
+      
+      // Abordagem alternativa usando SQL bruto
+      try {
+        const query = `SELECT * FROM users WHERE id = $1 ${tenantId !== undefined ? 'AND tenant_id = $2' : ''}`;
+        const params = tenantId !== undefined ? [id, tenantId] : [id];
+        const result = await pool.query(query, params);
+        
+        if (result.rows.length === 0) {
+          return undefined;
+        }
+        
+        // Adaptar o usuário para incluir os campos esperados pelo schema
+        return this.adaptUserFromDb(result.rows[0]);
+      } catch (innerError) {
+        console.error("Erro também na abordagem alternativa:", innerError);
+        return undefined;
+      }
+    }
   }
 
   async getUserByUsername(username: string, tenantId?: number | null): Promise<User | undefined> {
@@ -1534,17 +1561,97 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(userData: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(userData).returning();
-    return result[0];
+    try {
+      const result = await db.insert(users).values(userData).returning();
+      // Adaptar o resultado para incluir os campos esperados pelo schema
+      return this.adaptUserFromDb(result[0]);
+    } catch (error) {
+      console.error("Erro ao criar usuário:", error);
+      
+      // Abordagem alternativa usando SQL bruto
+      try {
+        // Mapeie apenas os campos que realmente existem na tabela
+        const { username, password, name, email, role, tenant_id } = userData;
+        const query = `
+          INSERT INTO users (username, password, name, email, role, tenant_id)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING *
+        `;
+        const result = await pool.query(query, [username, password, name, email, role, tenant_id]);
+        
+        if (result.rows.length === 0) {
+          throw new Error("Falha ao criar usuário");
+        }
+        
+        // Adaptar o usuário para incluir os campos esperados pelo schema
+        return this.adaptUserFromDb(result.rows[0]);
+      } catch (innerError) {
+        console.error("Erro também na abordagem alternativa:", innerError);
+        throw new Error("Falha ao criar usuário: " + (innerError as Error).message);
+      }
+    }
   }
 
   async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
-    const result = await db
-      .update(users)
-      .set(userData)
-      .where(eq(users.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await db
+        .update(users)
+        .set(userData)
+        .where(eq(users.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        return undefined;
+      }
+      
+      // Adaptar o usuário para incluir os campos esperados pelo schema
+      return this.adaptUserFromDb(result[0]);
+    } catch (error) {
+      console.error("Erro ao atualizar usuário:", error);
+      
+      // Abordagem alternativa usando SQL bruto
+      try {
+        // Construir a query SQL dinamicamente com base nas propriedades fornecidas
+        const updateFields: string[] = [];
+        const values: any[] = [];
+        let paramIndex = 1;
+        
+        // Adicionar apenas os campos que foram fornecidos no userData
+        for (const key in userData) {
+          if (userData.hasOwnProperty(key)) {
+            updateFields.push(`${key} = $${paramIndex}`);
+            values.push(userData[key as keyof Partial<InsertUser>]);
+            paramIndex++;
+          }
+        }
+        
+        if (updateFields.length === 0) {
+          return this.getUser(id); // Nada para atualizar
+        }
+        
+        // Adicionar o ID como último parâmetro para a cláusula WHERE
+        values.push(id);
+        
+        const query = `
+          UPDATE users 
+          SET ${updateFields.join(', ')} 
+          WHERE id = $${paramIndex}
+          RETURNING *
+        `;
+        
+        const result = await pool.query(query, values);
+        
+        if (result.rows.length === 0) {
+          return undefined;
+        }
+        
+        // Adaptar o usuário para incluir os campos esperados pelo schema
+        return this.adaptUserFromDb(result.rows[0]);
+      } catch (innerError) {
+        console.error("Erro também na abordagem alternativa:", innerError);
+        return undefined;
+      }
+    }
   }
 
   async deleteUser(id: number): Promise<boolean> {
