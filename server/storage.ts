@@ -2020,7 +2020,21 @@ export class DatabaseStorage implements IStorage {
 
   // Tenant operations
   async getAllTenants(): Promise<Tenant[]> {
-    return db.select().from(tenants);
+    try {
+      const result = await db.select().from(tenants);
+      
+      // Adaptar cada tenant para incluir is_active baseado no campo active
+      return result.map(tenant => {
+        if (!tenant.hasOwnProperty('is_active') && tenant.hasOwnProperty('active')) {
+          // @ts-ignore - Adiciona is_active baseado no active
+          tenant.is_active = tenant.active;
+        }
+        return tenant;
+      });
+    } catch (error) {
+      console.error("Erro ao buscar todos os tenants:", error);
+      return [];
+    }
   }
 
   async getTenant(id: number): Promise<Tenant | undefined> {
