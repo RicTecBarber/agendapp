@@ -70,7 +70,11 @@ export default function EditTenantPage() {
   const { data: tenant, isLoading } = useQuery<Tenant | undefined>({
     queryKey: ["/api/system/tenants", id],
     queryFn: isEditMode 
-      ? getQueryFn({ url: `/api/system/tenants/${id}` }) 
+      ? async () => {
+          const res = await apiRequest("GET", `/api/system/tenants/${id}`);
+          if (!res.ok) throw new Error("Erro ao buscar tenant");
+          return await res.json();
+        }
       : () => Promise.resolve(undefined),
     enabled: isEditMode,
   });
@@ -262,7 +266,11 @@ export default function EditTenantPage() {
                       <FormItem>
                         <FormLabel>URL de Produção</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ex: https://barbearia-xyz.agendapp.com" {...field} />
+                          <Input 
+                            placeholder="Ex: https://barbearia-xyz.agendapp.com" 
+                            {...field} 
+                            value={field.value ?? ""}
+                          />
                         </FormControl>
                         <FormDescription>
                           URL do ambiente de produção (opcional).
