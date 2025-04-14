@@ -844,13 +844,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
       }
 
-      console.log(`Buscando disponibilidade para ${dateStr} no fuso ${timezone}, tenant: ${req.tenantSlug}`);
+      console.log(`Buscando disponibilidade para ${dateStr} no fuso ${timezone}, tenant: ${req.tenantSlug}, tenant_id: ${req.tenantId}`);
       
-      // Buscar disponibilidade configurada para o profissional
-      const allAvailabilitySettings = await storage.getAvailabilityByProfessionalId(professionalId);
-      // Filtrar apenas a disponibilidade deste tenant
-      const availabilitySettings = allAvailabilitySettings.filter(a => a.tenant_id === req.tenantId);
-      console.log(`Configurações de disponibilidade encontradas: ${availabilitySettings.length} para o tenant ${req.tenantId}`);
+      // Buscar disponibilidade configurada para o profissional, já filtrando pelo tenant diretamente
+      const availabilitySettings = await storage.getAvailabilityByProfessionalId(professionalId, req.tenantId);
+      console.log(`Configurações de disponibilidade encontradas: ${availabilitySettings.length} para o tenant ${req.tenantId} e profissional ${professionalId}`);
       
       // Verificar se há configuração para o dia da semana 
       const dayOfWeek = dateObj.getDay(); // 0 = Domingo, 1 = Segunda, ...
@@ -1183,8 +1181,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Verificar se não está no horário de almoço do profissional
         const dayOfWeek = appointmentDate.getDay(); // 0-6 (Domingo-Sábado)
-        const allAvailabilitySettings = await storage.getAvailabilityByProfessionalId(professionalId);
-        const availabilitySettings = allAvailabilitySettings.filter(a => a.tenant_id === req.tenantId);
+        // Buscar disponibilidade utilizando o método atualizado que já filtra por tenant
+        const availabilitySettings = await storage.getAvailabilityByProfessionalId(professionalId, req.tenantId);
         const dayConfig = availabilitySettings.find(a => a.day_of_week === dayOfWeek);
         
         if (dayConfig && dayConfig.lunch_start && dayConfig.lunch_end) {

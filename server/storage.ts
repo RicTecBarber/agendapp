@@ -40,7 +40,7 @@ export interface IStorage {
   deleteProfessional(id: number): Promise<boolean>;
   
   // Availability operations
-  getAvailabilityByProfessionalId(professionalId: number): Promise<Availability[]>;
+  getAvailabilityByProfessionalId(professionalId: number, tenantId?: number): Promise<Availability[]>;
   getAvailabilityById(id: number): Promise<Availability | undefined>;
   createAvailability(availability: InsertAvailability): Promise<Availability>;
   updateAvailability(id: number, availability: Partial<InsertAvailability>): Promise<Availability | undefined>;
@@ -369,22 +369,31 @@ export class MemStorage implements IStorage {
   }
   
   // Availability operations
-  async getAvailabilityByProfessionalId(professionalId: number): Promise<Availability[]> {
+  async getAvailabilityByProfessionalId(professionalId: number, tenantId?: number): Promise<Availability[]> {
+    // Criar um identificador de cache composto para incluir o tenantId quando fornecido
+    const cacheKey = `${professionalId}${tenantId ? '_' + tenantId : ''}`;
+    
     // Verificar se temos esses dados em cache
-    if (this._professionalAvailabilityCache.has(professionalId)) {
-      const cachedResults = this._professionalAvailabilityCache.get(professionalId) || [];
-      console.log(`CACHE HIT: Disponibilidade do profissional #${professionalId} encontrada em cache`);
+    if (this._professionalAvailabilityCache.has(cacheKey)) {
+      const cachedResults = this._professionalAvailabilityCache.get(cacheKey) || [];
+      console.log(`CACHE HIT: Disponibilidade do profissional #${professionalId} encontrada em cache ${tenantId ? 'para tenant ' + tenantId : ''}`);
       return cachedResults;
     }
     
-    console.log(`CACHE MISS: Buscando disponibilidade do profissional #${professionalId}`);
+    console.log(`CACHE MISS: Buscando disponibilidade do profissional #${professionalId} ${tenantId ? 'para tenant ' + tenantId : ''}`);
     
-    const results = Array.from(this.availability.values()).filter(
-      availability => availability.professional_id === professionalId
-    );
+    // Se temos um tenantId, filtrar tanto por professional_id quanto por tenant_id
+    const results = Array.from(this.availability.values()).filter(availability => {
+      const professionalMatch = availability.professional_id === professionalId;
+      // Se tenantId for fornecido, também filtramos por ele
+      const tenantMatch = tenantId ? availability.tenant_id === tenantId : true;
+      return professionalMatch && tenantMatch;
+    });
+    
+    console.log(`Encontradas ${results.length} disponibilidades para o profissional #${professionalId} ${tenantId ? 'no tenant ' + tenantId : ''}`);
     
     // Armazenar no cache para futuras consultas
-    this._professionalAvailabilityCache.set(professionalId, results);
+    this._professionalAvailabilityCache.set(cacheKey, results);
     
     return results;
   }
