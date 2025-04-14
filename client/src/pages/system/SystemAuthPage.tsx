@@ -69,7 +69,7 @@ export default function SystemAuthPage() {
     
     try {
       // Usar a rota específica de login para administradores do sistema
-      const response = await apiRequest("POST", "/api/system/auth/login", data);
+      const response = await apiRequest("POST", "/api/system/login", data);
       const userData = await response.json();
       
       console.log("Login bem-sucedido, usuário:", userData);
