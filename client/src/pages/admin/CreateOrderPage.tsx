@@ -205,7 +205,59 @@ function CreateOrderPage() {
     const addingItems = action === 'add_items' && orderId;
     if (addingItems) {
       setIsAddingToExistingOrder(true);
-      setExistingOrderId(parseInt(orderId));
+      const orderIdNum = parseInt(orderId);
+      setExistingOrderId(orderIdNum);
+      
+      // Buscar os itens existentes da comanda para carregá-los no carrinho
+      const fetchOrderItems = async () => {
+        try {
+          console.log("Buscando itens da comanda:", orderIdNum);
+          const res = await apiRequest("GET", `/api/orders/${orderIdNum}`, null, tenant);
+          const orderData = await res.json();
+          
+          if (orderData && orderData.items && Array.isArray(orderData.items)) {
+            // Converter itens da comanda para o formato do carrinho
+            const cartItemsFromOrder = orderData.items.map((item: any) => ({
+              id: item.id,
+              product_id: item.product_id,
+              product_name: item.product_name,
+              quantity: item.quantity,
+              price: item.price,
+              subtotal: item.price * item.quantity,
+              type: item.type || 'product'
+            }));
+            
+            console.log("Itens encontrados na comanda:", cartItemsFromOrder);
+            setCartItems(cartItemsFromOrder);
+            
+            // Preencher dados do cliente
+            if (orderData.client_name && orderData.client_phone) {
+              orderForm.setValue('client_name', orderData.client_name);
+              orderForm.setValue('client_phone', orderData.client_phone);
+            }
+            
+            // Definir método de pagamento
+            if (orderData.payment_method) {
+              orderForm.setValue('payment_method', orderData.payment_method);
+            }
+            
+            // Definir observações se existirem
+            if (orderData.notes) {
+              orderForm.setValue('notes', orderData.notes);
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao buscar itens da comanda:", error);
+          toast({
+            title: "Erro ao carregar itens",
+            description: "Não foi possível carregar os itens da comanda existente",
+            variant: "destructive",
+          });
+        }
+      };
+      
+      // Executar a busca de itens
+      fetchOrderItems();
       
       // Atualizar título da página no Toast
       toast({
