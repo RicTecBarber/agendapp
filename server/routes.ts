@@ -2641,9 +2641,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/system/tenants", isSystemAdmin, async (req: Request, res: Response) => {
     try {
       const tenants = await storage.getAllTenants();
-      res.json(tenants);
+      
+      // Garantir que todos os tenants tenham o campo is_active
+      const processedTenants = tenants.map(tenant => {
+        if (!tenant.hasOwnProperty('is_active')) {
+          return { ...tenant, is_active: tenant.active };
+        }
+        return tenant;
+      });
+      
+      console.log("Tenants recuperados:", processedTenants);
+      res.json(processedTenants);
     } catch (error) {
-      res.status(500).json({ message: "Erro ao buscar tenants", error: error.message });
+      console.error("Erro ao buscar tenants:", error);
+      res.status(500).json({ message: "Erro ao buscar tenants", error: String(error) });
     }
   });
 
@@ -2657,15 +2668,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Tenant não encontrado" });
       }
       
-      res.json(tenant);
+      // Garantir que o tenant tenha o campo is_active
+      const processedTenant = {
+        ...tenant,
+        is_active: tenant.hasOwnProperty('is_active') ? tenant.is_active : tenant.active
+      };
+      
+      console.log("Tenant recuperado:", processedTenant);
+      res.json(processedTenant);
     } catch (error) {
-      res.status(500).json({ message: "Erro ao buscar tenant", error: error.message });
+      console.error("Erro ao buscar tenant por ID:", error);
+      res.status(500).json({ message: "Erro ao buscar tenant", error: String(error) });
     }
   });
 
   // POST /api/system/tenants - Criar novo tenant
   app.post("/api/system/tenants", isSystemAdmin, async (req: Request, res: Response) => {
     try {
+      console.log("Dados recebidos para criação de tenant:", req.body);
+      
       // Validar dados
       const tenantData = insertTenantSchema.parse(req.body);
       
@@ -2675,10 +2696,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Slug já está em uso por outro tenant" });
       }
       
+      // Garantir que o campo active está correto (para compatibilidade entre active/is_active)
+      const processedData = {
+        ...tenantData,
+        active: tenantData.is_active !== undefined ? tenantData.is_active : tenantData.active,
+        // Se production_url for uma string vazia, salvar como null
+        production_url: tenantData.production_url === "" ? null : tenantData.production_url
+      };
+      
+      console.log("Dados processados para criação de tenant:", processedData);
+      
       // Criar tenant
-      const tenant = await storage.createTenant(tenantData);
+      const tenant = await storage.createTenant(processedData);
+      console.log("Tenant criado:", tenant);
+      
+      // Adicionar is_active ao resultado caso não exista
+      if (!tenant.hasOwnProperty('is_active')) {
+        tenant.is_active = tenant.active;
+      }
+      
       res.status(201).json(tenant);
     } catch (error) {
+      console.error("Erro ao criar tenant:", error);
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       } else {
@@ -2692,6 +2731,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const tenantData = req.body;
+      
+      console.log("Dados recebidos para atualização de tenant:", tenantData);
       
       // Verificar se o tenant existe
       const existingTenant = await storage.getTenant(id);
@@ -2707,10 +2748,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Garantir que o campo active está correto (para compatibilidade entre active/is_active)
+      const processedData = {
+        ...tenantData,
+        active: tenantData.is_active !== undefined ? tenantData.is_active : tenantData.active,
+        // Se production_url for uma string vazia, salvar como null
+        production_url: tenantData.production_url === "" ? null : tenantData.production_url
+      };
+      
+      console.log("Dados processados para atualização de tenant:", processedData);
+      
       // Atualizar tenant
-      const updated = await storage.updateTenant(id, tenantData);
+      const updated = await storage.updateTenant(id, processedData);
+      console.log("Tenant atualizado:", updated);
+      
+      // Adicionar is_active ao resultado caso não exista
+      if (!updated.hasOwnProperty('is_active')) {
+        updated.is_active = updated.active;
+      }
+      
       res.json(updated);
     } catch (error) {
+      console.error("Erro ao atualizar tenant:", error);
       res.status(500).json({ message: "Erro ao atualizar tenant", error: error.message });
     }
   });
@@ -2726,11 +2785,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Tenant não encontrado" });
       }
       
+      console.log("Ativando tenant ID:", id);
+      
       // Ativar tenant
       const updated = await storage.activateTenant(id);
-      res.json(updated);
+      
+      // Garantir que o tenant tenha o campo is_active
+      const processedTenant = {
+        ...updated,
+        is_active: updated ? (updated.hasOwnProperty('is_active') ? updated.is_active : updated.active) : true
+      };
+      
+      console.log("Tenant ativado:", processedTenant);
+      res.json(processedTenant);
     } catch (error) {
-      res.status(500).json({ message: "Erro ao ativar tenant", error: error.message });
+      console.error("Erro ao ativar tenant:", error);
+      res.status(500).json({ message: "Erro ao ativar tenant", error: String(error) });
     }
   });
 
@@ -2745,11 +2815,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Tenant não encontrado" });
       }
       
+      console.log("Desativando tenant ID:", id);
+      
       // Desativar tenant
       const updated = await storage.deactivateTenant(id);
-      res.json(updated);
+      
+      // Garantir que o tenant tenha o campo is_active
+      const processedTenant = {
+        ...updated,
+        is_active: updated ? (updated.hasOwnProperty('is_active') ? updated.is_active : updated.active) : false
+      };
+      
+      console.log("Tenant desativado:", processedTenant);
+      res.json(processedTenant);
     } catch (error) {
-      res.status(500).json({ message: "Erro ao desativar tenant", error: error.message });
+      console.error("Erro ao desativar tenant:", error);
+      res.status(500).json({ message: "Erro ao desativar tenant", error: String(error) });
     }
   });
 
