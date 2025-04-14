@@ -62,6 +62,7 @@ function Router() {
       <ProtectedRoute path="/admin/services" component={ServicesPage} />
       <ProtectedRoute path="/admin/professionals" component={ProfessionalsPage} />
       <ProtectedRoute path="/admin/professionals/:id/availability" component={AvailabilityManagementPage} />
+      <ProtectedRoute path="/admin/availability/:id" component={AvailabilityManagementPage} />
       <ProtectedRoute path="/admin/users" component={UsersPage} />
       <ProtectedRoute path="/admin/users-management" component={UsersManagementPage} />
       <ProtectedRoute path="/admin/settings" component={BusinessSettingsPage} />

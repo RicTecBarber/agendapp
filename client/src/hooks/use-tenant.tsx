@@ -137,7 +137,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     if (!currentTenant) {
       console.warn('Nenhum tenant identificado em nenhuma fonte (URL, estado ou localStorage)');
       // Tente um valor padrão específico para o seu sistema
-      const defaultTenant = 'barbearia1'; // Tenant padrão como último recurso
+      const defaultTenant = 'barbearia-modelo'; // Tenant padrão como último recurso
       console.log(`Tentando usar tenant padrão: ${defaultTenant}`);
       
       // Redirecionar com o tenant padrão
