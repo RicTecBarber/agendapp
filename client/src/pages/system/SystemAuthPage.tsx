@@ -59,7 +59,7 @@ export default function SystemAuthPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "superadmin",
-      password: "Admin@123",
+      password: "SNKRlcl@2025",
     },
   });
 
@@ -68,8 +68,8 @@ export default function SystemAuthPage() {
     setIsLoading(true);
     
     try {
-      // Usar a nova rota específica de login para administradores do sistema
-      const response = await apiRequest("POST", "/api/system/login", data);
+      // Usar a rota específica de login para administradores do sistema
+      const response = await apiRequest("POST", "/api/system/auth/login", data);
       const userData = await response.json();
       
       console.log("Login bem-sucedido, usuário:", userData);
