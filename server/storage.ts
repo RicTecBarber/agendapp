@@ -2075,17 +2075,59 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTenant(tenantData: InsertTenant): Promise<Tenant> {
-    const result = await db.insert(tenants).values(tenantData).returning();
-    return result[0];
+    // Verificar e ajustar os dados do tenant para ter apenas o campo 'active'
+    // e não o campo 'is_active' que não existe no banco de dados
+    const cleanedData: any = { ...tenantData };
+    
+    // Se tiver is_active, usar seu valor para o campo active e remover is_active
+    if (cleanedData.hasOwnProperty('is_active')) {
+      cleanedData.active = cleanedData.is_active;
+      delete cleanedData.is_active;
+    }
+    
+    console.log("Dados limpos para criação de tenant:", cleanedData);
+    
+    // Inserir no banco de dados apenas com o campo 'active'
+    const result = await db.insert(tenants).values(cleanedData).returning();
+    
+    // Para manter a compatibilidade com o código, adicionar is_active ao objeto retornado
+    const tenant = result[0];
+    if (tenant && tenant.hasOwnProperty('active')) {
+      // @ts-ignore - Adiciona is_active baseado no active
+      tenant.is_active = tenant.active;
+    }
+    
+    return tenant;
   }
 
   async updateTenant(id: number, tenantData: Partial<InsertTenant>): Promise<Tenant | undefined> {
+    // Verificar e ajustar os dados do tenant para ter apenas o campo 'active'
+    // e não o campo 'is_active' que não existe no banco de dados
+    const cleanedData: any = { ...tenantData };
+    
+    // Se tiver is_active, usar seu valor para o campo active e remover is_active
+    if (cleanedData.hasOwnProperty('is_active')) {
+      cleanedData.active = cleanedData.is_active;
+      delete cleanedData.is_active;
+    }
+    
+    console.log("Dados limpos para atualização de tenant:", cleanedData);
+    
+    // Atualizar no banco de dados apenas com o campo 'active'
     const result = await db
       .update(tenants)
-      .set(tenantData)
+      .set(cleanedData)
       .where(eq(tenants.id, id))
       .returning();
-    return result[0];
+    
+    // Para manter a compatibilidade com o código, adicionar is_active ao objeto retornado
+    const tenant = result[0];
+    if (tenant && tenant.hasOwnProperty('active')) {
+      // @ts-ignore - Adiciona is_active baseado no active
+      tenant.is_active = tenant.active;
+    }
+    
+    return tenant;
   }
 
   async activateTenant(id: number): Promise<Tenant | undefined> {
