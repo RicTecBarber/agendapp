@@ -714,11 +714,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Obter disponibilidade e filtrar explicitamente por tenant_id
-      const allAvailability = await storage.getAvailabilityByProfessionalId(professionalId);
-      const filteredAvailability = allAvailability.filter(a => a.tenant_id === req.tenantId);
+      // Buscar disponibilidade já filtrando por tenant_id na função
+      const availabilitySettings = await storage.getAvailabilityByProfessionalId(professionalId, req.tenantId);
       
-      console.log(`Retornando ${filteredAvailability.length} configurações de disponibilidade para o profissional ${professionalId} do tenant ${req.tenantId}`);
-      res.json(filteredAvailability);
+      console.log(`Retornando ${availabilitySettings.length} configurações de disponibilidade para o profissional ${professionalId} do tenant ${req.tenantId}`);
+      res.json(availabilitySettings);
     } catch (error) {
       console.error("Erro ao buscar disponibilidade:", error);
       res.status(500).json({ message: "Failed to get availability" });
@@ -727,6 +727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // POST /api/availability - Create availability (admin only)
   app.post("/api/availability", requireTenant, isAdmin, async (req: Request, res: Response) => {
+    console.log("POST /api/availability - Criando disponibilidade. Requisição:", JSON.stringify(req.body));
     try {
       // Validar os dados e adicionar o tenant_id
       const availabilityData = insertAvailabilitySchema.parse(req.body);
