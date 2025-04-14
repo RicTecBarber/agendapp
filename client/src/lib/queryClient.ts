@@ -295,11 +295,14 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
+type QueryFnOptions = {
+  on401?: UnauthorizedBehavior;
+  url?: string;
+};
+export const getQueryFn: <T>(options: QueryFnOptions) => QueryFunction<T> =
+  (options) =>
   async ({ queryKey }) => {
+    const unauthorizedBehavior = options.on401 || "throw";
     // Adicionar adaptação para conexões lentas
     const isLowPerformance = isMobileDevice() || isConnectionSlow();
     const timeout = isLowPerformance ? 45000 : 30000; // Timeout maior para dispositivos lentos

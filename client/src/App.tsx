@@ -77,8 +77,8 @@ function Router() {
       <Route path="/system/redirect" component={SystemLoginRedirect} />
       <SystemAdminRoute path="/system/dashboard" component={SystemDashboardPage} />
       <SystemAdminRoute path="/system/tenants" component={TenantsPage} />
-      <SystemAdminRoute path="/system/tenants/:id" component={EditTenantPage} />
       <SystemAdminRoute path="/system/tenants/new" component={EditTenantPage} />
+      <SystemAdminRoute path="/system/tenants/:id" component={EditTenantPage} />
       <SystemAdminRoute path="/system/admins" component={SystemAdminsPage} />
       
       {/* Fallback Route */}

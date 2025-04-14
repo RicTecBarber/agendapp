@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Tenant, insertTenantSchema } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import {
@@ -67,10 +67,10 @@ export default function EditTenantPage() {
   });
 
   // Buscar tenant para edição
-  const { data: tenant, isLoading } = useQuery<Tenant>({
+  const { data: tenant, isLoading } = useQuery<Tenant | undefined>({
     queryKey: ["/api/system/tenants", id],
     queryFn: isEditMode 
-      ? getQueryFn(`/api/system/tenants/${id}`) 
+      ? getQueryFn({ url: `/api/system/tenants/${id}` }) 
       : () => Promise.resolve(undefined),
     enabled: isEditMode,
   });
@@ -161,17 +161,6 @@ export default function EditTenantPage() {
   };
 
   const isPending = createTenantMutation.isPending || updateTenantMutation.isPending;
-
-  // Função auxiliar para buscar de API
-  function getQueryFn(url: string) {
-    return async () => {
-      const res = await apiRequest("GET", url);
-      if (!res.ok) {
-        throw new Error("Erro ao buscar dados");
-      }
-      return res.json();
-    };
-  }
 
   return (
     <div className="min-h-screen bg-slate-50">
