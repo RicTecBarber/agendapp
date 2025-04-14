@@ -4,6 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/hooks/use-tenant";
+import { useAuth } from "@/hooks/use-auth";
 import { 
   Card, 
   CardContent, 
@@ -77,6 +78,7 @@ const AvailabilityManagementPage = () => {
   const { id } = useParams();
   const professionalId = parseInt(id || "0");
   const { tenant, getTenantFromUrl } = useTenant();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [location] = useLocation();
   const tenantParam = getTenantFromUrl(location);
 
@@ -257,6 +259,27 @@ const AvailabilityManagementPage = () => {
 
   // Enviar formulário de criação
   const handleCreateSubmit = () => {
+    // Verificar se o usuário está autenticado
+    if (!user) {
+      toast({
+        title: "Acesso negado",
+        description: "Você precisa estar autenticado como administrador para adicionar horários de disponibilidade.",
+        variant: "destructive",
+      });
+      navigate("/admin/auth?redirect=" + encodeURIComponent(location));
+      return;
+    }
+
+    // Verificar se o usuário tem permissão de administrador
+    if (user.role !== 'admin' && !('isSystemAdmin' in user)) {
+      toast({
+        title: "Permissão negada",
+        description: "Apenas administradores podem gerenciar horários de disponibilidade.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!selectedDay || !startTime || !endTime) {
       toast({
         title: "Erro",
@@ -299,6 +322,27 @@ const AvailabilityManagementPage = () => {
 
   // Enviar formulário de edição
   const handleUpdateSubmit = () => {
+    // Verificar se o usuário está autenticado
+    if (!user) {
+      toast({
+        title: "Acesso negado",
+        description: "Você precisa estar autenticado como administrador para editar horários de disponibilidade.",
+        variant: "destructive",
+      });
+      navigate("/admin/auth?redirect=" + encodeURIComponent(location));
+      return;
+    }
+
+    // Verificar se o usuário tem permissão de administrador
+    if (user.role !== 'admin' && !('isSystemAdmin' in user)) {
+      toast({
+        title: "Permissão negada",
+        description: "Apenas administradores podem gerenciar horários de disponibilidade.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!selectedDay || !startTime || !endTime) {
       toast({
         title: "Erro",
@@ -342,6 +386,27 @@ const AvailabilityManagementPage = () => {
 
   // Confirmar exclusão
   const confirmDelete = () => {
+    // Verificar se o usuário está autenticado
+    if (!user) {
+      toast({
+        title: "Acesso negado",
+        description: "Você precisa estar autenticado como administrador para excluir horários de disponibilidade.",
+        variant: "destructive",
+      });
+      navigate("/admin/auth?redirect=" + encodeURIComponent(location));
+      return;
+    }
+
+    // Verificar se o usuário tem permissão de administrador
+    if (user.role !== 'admin' && !('isSystemAdmin' in user)) {
+      toast({
+        title: "Permissão negada",
+        description: "Apenas administradores podem gerenciar horários de disponibilidade.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (selectedAvailability) {
       deleteAvailabilityMutation.mutate({
         id: selectedAvailability.id,
