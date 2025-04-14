@@ -1482,13 +1482,55 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string, tenantId?: number | null): Promise<User | undefined> {
-    const query = eq(users.username, username);
-    const finalQuery = tenantId !== undefined 
-      ? and(query, eq(users.tenant_id, tenantId)) 
-      : query;
-    
-    const result = await db.select().from(users).where(finalQuery);
-    return result[0];
+    try {
+      // Buscar usuário usando query builder do Drizzle
+      const query = eq(users.username, username);
+      const finalQuery = tenantId !== undefined 
+        ? and(query, eq(users.tenant_id, tenantId)) 
+        : query;
+      
+      const result = await db.select().from(users).where(finalQuery);
+      
+      if (result.length === 0) {
+        return undefined;
+      }
+      
+      // Adaptar o usuário para incluir os campos esperados pelo schema
+      const user = result[0];
+      return this.adaptUserFromDb(user);
+    } catch (error) {
+      console.error("Erro ao buscar usuário por username:", error);
+      
+      // Abordagem alternativa usando SQL bruto
+      try {
+        const query = `SELECT * FROM users WHERE username = $1 ${tenantId !== undefined ? 'AND tenant_id = $2' : ''}`;
+        const params = tenantId !== undefined ? [username, tenantId] : [username];
+        const result = await pool.query(query, params);
+        
+        if (result.rows.length === 0) {
+          return undefined;
+        }
+        
+        // Adaptar o usuário para incluir os campos esperados pelo schema
+        return this.adaptUserFromDb(result.rows[0]);
+      } catch (innerError) {
+        console.error("Erro também na abordagem alternativa:", innerError);
+        return undefined;
+      }
+    }
+  }
+  
+  // Método auxiliar para adaptar usuários do banco para o schema
+  private adaptUserFromDb(user: any): User {
+    // Adicionar campos que existem no schema mas não na tabela
+    return {
+      ...user,
+      permissions: user.permissions || [],
+      is_active: true, // Definir valor padrão
+      last_login: user.last_login || null,
+      created_at: user.created_at || new Date(),
+      updated_at: user.updated_at || new Date()
+    };
   }
 
   async createUser(userData: InsertUser): Promise<User> {
