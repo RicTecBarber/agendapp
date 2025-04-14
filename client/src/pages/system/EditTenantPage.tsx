@@ -115,11 +115,12 @@ export default function EditTenantPage() {
   useEffect(() => {
     if (tenant && isEditMode) {
       console.log("Atualizando formulário com dados:", tenant);
+      const isActive = getTenantActiveState(tenant);
       form.reset({
         name: tenant.name,
         slug: tenant.slug,
-        active: tenant.active ?? true,
-        is_active: tenant.is_active ?? tenant.active ?? true,
+        active: isActive,
+        is_active: isActive,
         production_url: tenant.production_url ?? null, // Use null para valor vazio
       });
     }
