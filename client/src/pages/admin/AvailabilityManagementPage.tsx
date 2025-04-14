@@ -100,6 +100,37 @@ const AvailabilityManagementPage = () => {
   const [hasLunchBreak, setHasLunchBreak] = useState<boolean>(false);
   const [isAvailable, setIsAvailable] = useState<boolean>(true);
 
+  // Verificar autenticação e permissões ao carregar a página
+  useEffect(() => {
+    // Redirecionar se não tiver ID de profissional válido
+    if (professionalId === 0) {
+      navigate("/admin/professionals");
+      return;
+    }
+    
+    // Verificar autenticação quando os dados de autenticação estiverem carregados
+    if (!isAuthLoading && !user) {
+      toast({
+        title: "Acesso negado",
+        description: "Você precisa estar autenticado como administrador para gerenciar horários de disponibilidade.",
+        variant: "destructive",
+      });
+      navigate("/admin/auth?redirect=" + encodeURIComponent(location));
+      return;
+    }
+    
+    // Verificar permissões quando os dados de autenticação estiverem carregados
+    if (!isAuthLoading && user && user.role !== 'admin' && !('isSystemAdmin' in user)) {
+      toast({
+        title: "Permissão negada",
+        description: "Apenas administradores podem gerenciar horários de disponibilidade.",
+        variant: "destructive",
+      });
+      navigate("/admin/professionals");
+      return;
+    }
+  }, [professionalId, navigate, user, isAuthLoading, toast, location]);
+
   // Buscar profissional
   const { data: professional, isLoading: isLoadingProfessional } = useQuery({
     queryKey: [`/api/professionals/${professionalId}`, tenantParam],
