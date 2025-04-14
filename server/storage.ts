@@ -7,11 +7,18 @@ import {
   clientRewards, type ClientReward, type InsertClientReward,
   barbershopSettings, type BarbershopSettings, type InsertBarbershopSettings,
   products, type Product, type InsertProduct,
-  orders, type Order, type InsertOrder, type OrderItem
+  orders, type Order, type InsertOrder, type OrderItem,
+  tenants, type Tenant, type InsertTenant,
+  systemAdmins, type SystemAdmin, type InsertSystemAdmin
 } from "@shared/schema";
 import createMemoryStore from "memorystore";
 import session from "express-session";
+import { db } from "./db";
+import { eq, and, sql, desc, asc, gte, lte, isNull, isNotNull, inArray } from "drizzle-orm";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
+const PostgresSessionStore = connectPg(session);
 const MemoryStore = createMemoryStore(session);
 
 // Define the interface for storage operations
@@ -1445,4 +1452,564 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Implementação do DatabaseStorage utilizando Drizzle ORM
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({ 
+      pool, 
+      createTableIfMissing: true 
+    });
+  }
+
+  // User operations
+  async getAllUsers(tenantId?: number | null): Promise<User[]> {
+    if (tenantId !== undefined) {
+      return db.select().from(users).where(eq(users.tenant_id, tenantId));
+    }
+    return db.select().from(users);
+  }
+
+  async getUser(id: number, tenantId?: number | null): Promise<User | undefined> {
+    const query = eq(users.id, id);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(users.tenant_id, tenantId)) 
+      : query;
+    
+    const result = await db.select().from(users).where(finalQuery);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string, tenantId?: number | null): Promise<User | undefined> {
+    const query = eq(users.username, username);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(users.tenant_id, tenantId)) 
+      : query;
+    
+    const result = await db.select().from(users).where(finalQuery);
+    return result[0];
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const result = await db.insert(users).values(userData).returning();
+    return result[0];
+  }
+
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set(userData)
+      .where(eq(users.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Service operations
+  async getAllServices(tenantId?: number | null): Promise<Service[]> {
+    if (tenantId !== undefined) {
+      return db.select().from(services).where(eq(services.tenant_id, tenantId));
+    }
+    return db.select().from(services);
+  }
+
+  async getService(id: number, tenantId?: number | null): Promise<Service | undefined> {
+    const query = eq(services.id, id);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(services.tenant_id, tenantId)) 
+      : query;
+    
+    const result = await db.select().from(services).where(finalQuery);
+    return result[0];
+  }
+
+  async createService(serviceData: InsertService): Promise<Service> {
+    const result = await db.insert(services).values(serviceData).returning();
+    return result[0];
+  }
+
+  async updateService(id: number, serviceData: Partial<InsertService>): Promise<Service | undefined> {
+    const result = await db
+      .update(services)
+      .set(serviceData)
+      .where(eq(services.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteService(id: number): Promise<boolean> {
+    const result = await db.delete(services).where(eq(services.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Professional operations
+  async getAllProfessionals(tenantId?: number | null): Promise<Professional[]> {
+    if (tenantId !== undefined) {
+      return db.select().from(professionals).where(eq(professionals.tenant_id, tenantId));
+    }
+    return db.select().from(professionals);
+  }
+
+  async getProfessional(id: number, tenantId?: number | null): Promise<Professional | undefined> {
+    const query = eq(professionals.id, id);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(professionals.tenant_id, tenantId)) 
+      : query;
+    
+    const result = await db.select().from(professionals).where(finalQuery);
+    return result[0];
+  }
+
+  async getProfessionalsByServiceId(serviceId: number, tenantId?: number | null): Promise<Professional[]> {
+    // Precisamos buscar de forma diferente já que services_offered é um array JSON
+    const allProfessionals = tenantId !== undefined
+      ? await db.select().from(professionals).where(eq(professionals.tenant_id, tenantId))
+      : await db.select().from(professionals);
+    
+    return allProfessionals.filter(p => 
+      Array.isArray(p.services_offered) && p.services_offered.includes(serviceId)
+    );
+  }
+
+  async createProfessional(professionalData: InsertProfessional): Promise<Professional> {
+    const result = await db.insert(professionals).values(professionalData).returning();
+    return result[0];
+  }
+
+  async updateProfessional(id: number, professionalData: Partial<InsertProfessional>): Promise<Professional | undefined> {
+    const result = await db
+      .update(professionals)
+      .set(professionalData)
+      .where(eq(professionals.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteProfessional(id: number): Promise<boolean> {
+    const result = await db.delete(professionals).where(eq(professionals.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Availability operations
+  async getAvailabilityByProfessionalId(professionalId: number, tenantId?: number): Promise<Availability[]> {
+    const query = eq(availability.professional_id, professionalId);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(availability.tenant_id, tenantId)) 
+      : query;
+    
+    return db.select().from(availability).where(finalQuery);
+  }
+
+  async getAvailabilityById(id: number): Promise<Availability | undefined> {
+    const result = await db.select().from(availability).where(eq(availability.id, id));
+    return result[0];
+  }
+
+  async createAvailability(availabilityData: InsertAvailability): Promise<Availability> {
+    const result = await db.insert(availability).values(availabilityData).returning();
+    return result[0];
+  }
+
+  async updateAvailability(id: number, availabilityData: Partial<InsertAvailability>): Promise<Availability | undefined> {
+    const result = await db
+      .update(availability)
+      .set(availabilityData)
+      .where(eq(availability.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteAvailability(id: number): Promise<boolean> {
+    const result = await db.delete(availability).where(eq(availability.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Appointment operations
+  async getAllAppointments(): Promise<Appointment[]> {
+    return db.select().from(appointments);
+  }
+
+  async getAppointmentsByDate(date: Date): Promise<Appointment[]> {
+    // Converter para string para comparar apenas a data (sem hora)
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // Busca todas as consultas e filtra pela data (sem hora)
+    const allAppointments = await db.select().from(appointments);
+    return allAppointments.filter(appointment => {
+      const appointmentDate = new Date(appointment.appointment_date);
+      const appointmentDateStr = appointmentDate.toISOString().split('T')[0];
+      return appointmentDateStr === dateStr;
+    });
+  }
+
+  async getAppointmentsByProfessionalId(professionalId: number): Promise<Appointment[]> {
+    return db.select().from(appointments).where(eq(appointments.professional_id, professionalId));
+  }
+
+  async getAppointmentsByClientPhone(clientPhone: string): Promise<Appointment[]> {
+    return db.select().from(appointments).where(eq(appointments.client_phone, clientPhone));
+  }
+
+  async getAppointmentById(id: number): Promise<Appointment | undefined> {
+    const result = await db.select().from(appointments).where(eq(appointments.id, id));
+    return result[0];
+  }
+
+  async createAppointment(appointmentData: InsertAppointment): Promise<Appointment> {
+    const result = await db.insert(appointments).values(appointmentData).returning();
+    return result[0];
+  }
+
+  async updateAppointmentStatus(id: number, status: string): Promise<Appointment | undefined> {
+    const result = await db
+      .update(appointments)
+      .set({ status })
+      .where(eq(appointments.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Client Rewards operations
+  async getClientRewardByPhone(clientPhone: string): Promise<ClientReward | undefined> {
+    const result = await db.select().from(clientRewards).where(eq(clientRewards.client_phone, clientPhone));
+    return result[0];
+  }
+
+  async createClientReward(clientRewardData: InsertClientReward): Promise<ClientReward> {
+    const result = await db.insert(clientRewards).values(clientRewardData).returning();
+    return result[0];
+  }
+
+  async incrementAttendanceCount(clientPhone: string): Promise<ClientReward | undefined> {
+    // Buscar a recompensa atual
+    const clientReward = await this.getClientRewardByPhone(clientPhone);
+    if (!clientReward) return undefined;
+
+    // Incrementar a contagem
+    const total_attendances = clientReward.total_attendances + 1;
+    
+    // Atualizar no banco
+    const result = await db
+      .update(clientRewards)
+      .set({ 
+        total_attendances,
+        updated_at: new Date() 
+      })
+      .where(eq(clientRewards.client_phone, clientPhone))
+      .returning();
+    
+    return result[0];
+  }
+
+  async useReward(clientPhone: string): Promise<ClientReward | undefined> {
+    // Buscar a recompensa atual
+    const clientReward = await this.getClientRewardByPhone(clientPhone);
+    if (!clientReward) return undefined;
+
+    // Incrementar serviços gratuitos usados e adicionar data
+    const free_services_used = clientReward.free_services_used + 1;
+    
+    // Atualizar no banco
+    const result = await db
+      .update(clientRewards)
+      .set({ 
+        free_services_used,
+        last_reward_at: new Date(),
+        updated_at: new Date()
+      })
+      .where(eq(clientRewards.client_phone, clientPhone))
+      .returning();
+    
+    return result[0];
+  }
+
+  // Barbershop Settings operations
+  async getBarbershopSettings(tenantId?: number | null): Promise<BarbershopSettings | undefined> {
+    if (tenantId !== undefined) {
+      const result = await db.select().from(barbershopSettings).where(eq(barbershopSettings.tenant_id, tenantId));
+      return result[0];
+    }
+    
+    const result = await db.select().from(barbershopSettings);
+    return result[0];
+  }
+
+  async createBarbershopSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings> {
+    const result = await db.insert(barbershopSettings).values(settings).returning();
+    return result[0];
+  }
+
+  async updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings> {
+    // Verificar se já existe configuração para este tenant
+    let existingSettings: BarbershopSettings | undefined;
+    
+    if (settings.tenant_id) {
+      existingSettings = await this.getBarbershopSettings(settings.tenant_id);
+    } else {
+      // Se não tiver tenant_id, pega o primeiro (não recomendado em produção)
+      const allSettings = await db.select().from(barbershopSettings);
+      existingSettings = allSettings[0];
+    }
+
+    if (existingSettings) {
+      // Atualizar configuração existente
+      const result = await db
+        .update(barbershopSettings)
+        .set(settings)
+        .where(eq(barbershopSettings.id, existingSettings.id))
+        .returning();
+      return result[0];
+    } else {
+      // Criar nova configuração
+      return this.createBarbershopSettings(settings as InsertBarbershopSettings);
+    }
+  }
+
+  // Aliases com nomes atualizados (mesmo comportamento, nomes diferentes)
+  async getBusinessSettings(tenantId?: number | null): Promise<BarbershopSettings | undefined> {
+    return this.getBarbershopSettings(tenantId);
+  }
+
+  async createBusinessSettings(settings: InsertBarbershopSettings): Promise<BarbershopSettings> {
+    return this.createBarbershopSettings(settings);
+  }
+
+  async updateBusinessSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings> {
+    return this.updateBarbershopSettings(settings);
+  }
+
+  // Product operations
+  async getAllProducts(): Promise<Product[]> {
+    return db.select().from(products);
+  }
+
+  async getProduct(id: number): Promise<Product | undefined> {
+    const result = await db.select().from(products).where(eq(products.id, id));
+    return result[0];
+  }
+
+  async getProductsByCategory(category: string): Promise<Product[]> {
+    return db.select().from(products).where(eq(products.category, category));
+  }
+
+  async createProduct(productData: InsertProduct): Promise<Product> {
+    const result = await db.insert(products).values(productData).returning();
+    return result[0];
+  }
+
+  async updateProduct(id: number, productData: Partial<InsertProduct>): Promise<Product | undefined> {
+    const result = await db
+      .update(products)
+      .set(productData)
+      .where(eq(products.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteProduct(id: number): Promise<boolean> {
+    const result = await db.delete(products).where(eq(products.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async updateProductStock(id: number, quantity: number): Promise<Product | undefined> {
+    const product = await this.getProduct(id);
+    if (!product) return undefined;
+
+    const result = await db
+      .update(products)
+      .set({ stock_quantity: quantity })
+      .where(eq(products.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Order (Comanda) operations
+  async getAllOrders(): Promise<Order[]> {
+    return db.select().from(orders);
+  }
+
+  async getOrdersByAppointmentId(appointmentId: number): Promise<Order[]> {
+    return db.select().from(orders).where(eq(orders.appointment_id, appointmentId));
+  }
+
+  async getOrderById(id: number): Promise<Order | undefined> {
+    const result = await db.select().from(orders).where(eq(orders.id, id));
+    return result[0];
+  }
+
+  async getOrdersByClientPhone(clientPhone: string): Promise<Order[]> {
+    return db.select().from(orders).where(eq(orders.client_phone, clientPhone));
+  }
+
+  async createOrder(orderData: InsertOrder): Promise<Order> {
+    const result = await db.insert(orders).values(orderData).returning();
+    return result[0];
+  }
+
+  async updateOrderStatus(id: number, status: string): Promise<Order | undefined> {
+    const result = await db
+      .update(orders)
+      .set({ status })
+      .where(eq(orders.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateOrder(id: number, orderData: Partial<Order>): Promise<Order | undefined> {
+    const result = await db
+      .update(orders)
+      .set(orderData)
+      .where(eq(orders.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Tenant operations
+  async getAllTenants(): Promise<Tenant[]> {
+    return db.select().from(tenants);
+  }
+
+  async getTenant(id: number): Promise<Tenant | undefined> {
+    const result = await db.select().from(tenants).where(eq(tenants.id, id));
+    return result[0];
+  }
+
+  async getTenantBySlug(slug: string): Promise<Tenant | undefined> {
+    try {
+      // Recupera o tenant sem verificar is_active
+      const result = await db.select().from(tenants).where(eq(tenants.slug, slug));
+      
+      if (result.length === 0) {
+        return undefined;
+      }
+      
+      // Adapta o resultado para incluir is_active baseado no campo active
+      const tenant = result[0];
+      if (!tenant.hasOwnProperty('is_active') && tenant.hasOwnProperty('active')) {
+        // @ts-ignore - Adiciona is_active baseado no active
+        tenant.is_active = tenant.active;
+      }
+      
+      return tenant;
+    } catch (error) {
+      console.error("Erro ao buscar tenant por slug:", error);
+      // Tenta uma abordagem alternativa simples
+      const query = `SELECT * FROM tenants WHERE slug = $1`;
+      const result = await pool.query(query, [slug]);
+      if (result.rows.length > 0) {
+        const tenant = result.rows[0];
+        // @ts-ignore - Adiciona is_active baseado no active
+        tenant.is_active = tenant.active;
+        return tenant;
+      }
+      return undefined;
+    }
+  }
+
+  async createTenant(tenantData: InsertTenant): Promise<Tenant> {
+    const result = await db.insert(tenants).values(tenantData).returning();
+    return result[0];
+  }
+
+  async updateTenant(id: number, tenantData: Partial<InsertTenant>): Promise<Tenant | undefined> {
+    const result = await db
+      .update(tenants)
+      .set(tenantData)
+      .where(eq(tenants.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async activateTenant(id: number): Promise<Tenant | undefined> {
+    try {
+      // Tenta atualizar apenas o campo active (que existe no banco)
+      const result = await db
+        .update(tenants)
+        .set({ active: true })
+        .where(eq(tenants.id, id))
+        .returning();
+      
+      // Adiciona is_active ao resultado se necessário
+      if (result.length > 0) {
+        const tenant = result[0];
+        // @ts-ignore - Adiciona is_active baseado no active
+        tenant.is_active = tenant.active;
+        return tenant;
+      }
+      return undefined;
+    } catch (error) {
+      console.error("Erro ao ativar tenant:", error);
+      return undefined;
+    }
+  }
+
+  async deactivateTenant(id: number): Promise<Tenant | undefined> {
+    try {
+      // Tenta atualizar apenas o campo active (que existe no banco)
+      const result = await db
+        .update(tenants)
+        .set({ active: false })
+        .where(eq(tenants.id, id))
+        .returning();
+      
+      // Adiciona is_active ao resultado se necessário
+      if (result.length > 0) {
+        const tenant = result[0];
+        // @ts-ignore - Adiciona is_active baseado no active
+        tenant.is_active = tenant.active;
+        return tenant;
+      }
+      return undefined;
+    } catch (error) {
+      console.error("Erro ao desativar tenant:", error);
+      return undefined;
+    }
+  }
+
+  async deleteTenant(id: number): Promise<boolean> {
+    const result = await db.delete(tenants).where(eq(tenants.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // System Admin operations
+  async getAllSystemAdmins(): Promise<SystemAdmin[]> {
+    return db.select().from(systemAdmins);
+  }
+
+  async getSystemAdmin(id: number): Promise<SystemAdmin | undefined> {
+    const result = await db.select().from(systemAdmins).where(eq(systemAdmins.id, id));
+    return result[0];
+  }
+
+  async getSystemAdminByUsername(username: string): Promise<SystemAdmin | undefined> {
+    const result = await db.select().from(systemAdmins).where(eq(systemAdmins.username, username));
+    return result[0];
+  }
+
+  async createSystemAdmin(adminData: InsertSystemAdmin): Promise<SystemAdmin> {
+    const result = await db.insert(systemAdmins).values(adminData).returning();
+    return result[0];
+  }
+
+  async updateSystemAdmin(id: number, adminData: Partial<InsertSystemAdmin>): Promise<SystemAdmin | undefined> {
+    const result = await db
+      .update(systemAdmins)
+      .set(adminData)
+      .where(eq(systemAdmins.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteSystemAdmin(id: number): Promise<boolean> {
+    const result = await db.delete(systemAdmins).where(eq(systemAdmins.id, id)).returning();
+    return result.length > 0;
+  }
+}
+
+// Use DatabaseStorage em vez de MemStorage para conectar ao banco de dados
+export const storage = new DatabaseStorage();
