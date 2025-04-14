@@ -84,6 +84,20 @@ interface LinkGeneratorState {
   customParams: string;
 }
 
+// Função de ajuda para garantir a compatibilidade entre active e is_active
+function getTenantActiveState(tenant: Tenant): boolean {
+  if (tenant.hasOwnProperty('is_active')) {
+    return tenant.is_active === true;
+  }
+  
+  if (tenant.hasOwnProperty('active')) {
+    return tenant.active === true;
+  }
+  
+  // Valor padrão em caso de problemas
+  return false;
+}
+
 export default function TenantsPage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
@@ -347,7 +361,7 @@ export default function TenantsPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {tenant.is_active ? (
+                          {getTenantActiveState(tenant) ? (
                             <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                               Ativo
                             </Badge>
@@ -374,9 +388,9 @@ export default function TenantsPage() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => handleToggleActive(tenant.id, tenant.is_active)}
+                              onClick={() => handleToggleActive(tenant.id, getTenantActiveState(tenant))}
                             >
-                              {tenant.is_active ? (
+                              {getTenantActiveState(tenant) ? (
                                 <X className="h-4 w-4" />
                               ) : (
                                 <Check className="h-4 w-4" />

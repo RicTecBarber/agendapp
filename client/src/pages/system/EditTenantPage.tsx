@@ -53,6 +53,20 @@ const tenantSchema = insertTenantSchema.extend({
 
 type TenantData = z.infer<typeof tenantSchema>;
 
+// Função de ajuda para garantir a compatibilidade entre active e is_active
+function getTenantActiveState(tenant: Tenant): boolean {
+  if (tenant.hasOwnProperty('is_active')) {
+    return tenant.is_active === true;
+  }
+  
+  if (tenant.hasOwnProperty('active')) {
+    return tenant.active === true;
+  }
+  
+  // Valor padrão em caso de problemas
+  return false;
+}
+
 export default function EditTenantPage() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
