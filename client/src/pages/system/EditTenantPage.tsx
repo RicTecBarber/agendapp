@@ -85,7 +85,6 @@ export default function EditTenantPage() {
       name: "",
       slug: "",
       active: true,
-      is_active: true,
       production_url: null, // Permitir valor nulo
     },
   });
@@ -120,7 +119,6 @@ export default function EditTenantPage() {
         name: tenant.name,
         slug: tenant.slug,
         active: isActive,
-        is_active: isActive,
         production_url: tenant.production_url ?? null, // Use null para valor vazio
       });
     }
@@ -316,7 +314,7 @@ export default function EditTenantPage() {
                   
                   <FormField
                     control={form.control}
-                    name="is_active"
+                    name="active"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
@@ -328,10 +326,7 @@ export default function EditTenantPage() {
                         <FormControl>
                           <Switch
                             checked={field.value}
-                            onCheckedChange={(checked) => {
-                              field.onChange(checked);
-                              form.setValue("active", checked); // Atualiza o campo active também para compatibilidade
-                            }}
+                            onCheckedChange={field.onChange}
                           />
                         </FormControl>
                       </FormItem>
