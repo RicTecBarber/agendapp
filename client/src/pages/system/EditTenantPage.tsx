@@ -43,6 +43,8 @@ const tenantSchema = insertTenantSchema.extend({
     .min(3, "Slug deve ter pelo menos 3 caracteres")
     .max(50, "Slug deve ter no máximo 50 caracteres")
     .regex(/^[a-z0-9-]+$/, "Slug deve conter apenas letras minúsculas, números e hífens"),
+  // Campo active (boolean) para o status de ativação
+  active: z.boolean().default(true),
   // Garantir que production_url pode ser nulo ou uma string válida
   production_url: z.union([
     z.string().url("Deve ser uma URL válida").optional(),
@@ -53,18 +55,10 @@ const tenantSchema = insertTenantSchema.extend({
 
 type TenantData = z.infer<typeof tenantSchema>;
 
-// Função de ajuda para garantir a compatibilidade entre active e is_active
+// Função de ajuda para obter o estado de ativação do tenant
 function getTenantActiveState(tenant: Tenant): boolean {
-  if (tenant.hasOwnProperty('is_active')) {
-    return tenant.is_active === true;
-  }
-  
-  if (tenant.hasOwnProperty('active')) {
-    return tenant.active === true;
-  }
-  
-  // Valor padrão em caso de problemas
-  return false;
+  // Verificar se o tenant está ativo (a única propriedade válida agora é 'active')
+  return tenant.active === true;
 }
 
 export default function EditTenantPage() {

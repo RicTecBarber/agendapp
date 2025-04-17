@@ -84,18 +84,10 @@ interface LinkGeneratorState {
   customParams: string;
 }
 
-// Função de ajuda para garantir a compatibilidade entre active e is_active
+// Função de ajuda para obter o estado de ativação do tenant
 function getTenantActiveState(tenant: Tenant): boolean {
-  if (tenant.hasOwnProperty('is_active')) {
-    return tenant.is_active === true;
-  }
-  
-  if (tenant.hasOwnProperty('active')) {
-    return tenant.active === true;
-  }
-  
-  // Valor padrão em caso de problemas
-  return false;
+  // Verificar se o tenant está ativo (a única propriedade válida agora é 'active')
+  return tenant.active === true;
 }
 
 export default function TenantsPage() {
