@@ -97,6 +97,7 @@ const AvailabilityManagementPage = () => {
   const [endTime, setEndTime] = useState<string>("");
   const [lunchStart, setLunchStart] = useState<string>("");
   const [lunchEnd, setLunchEnd] = useState<string>("");
+  // Removido estado de pausa para almoço pois não existe no banco de dados
   const [hasLunchBreak, setHasLunchBreak] = useState<boolean>(false);
   const [isAvailable, setIsAvailable] = useState<boolean>(true);
 
