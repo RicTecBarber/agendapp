@@ -85,6 +85,8 @@ export const availability = pgTable("availability", {
   start_time: text("start_time").notNull(), // "HH:MM" format
   end_time: text("end_time").notNull(), // "HH:MM" format
   is_available: boolean("is_available").notNull().default(true),
+  lunch_start: text("lunch_start"), // "HH:MM" format, horário de início do almoço (opcional)
+  lunch_end: text("lunch_end"), // "HH:MM" format, horário de fim do almoço (opcional)
   tenant_id: integer("tenant_id"), // FK para o tenant
 });
 

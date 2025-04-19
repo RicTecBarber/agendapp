@@ -95,7 +95,8 @@ const AvailabilityManagementPage = () => {
   const [selectedDay, setSelectedDay] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
-  // Removidos estados para horário de almoço pois não existem no banco de dados
+  const [lunchStart, setLunchStart] = useState<string>("");
+  const [lunchEnd, setLunchEnd] = useState<string>("");
   const [isAvailable, setIsAvailable] = useState<boolean>(true);
 
   // Verificar autenticação e permissões ao carregar a página
@@ -252,6 +253,8 @@ const AvailabilityManagementPage = () => {
     setSelectedDay("");
     setStartTime("");
     setEndTime("");
+    setLunchStart("");
+    setLunchEnd("");
     setIsAvailable(true);
   };
 
@@ -261,6 +264,8 @@ const AvailabilityManagementPage = () => {
     setSelectedDay(availability.day_of_week.toString());
     setStartTime(availability.start_time);
     setEndTime(availability.end_time);
+    setLunchStart(availability.lunch_start || "");
+    setLunchEnd(availability.lunch_end || "");
     setIsAvailable(availability.is_available);
     setIsEditDialogOpen(true);
   };
@@ -303,7 +308,24 @@ const AvailabilityManagementPage = () => {
       return;
     }
 
-    // Removida validação de horário de almoço pois os campos não existem no banco de dados
+    // Validar horário de almoço
+    if (lunchStart && !lunchEnd) {
+      toast({
+        title: "Erro",
+        description: "Se informar o início do almoço, deve informar também o fim",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!lunchStart && lunchEnd) {
+      toast({
+        title: "Erro",
+        description: "Se informar o fim do almoço, deve informar também o início",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const availabilityData: any = {
       professional_id: professionalId,
@@ -313,6 +335,12 @@ const AvailabilityManagementPage = () => {
       is_available: isAvailable,
       tenant_id: Number(tenantParam)
     };
+    
+    // Adicionar horário de almoço apenas se ambos estiverem preenchidos
+    if (lunchStart && lunchEnd) {
+      availabilityData.lunch_start = lunchStart;
+      availabilityData.lunch_end = lunchEnd;
+    }
 
     createAvailabilityMutation.mutate(availabilityData);
   };
@@ -349,7 +377,24 @@ const AvailabilityManagementPage = () => {
       return;
     }
 
-    // Removida validação de horário de almoço pois os campos não existem no banco de dados
+    // Validar horário de almoço
+    if (lunchStart && !lunchEnd) {
+      toast({
+        title: "Erro",
+        description: "Se informar o início do almoço, deve informar também o fim",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!lunchStart && lunchEnd) {
+      toast({
+        title: "Erro",
+        description: "Se informar o fim do almoço, deve informar também o início",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const availabilityData: any = {
       id: selectedAvailability.id,
@@ -360,6 +405,12 @@ const AvailabilityManagementPage = () => {
       is_available: isAvailable,
       tenant_id: Number(tenantParam)
     };
+    
+    // Adicionar horário de almoço apenas se ambos estiverem preenchidos
+    if (lunchStart && lunchEnd) {
+      availabilityData.lunch_start = lunchStart;
+      availabilityData.lunch_end = lunchEnd;
+    }
 
     updateAvailabilityMutation.mutate(availabilityData);
   };

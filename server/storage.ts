@@ -1836,11 +1836,16 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateAppointmentStatus(id: number, status: string): Promise<Appointment | undefined> {
+  async updateAppointmentStatus(id: number, status: string, tenantId?: number | null): Promise<Appointment | undefined> {
+    const query = eq(appointments.id, id);
+    const finalQuery = tenantId !== undefined
+      ? and(query, eq(appointments.tenant_id, tenantId))
+      : query;
+      
     const result = await db
       .update(appointments)
       .set({ status })
-      .where(eq(appointments.id, id))
+      .where(finalQuery)
       .returning();
     return result[0];
   }
@@ -1869,6 +1874,12 @@ export class DatabaseStorage implements IStorage {
     // Incrementar a contagem
     const total_attendances = clientReward.total_attendances + 1;
     
+    // Preparar a consulta para atualização
+    const query = eq(clientRewards.client_phone, clientPhone);
+    const finalQuery = tenantId !== undefined
+      ? and(query, eq(clientRewards.tenant_id, tenantId))
+      : query;
+    
     // Atualizar no banco
     const result = await db
       .update(clientRewards)
@@ -1876,7 +1887,7 @@ export class DatabaseStorage implements IStorage {
         total_attendances,
         updated_at: new Date() 
       })
-      .where(eq(clientRewards.client_phone, clientPhone))
+      .where(finalQuery)
       .returning();
     
     return result[0];
@@ -1929,9 +1940,10 @@ export class DatabaseStorage implements IStorage {
   async updateBarbershopSettings(settings: Partial<InsertBarbershopSettings>): Promise<BarbershopSettings> {
     // Verificar se já existe configuração para este tenant
     let existingSettings: BarbershopSettings | undefined;
+    const tenantId = settings.tenant_id;
     
-    if (settings.tenant_id) {
-      existingSettings = await this.getBarbershopSettings(settings.tenant_id);
+    if (tenantId !== undefined) {
+      existingSettings = await this.getBarbershopSettings(tenantId);
     } else {
       // Se não tiver tenant_id, pega o primeiro (não recomendado em produção)
       const allSettings = await db.select().from(barbershopSettings);
@@ -1939,11 +1951,17 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (existingSettings) {
+      // Preparar a consulta para atualização
+      const query = eq(barbershopSettings.id, existingSettings.id);
+      const finalQuery = tenantId !== undefined 
+        ? and(query, eq(barbershopSettings.tenant_id, tenantId)) 
+        : query;
+        
       // Atualizar configuração existente
       const result = await db
         .update(barbershopSettings)
         .set(settings)
-        .where(eq(barbershopSettings.id, existingSettings.id))
+        .where(finalQuery)
         .returning();
       return result[0];
     } else {
@@ -1997,28 +2015,43 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateProduct(id: number, productData: Partial<InsertProduct>): Promise<Product | undefined> {
+  async updateProduct(id: number, productData: Partial<InsertProduct>, tenantId?: number | null): Promise<Product | undefined> {
+    const query = eq(products.id, id);
+    const finalQuery = tenantId !== undefined
+      ? and(query, eq(products.tenant_id, tenantId))
+      : query;
+      
     const result = await db
       .update(products)
       .set(productData)
-      .where(eq(products.id, id))
+      .where(finalQuery)
       .returning();
     return result[0];
   }
 
-  async deleteProduct(id: number): Promise<boolean> {
-    const result = await db.delete(products).where(eq(products.id, id)).returning();
+  async deleteProduct(id: number, tenantId?: number | null): Promise<boolean> {
+    const query = eq(products.id, id);
+    const finalQuery = tenantId !== undefined
+      ? and(query, eq(products.tenant_id, tenantId))
+      : query;
+      
+    const result = await db.delete(products).where(finalQuery).returning();
     return result.length > 0;
   }
 
-  async updateProductStock(id: number, quantity: number): Promise<Product | undefined> {
-    const product = await this.getProduct(id);
+  async updateProductStock(id: number, quantity: number, tenantId?: number | null): Promise<Product | undefined> {
+    const product = await this.getProduct(id, tenantId);
     if (!product) return undefined;
 
+    const query = eq(products.id, id);
+    const finalQuery = tenantId !== undefined
+      ? and(query, eq(products.tenant_id, tenantId))
+      : query;
+      
     const result = await db
       .update(products)
       .set({ stock_quantity: quantity })
-      .where(eq(products.id, id))
+      .where(finalQuery)
       .returning();
     return result[0];
   }
@@ -2064,20 +2097,30 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateOrderStatus(id: number, status: string): Promise<Order | undefined> {
+  async updateOrderStatus(id: number, status: string, tenantId?: number | null): Promise<Order | undefined> {
+    const query = eq(orders.id, id);
+    const finalQuery = tenantId !== undefined
+      ? and(query, eq(orders.tenant_id, tenantId))
+      : query;
+      
     const result = await db
       .update(orders)
       .set({ status })
-      .where(eq(orders.id, id))
+      .where(finalQuery)
       .returning();
     return result[0];
   }
 
-  async updateOrder(id: number, orderData: Partial<Order>): Promise<Order | undefined> {
+  async updateOrder(id: number, orderData: Partial<Order>, tenantId?: number | null): Promise<Order | undefined> {
+    const query = eq(orders.id, id);
+    const finalQuery = tenantId !== undefined
+      ? and(query, eq(orders.tenant_id, tenantId))
+      : query;
+      
     const result = await db
       .update(orders)
       .set(orderData)
-      .where(eq(orders.id, id))
+      .where(finalQuery)
       .returning();
     return result[0];
   }
