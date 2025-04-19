@@ -1933,17 +1933,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Product operations
-  async getAllProducts(): Promise<Product[]> {
+  async getAllProducts(tenantId?: number | null): Promise<Product[]> {
+    if (tenantId !== undefined) {
+      return db.select().from(products).where(eq(products.tenant_id, tenantId));
+    }
     return db.select().from(products);
   }
 
-  async getProduct(id: number): Promise<Product | undefined> {
-    const result = await db.select().from(products).where(eq(products.id, id));
+  async getProduct(id: number, tenantId?: number | null): Promise<Product | undefined> {
+    const query = eq(products.id, id);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(products.tenant_id, tenantId)) 
+      : query;
+    
+    const result = await db.select().from(products).where(finalQuery);
     return result[0];
   }
 
-  async getProductsByCategory(category: string): Promise<Product[]> {
-    return db.select().from(products).where(eq(products.category, category));
+  async getProductsByCategory(category: string, tenantId?: number | null): Promise<Product[]> {
+    const query = eq(products.category, category);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(products.tenant_id, tenantId)) 
+      : query;
+    
+    return db.select().from(products).where(finalQuery);
   }
 
   async createProduct(productData: InsertProduct): Promise<Product> {
@@ -1978,21 +1991,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Order (Comanda) operations
-  async getAllOrders(): Promise<Order[]> {
+  async getAllOrders(tenantId?: number | null): Promise<Order[]> {
+    if (tenantId !== undefined) {
+      return db.select().from(orders).where(eq(orders.tenant_id, tenantId));
+    }
     return db.select().from(orders);
   }
 
-  async getOrdersByAppointmentId(appointmentId: number): Promise<Order[]> {
-    return db.select().from(orders).where(eq(orders.appointment_id, appointmentId));
+  async getOrdersByAppointmentId(appointmentId: number, tenantId?: number | null): Promise<Order[]> {
+    const query = eq(orders.appointment_id, appointmentId);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(orders.tenant_id, tenantId)) 
+      : query;
+    
+    return db.select().from(orders).where(finalQuery);
   }
 
-  async getOrderById(id: number): Promise<Order | undefined> {
-    const result = await db.select().from(orders).where(eq(orders.id, id));
+  async getOrderById(id: number, tenantId?: number | null): Promise<Order | undefined> {
+    const query = eq(orders.id, id);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(orders.tenant_id, tenantId)) 
+      : query;
+    
+    const result = await db.select().from(orders).where(finalQuery);
     return result[0];
   }
 
-  async getOrdersByClientPhone(clientPhone: string): Promise<Order[]> {
-    return db.select().from(orders).where(eq(orders.client_phone, clientPhone));
+  async getOrdersByClientPhone(clientPhone: string, tenantId?: number | null): Promise<Order[]> {
+    const query = eq(orders.client_phone, clientPhone);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(orders.tenant_id, tenantId)) 
+      : query;
+    
+    return db.select().from(orders).where(finalQuery);
   }
 
   async createOrder(orderData: InsertOrder): Promise<Order> {
