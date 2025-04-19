@@ -1779,16 +1779,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Appointment operations
-  async getAllAppointments(): Promise<Appointment[]> {
+  async getAllAppointments(tenantId?: number | null): Promise<Appointment[]> {
+    if (tenantId !== undefined) {
+      return db.select().from(appointments).where(eq(appointments.tenant_id, tenantId));
+    }
     return db.select().from(appointments);
   }
 
-  async getAppointmentsByDate(date: Date): Promise<Appointment[]> {
+  async getAppointmentsByDate(date: Date, tenantId?: number | null): Promise<Appointment[]> {
     // Converter para string para comparar apenas a data (sem hora)
     const dateStr = date.toISOString().split('T')[0];
     
-    // Busca todas as consultas e filtra pela data (sem hora)
-    const allAppointments = await db.select().from(appointments);
+    // Busca todas as consultas (filtrando por tenant se fornecido)
+    const allAppointments = tenantId !== undefined
+      ? await db.select().from(appointments).where(eq(appointments.tenant_id, tenantId))
+      : await db.select().from(appointments);
+    
+    // Filtra pela data (sem hora)
     return allAppointments.filter(appointment => {
       const appointmentDate = new Date(appointment.appointment_date);
       const appointmentDateStr = appointmentDate.toISOString().split('T')[0];
@@ -1796,16 +1803,31 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getAppointmentsByProfessionalId(professionalId: number): Promise<Appointment[]> {
-    return db.select().from(appointments).where(eq(appointments.professional_id, professionalId));
+  async getAppointmentsByProfessionalId(professionalId: number, tenantId?: number | null): Promise<Appointment[]> {
+    const query = eq(appointments.professional_id, professionalId);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(appointments.tenant_id, tenantId)) 
+      : query;
+    
+    return db.select().from(appointments).where(finalQuery);
   }
 
-  async getAppointmentsByClientPhone(clientPhone: string): Promise<Appointment[]> {
-    return db.select().from(appointments).where(eq(appointments.client_phone, clientPhone));
+  async getAppointmentsByClientPhone(clientPhone: string, tenantId?: number | null): Promise<Appointment[]> {
+    const query = eq(appointments.client_phone, clientPhone);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(appointments.tenant_id, tenantId)) 
+      : query;
+    
+    return db.select().from(appointments).where(finalQuery);
   }
 
-  async getAppointmentById(id: number): Promise<Appointment | undefined> {
-    const result = await db.select().from(appointments).where(eq(appointments.id, id));
+  async getAppointmentById(id: number, tenantId?: number | null): Promise<Appointment | undefined> {
+    const query = eq(appointments.id, id);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(appointments.tenant_id, tenantId)) 
+      : query;
+    
+    const result = await db.select().from(appointments).where(finalQuery);
     return result[0];
   }
 
@@ -1824,8 +1846,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Client Rewards operations
-  async getClientRewardByPhone(clientPhone: string): Promise<ClientReward | undefined> {
-    const result = await db.select().from(clientRewards).where(eq(clientRewards.client_phone, clientPhone));
+  async getClientRewardByPhone(clientPhone: string, tenantId?: number | null): Promise<ClientReward | undefined> {
+    const query = eq(clientRewards.client_phone, clientPhone);
+    const finalQuery = tenantId !== undefined 
+      ? and(query, eq(clientRewards.tenant_id, tenantId)) 
+      : query;
+    
+    const result = await db.select().from(clientRewards).where(finalQuery);
     return result[0];
   }
 
@@ -1834,9 +1861,9 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async incrementAttendanceCount(clientPhone: string): Promise<ClientReward | undefined> {
+  async incrementAttendanceCount(clientPhone: string, tenantId?: number | null): Promise<ClientReward | undefined> {
     // Buscar a recompensa atual
-    const clientReward = await this.getClientRewardByPhone(clientPhone);
+    const clientReward = await this.getClientRewardByPhone(clientPhone, tenantId);
     if (!clientReward) return undefined;
 
     // Incrementar a contagem
@@ -1855,13 +1882,19 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async useReward(clientPhone: string): Promise<ClientReward | undefined> {
+  async useReward(clientPhone: string, tenantId?: number | null): Promise<ClientReward | undefined> {
     // Buscar a recompensa atual
-    const clientReward = await this.getClientRewardByPhone(clientPhone);
+    const clientReward = await this.getClientRewardByPhone(clientPhone, tenantId);
     if (!clientReward) return undefined;
 
     // Incrementar serviços gratuitos usados e adicionar data
     const free_services_used = clientReward.free_services_used + 1;
+    
+    // Preparar a consulta para atualização
+    const query = eq(clientRewards.client_phone, clientPhone);
+    const finalQuery = tenantId !== undefined
+      ? and(query, eq(clientRewards.tenant_id, tenantId))
+      : query;
     
     // Atualizar no banco
     const result = await db
@@ -1871,7 +1904,7 @@ export class DatabaseStorage implements IStorage {
         last_reward_at: new Date(),
         updated_at: new Date()
       })
-      .where(eq(clientRewards.client_phone, clientPhone))
+      .where(finalQuery)
       .returning();
     
     return result[0];
