@@ -267,16 +267,10 @@ const AvailabilityManagementPage = () => {
     setStartTime(availability.start_time);
     setEndTime(availability.end_time);
     
-    // Verificar se tem horário de almoço definido
-    if (availability.lunch_start && availability.lunch_end) {
-      setLunchStart(availability.lunch_start);
-      setLunchEnd(availability.lunch_end);
-      setHasLunchBreak(true);
-    } else {
-      setLunchStart("");
-      setLunchEnd("");
-      setHasLunchBreak(false);
-    }
+    // Campos de almoço não existem no banco de dados
+    setLunchStart("");
+    setLunchEnd("");
+    setHasLunchBreak(false);
     
     setIsAvailable(availability.is_available);
     setIsEditDialogOpen(true);
@@ -339,14 +333,8 @@ const AvailabilityManagementPage = () => {
       tenant_id: Number(tenantParam)
     };
 
-    // Adicionar horário de almoço se habilitado
-    if (hasLunchBreak) {
-      availabilityData.lunch_start = lunchStart;
-      availabilityData.lunch_end = lunchEnd;
-    } else {
-      availabilityData.lunch_start = null;
-      availabilityData.lunch_end = null;
-    }
+    // Removemos referência aos campos de horário de almoço
+    // Os campos lunch_start e lunch_end não existem no banco de dados atual
 
     createAvailabilityMutation.mutate(availabilityData);
   };
@@ -403,14 +391,8 @@ const AvailabilityManagementPage = () => {
       tenant_id: Number(tenantParam)
     };
 
-    // Adicionar horário de almoço se habilitado
-    if (hasLunchBreak) {
-      availabilityData.lunch_start = lunchStart;
-      availabilityData.lunch_end = lunchEnd;
-    } else {
-      availabilityData.lunch_start = null;
-      availabilityData.lunch_end = null;
-    }
+    // Removemos referência aos campos de horário de almoço
+    // Os campos lunch_start e lunch_end não existem no banco de dados atual
 
     updateAvailabilityMutation.mutate(availabilityData);
   };
