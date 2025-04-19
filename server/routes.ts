@@ -981,10 +981,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lunch_break: boolean;
       }
       
-      // Não há mais horário de almoço configurado
-      const hasLunchBreak = false;
+      // Verificar se há horário de almoço configurado
+      const hasLunchBreak = !!(dayConfig.lunch_start && dayConfig.lunch_end);
       let lunchStartMinutes = -1;
       let lunchEndMinutes = -1;
+      
+      // Se houver configuração de almoço, calcular os minutos para facilitar comparação
+      if (hasLunchBreak) {
+        const lunchStart = parseTime(dayConfig.lunch_start);
+        const lunchEnd = parseTime(dayConfig.lunch_end);
+        lunchStartMinutes = lunchStart.hours * 60 + lunchStart.minutes;
+        lunchEndMinutes = lunchEnd.hours * 60 + lunchEnd.minutes;
+        console.log(`Horário de almoço configurado: ${dayConfig.lunch_start} - ${dayConfig.lunch_end} (${lunchStartMinutes} - ${lunchEndMinutes} minutos)`);
+      }
       
       const slotDetails: SlotDetail[] = slots.map(slot => {
         const [hours, minutes] = slot.split(':').map(Number);
