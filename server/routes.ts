@@ -981,18 +981,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lunch_break: boolean;
       }
       
-      // Verificar se há horário de almoço configurado
-      const hasLunchBreak = dayConfig.lunch_start && dayConfig.lunch_end;
+      // Não há mais horário de almoço configurado
+      const hasLunchBreak = false;
       let lunchStartMinutes = -1;
       let lunchEndMinutes = -1;
-      
-      if (hasLunchBreak) {
-        console.log(`Horário de almoço configurado: ${dayConfig.lunch_start} - ${dayConfig.lunch_end}`);
-        const lunchStart = parseTime(dayConfig.lunch_start!);
-        const lunchEnd = parseTime(dayConfig.lunch_end!);
-        lunchStartMinutes = lunchStart.hours * 60 + lunchStart.minutes;
-        lunchEndMinutes = lunchEnd.hours * 60 + lunchEnd.minutes;
-      }
       
       const slotDetails: SlotDetail[] = slots.map(slot => {
         const [hours, minutes] = slot.split(':').map(Number);
@@ -1210,33 +1202,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // Verificar se não está no horário de almoço do profissional
+        // Verificar se o profissional está disponível neste dia da semana
         const dayOfWeek = appointmentDate.getDay(); // 0-6 (Domingo-Sábado)
         // Buscar disponibilidade utilizando o método atualizado que já filtra por tenant
         const availabilitySettings = await storage.getAvailabilityByProfessionalId(professionalId, req.tenantId);
         const dayConfig = availabilitySettings.find(a => a.day_of_week === dayOfWeek);
         
-        if (dayConfig && dayConfig.lunch_start && dayConfig.lunch_end) {
-          const lunchStart = parseTime(dayConfig.lunch_start);
-          const lunchEnd = parseTime(dayConfig.lunch_end);
-          
-          const lunchStartMinutes = lunchStart.hours * 60 + lunchStart.minutes;
-          const lunchEndMinutes = lunchEnd.hours * 60 + lunchEnd.minutes;
-          
-          const appointmentMinutes = appointmentDate.getHours() * 60 + appointmentDate.getMinutes();
-          
-          // Verificar se o horário está dentro do período de almoço
-          if (appointmentMinutes >= lunchStartMinutes && appointmentMinutes < lunchEndMinutes) {
-            console.log("Tentativa de agendamento durante o intervalo de almoço:", {
-              horarioAgendamento: `${appointmentDate.getHours()}:${appointmentDate.getMinutes()}`,
-              horarioAlmoco: `${dayConfig.lunch_start} - ${dayConfig.lunch_end}`
-            });
-            
-            return res.status(400).json({
-              message: "Cannot schedule appointment during lunch break",
-              lunch_time: `${dayConfig.lunch_start} - ${dayConfig.lunch_end}`
-            });
-          }
+        // Verificar apenas se o dia possui configuração de disponibilidade
+        if (!dayConfig) {
+          return res.status(400).json({
+            message: "Professional is not available on this day"
+          });
+        }
+        
+        // Verificar se o profissional está marcado como disponível neste dia
+        if (!dayConfig.is_available) {
+          return res.status(400).json({
+            message: "Professional is not available on this day"
+          });
         }
         
         // Verificar se o profissional pertence ao tenant atual
