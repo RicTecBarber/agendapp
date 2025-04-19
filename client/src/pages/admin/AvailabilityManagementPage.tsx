@@ -782,7 +782,7 @@ const AvailabilityManagementPage = () => {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Não definido</SelectItem>
+                      <SelectItem value="none">Não definido</SelectItem>
                       {timeOptions.map((time) => (
                         <SelectItem key={`lunch-start-${time}`} value={time}>
                           {time}
@@ -802,7 +802,7 @@ const AvailabilityManagementPage = () => {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Não definido</SelectItem>
+                      <SelectItem value="none">Não definido</SelectItem>
                       {timeOptions.map((time) => (
                         <SelectItem key={`lunch-end-${time}`} value={time}>
                           {time}
@@ -931,7 +931,7 @@ const AvailabilityManagementPage = () => {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Não definido</SelectItem>
+                      <SelectItem value="none">Não definido</SelectItem>
                       {timeOptions.map((time) => (
                         <SelectItem key={`edit-lunch-start-${time}`} value={time}>
                           {time}
@@ -951,7 +951,7 @@ const AvailabilityManagementPage = () => {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Não definido</SelectItem>
+                      <SelectItem value="none">Não definido</SelectItem>
                       {timeOptions.map((time) => (
                         <SelectItem key={`edit-lunch-end-${time}`} value={time}>
                           {time}
