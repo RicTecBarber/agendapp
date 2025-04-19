@@ -308,25 +308,8 @@ const AvailabilityManagementPage = () => {
       return;
     }
 
-    // Validar horário de almoço
-    if (lunchStart && !lunchEnd) {
-      toast({
-        title: "Erro",
-        description: "Se informar o início do almoço, deve informar também o fim",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!lunchStart && lunchEnd) {
-      toast({
-        title: "Erro",
-        description: "Se informar o fim do almoço, deve informar também o início",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Horário de almoço é opcional
+    
     const availabilityData: any = {
       professional_id: professionalId,
       day_of_week: parseInt(selectedDay),
@@ -336,9 +319,12 @@ const AvailabilityManagementPage = () => {
       tenant_id: Number(tenantParam)
     };
     
-    // Adicionar horário de almoço apenas se ambos estiverem preenchidos
-    if (lunchStart && lunchEnd) {
+    // Adicionar horário de almoço se informado
+    if (lunchStart) {
       availabilityData.lunch_start = lunchStart;
+    }
+    
+    if (lunchEnd) {
       availabilityData.lunch_end = lunchEnd;
     }
 
@@ -377,25 +363,8 @@ const AvailabilityManagementPage = () => {
       return;
     }
 
-    // Validar horário de almoço
-    if (lunchStart && !lunchEnd) {
-      toast({
-        title: "Erro",
-        description: "Se informar o início do almoço, deve informar também o fim",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!lunchStart && lunchEnd) {
-      toast({
-        title: "Erro",
-        description: "Se informar o fim do almoço, deve informar também o início",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Horário de almoço é opcional
+    
     const availabilityData: any = {
       id: selectedAvailability.id,
       professional_id: professionalId,
@@ -406,9 +375,12 @@ const AvailabilityManagementPage = () => {
       tenant_id: Number(tenantParam)
     };
     
-    // Adicionar horário de almoço apenas se ambos estiverem preenchidos
-    if (lunchStart && lunchEnd) {
+    // Adicionar horário de almoço se informado
+    if (lunchStart) {
       availabilityData.lunch_start = lunchStart;
+    }
+    
+    if (lunchEnd) {
       availabilityData.lunch_end = lunchEnd;
     }
 
