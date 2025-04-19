@@ -729,14 +729,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/availability", requireTenant, isAdmin, async (req: Request, res: Response) => {
     console.log("POST /api/availability - Criando disponibilidade. Requisição:", JSON.stringify(req.body));
     try {
-      // Validar os dados e adicionar o tenant_id
+      // Validar requisição tenantId
+      console.log("TenantId da requisição:", req.tenantId);
+      if (!req.tenantId) {
+        console.error("Erro tenant_id não definido na requisição");
+        return res.status(400).json({ message: "Tenant ID não fornecido na requisição" });
+      }
+      
+      // Validar os dados com Zod schema
+      try {
+        const availabilityData = insertAvailabilitySchema.parse(req.body);
+        console.log("Dados de disponibilidade validados:", availabilityData);
+      } catch (zodError) {
+        console.error("Erro de validação Zod:", zodError);
+        if (zodError instanceof z.ZodError) {
+          return res.status(400).json({ message: "Invalid availability data", errors: zodError.errors });
+        }
+        throw zodError;
+      }
+      
       const availabilityData = insertAvailabilitySchema.parse(req.body);
       
       // Verificar se o profissional pertence ao tenant atual
+      console.log("Verificando profissional ID:", availabilityData.professional_id, "para tenant:", req.tenantId);
       const professional = await storage.getProfessional(availabilityData.professional_id, req.tenantId);
       if (!professional) {
+        console.error("Profissional não encontrado ou não pertence a este tenant");
         return res.status(404).json({ message: "Professional not found or doesn't belong to this tenant" });
       }
+      console.log("Profissional encontrado:", professional);
       
       // Adicionar o tenant_id do contexto atual
       const availabilityWithTenant = {
@@ -744,14 +765,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tenant_id: req.tenantId
       };
       
-      const availability = await storage.createAvailability(availabilityWithTenant);
-      res.status(201).json(availability);
+      console.log("Dados completos para criar disponibilidade:", availabilityWithTenant);
+      
+      try {
+        const availability = await storage.createAvailability(availabilityWithTenant);
+        console.log("Disponibilidade criada com sucesso:", availability);
+        res.status(201).json(availability);
+      } catch (dbError) {
+        console.error("Erro ao salvar disponibilidade no banco:", dbError);
+        throw dbError;
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Erro de validação Zod:", error.errors);
         res.status(400).json({ message: "Invalid availability data", errors: error.errors });
       } else {
         console.error("Erro ao criar disponibilidade:", error);
-        res.status(500).json({ message: "Failed to create availability" });
+        res.status(500).json({ message: "Failed to create availability", details: error.message || String(error) });
       }
     }
   });
