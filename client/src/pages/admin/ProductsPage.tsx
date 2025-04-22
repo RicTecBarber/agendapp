@@ -325,10 +325,31 @@ function ProductsPage() {
   const updateProductMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await apiRequest("PUT", `/api/products/${id}`, data);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`Erro ao atualizar produto. Status: ${res.status}, Resposta:`, errorText);
+        throw new Error(`Falha ao atualizar produto: ${res.statusText}`);
+      }
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Produto atualizado com sucesso:", data);
+      
+      // Forçar uma nova requisição ao backend para atualizar a lista
       queryClient.invalidateQueries({ queryKey: ["/api/products", tenant] });
+      
+      // Atualiza também os dados no cache diretamente
+      queryClient.setQueryData(["/api/products", tenant], (oldData: any) => {
+        if (!oldData) return oldData;
+        
+        console.log("Atualizando cache local com dado recebido:", data);
+        
+        // Se o produto atualizado existir na lista, atualiza. Caso contrário, mantém o mesmo array.
+        return oldData.map((product: any) => 
+          product.id === data.id ? data : product
+        );
+      });
+      
       setEditProduct(null);
       toast({
         title: "Produto atualizado",
@@ -336,6 +357,7 @@ function ProductsPage() {
       });
     },
     onError: (error: Error) => {
+      console.error("Erro na mutação ao atualizar produto:", error);
       toast({
         title: "Erro ao atualizar produto",
         description: error.message,
