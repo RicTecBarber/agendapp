@@ -235,17 +235,11 @@ const NewAppointmentPage = () => {
   // Navigation functions
   const nextStep = () => {
     if (currentStep === "service") {
-      // Verificar se é um compromisso particular
-      if (isPrivateAppointment) {
-        setCurrentStep("professional");
-        return;
-      }
-      
-      // Se não for compromisso particular, verificar se um serviço foi selecionado
+      // Verificar se um serviço foi selecionado
       if (!selectedService) {
         toast({
           title: "Selecione um serviço",
-          description: "Por favor, selecione um serviço ou selecione 'Compromisso Particular'.",
+          description: "Por favor, selecione um serviço para continuar.",
           variant: "destructive",
         });
         return;
@@ -306,40 +300,22 @@ const NewAppointmentPage = () => {
     // Navigate to next step
     if (currentStep === "service") setCurrentStep("professional");
     else if (currentStep === "professional") setCurrentStep("datetime");
-    else if (currentStep === "datetime") {
-      // Se for compromisso particular, ir para o formulário específico
-      if (isPrivateAppointment) {
-        setCurrentStep("private_appointment");
-      } else {
-        setCurrentStep("info");
-      }
-    }
+    else if (currentStep === "datetime") setCurrentStep("info");
   };
   
   const prevStep = () => {
     if (currentStep === "professional") setCurrentStep("service");
     else if (currentStep === "datetime") setCurrentStep("professional");
     else if (currentStep === "info") setCurrentStep("datetime");
-    else if (currentStep === "private_appointment") setCurrentStep("datetime");
   };
   
   // Submit the appointment
   const submitAppointment = () => {
-    // Verificações padrão para agendamentos normais
-    if (!isPrivateAppointment && (!selectedService || !selectedProfessional || !selectedDate || !selectedTime || !clientName || !clientPhone)) {
+    // Verificações para agendamentos
+    if (!selectedService || !selectedProfessional || !selectedDate || !selectedTime || !clientName || !clientPhone) {
       toast({
         title: "Dados incompletos",
         description: "Certifique-se de preencher todos os campos.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Verificações especiais para compromissos particulares
-    if (isPrivateAppointment && (!selectedProfessional || !selectedDate || !selectedTime || !privateDescription)) {
-      toast({
-        title: "Dados incompletos",
-        description: "Certifique-se de preencher todos os campos para o compromisso particular.",
         variant: "destructive",
       });
       return;
@@ -370,30 +346,19 @@ const NewAppointmentPage = () => {
     // Log para confirmar o problema (horário convertido para UTC)
     console.log(`Problema anterior (conversão para UTC): ${appointmentDateTime.toISOString()}`);
     
-    if (isPrivateAppointment) {
-      // Dados para compromisso particular
-      const privateAppointmentData = {
-        professional_id: selectedProfessional.id,
-        appointment_date: fakeISOString,
-        private_description: privateDescription
-      };
-      
-      createPrivateAppointmentMutation.mutate(privateAppointmentData);
-    } else {
-      // Dados para agendamento normal
-      const appointmentData = {
-        client_name: clientName,
-        client_phone: clientPhone,
-        service_id: selectedService.id,
-        professional_id: selectedProfessional.id,
-        // Enviar a string formatada com o horário exato
-        appointment_date: fakeISOString,
-        notify_whatsapp: notifyWhatsapp,
-        is_loyalty_reward: isRewardRedemption
-      };
-      
-      createAppointmentMutation.mutate(appointmentData);
-    }
+    // Dados para agendamento normal
+    const appointmentData = {
+      client_name: clientName,
+      client_phone: clientPhone,
+      service_id: selectedService.id,
+      professional_id: selectedProfessional.id,
+      // Enviar a string formatada com o horário exato
+      appointment_date: fakeISOString,
+      notify_whatsapp: notifyWhatsapp,
+      is_loyalty_reward: isRewardRedemption
+    };
+    
+    createAppointmentMutation.mutate(appointmentData);
   };
   
   const returnToHome = () => {
@@ -478,49 +443,14 @@ const NewAppointmentPage = () => {
               </div>
             ) : (
               <>
-                {/* Opção para compromisso particular */}
-                <div 
-                  className={`bg-white rounded-xl shadow p-6 cursor-pointer hover:shadow-md transition mb-6 border-2 ${isPrivateAppointment ? 'border-secondary bg-secondary/5' : 'border-transparent'}`}
-                  onClick={() => {
-                    setIsPrivateAppointment(true);
-                    setSelectedService(null); // Limpar serviço selecionado quando escolher compromisso particular
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-primary">Compromisso Particular</h3>
-                    <div className="bg-primary rounded-full p-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <p className="text-neutral-dark mt-2 mb-3">
-                    Crie um compromisso particular para bloquear um horário na agenda do profissional.
-                    Ideal para reuniões, treinamentos ou outros tipos de atividades internas.
-                  </p>
-                  <div className="bg-neutral p-2 rounded text-sm text-neutral-dark">
-                    Visível apenas para administradores
-                  </div>
-                </div>
-                
+                {/* Título da seção de serviços */}
                 <div className="flex justify-between items-center mb-4">
-                  <h4 className="text-md font-medium text-neutral-dark">Ou selecione um serviço para agendamento normal:</h4>
-                  
-                  {isPrivateAppointment && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setIsPrivateAppointment(false)}
-                    >
-                      Voltar para serviços normais
-                    </Button>
-                  )}
+                  <h4 className="text-md font-medium text-neutral-dark">Selecione um serviço para agendar:</h4>
                 </div>
 
-                {/* Serviços normais - escondidos se compromisso particular estiver selecionado */}
-                {!isPrivateAppointment && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    {Array.isArray(services) && services.map((service: any) => (
+                {/* Lista de serviços disponíveis */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  {Array.isArray(services) && services.map((service: any) => (
                       <div 
                         key={service.id}
                         className={`bg-white rounded-xl shadow p-6 cursor-pointer hover:shadow-md transition ${selectedService?.id === service.id ? 'ring-2 ring-secondary' : ''}`}
@@ -544,7 +474,6 @@ const NewAppointmentPage = () => {
                       </div>
                     ))}
                   </div>
-                )}
               </>
             )}
           </>
