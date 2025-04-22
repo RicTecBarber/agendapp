@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, isSameDay, parseISO, isValid } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, isSameDay, parseISO, isValid, setHours, setMinutes } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAppointments } from '@/hooks/use-appointments';
 import { Appointment, Professional, User } from '@shared/schema';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon, Users as UsersIcon, X, AlertTriangle, ShoppingCart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, ArrowLeft, User as UserIcon, Users as UsersIcon, X, AlertTriangle, ShoppingCart, Calendar, Lock, PlusCircle } from 'lucide-react';
 import { useLocalCache } from '@/hooks/use-cache';
 import { cn } from '@/lib/utils';
 import { useLocation } from 'wouter';
