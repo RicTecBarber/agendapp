@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, Clock } from "lucide-react";
 
 // Step types
-type Step = "service" | "professional" | "datetime" | "info" | "confirmation";
+type Step = "service" | "professional" | "datetime" | "info" | "confirmation" | "private_appointment";
 
 // Interface para dados de fidelidade
 interface LoyaltyData {
@@ -51,6 +51,10 @@ const NewAppointmentPage = () => {
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [appointment, setAppointment] = useState<any>(null);
   const [isRewardRedemption, setIsRewardRedemption] = useState(false);
+  
+  // Estados para compromisso particular
+  const [isPrivateAppointment, setIsPrivateAppointment] = useState(false);
+  const [privateDescription, setPrivateDescription] = useState("");
   
   // Obter o tenant atual a partir da URL
   const [location] = useLocation();
@@ -115,6 +119,39 @@ const NewAppointmentPage = () => {
     onError: (error: Error) => {
       toast({
         title: "Erro ao criar agendamento",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Mutation para criar compromisso particular
+  const createPrivateAppointmentMutation = useMutation({
+    mutationFn: async (privateAppointmentData: any) => {
+      // Adicionar tenant_id aos dados do agendamento particular
+      const appointmentWithTenant = {
+        ...privateAppointmentData,
+        tenant_id: Number(tenantParam)
+      };
+      
+      const res = await apiRequest("POST", "/api/appointments/private", appointmentWithTenant);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setAppointment(data);
+      setCurrentStep("confirmation");
+      
+      // Invalidar a consulta de disponibilidade para que os horários sejam atualizados
+      if (selectedDate && selectedProfessional) {
+        const formattedDate = format(selectedDate, "yyyy-MM-dd");
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/availability/${selectedProfessional.id}/${formattedDate}`, tenantParam] 
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao criar compromisso particular",
         description: error.message,
         variant: "destructive",
       });
@@ -253,10 +290,21 @@ const NewAppointmentPage = () => {
   
   // Submit the appointment
   const submitAppointment = () => {
-    if (!selectedService || !selectedProfessional || !selectedDate || !selectedTime || !clientName || !clientPhone) {
+    // Verificações padrão para agendamentos normais
+    if (!isPrivateAppointment && (!selectedService || !selectedProfessional || !selectedDate || !selectedTime || !clientName || !clientPhone)) {
       toast({
         title: "Dados incompletos",
         description: "Certifique-se de preencher todos os campos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Verificações especiais para compromissos particulares
+    if (isPrivateAppointment && (!selectedProfessional || !selectedDate || !selectedTime || !privateDescription)) {
+      toast({
+        title: "Dados incompletos",
+        description: "Certifique-se de preencher todos os campos para o compromisso particular.",
         variant: "destructive",
       });
       return;
@@ -287,18 +335,30 @@ const NewAppointmentPage = () => {
     // Log para confirmar o problema (horário convertido para UTC)
     console.log(`Problema anterior (conversão para UTC): ${appointmentDateTime.toISOString()}`);
     
-    const appointmentData = {
-      client_name: clientName,
-      client_phone: clientPhone,
-      service_id: selectedService.id,
-      professional_id: selectedProfessional.id,
-      // Enviar a string formatada com o horário exato
-      appointment_date: fakeISOString,
-      notify_whatsapp: notifyWhatsapp,
-      is_loyalty_reward: isRewardRedemption
-    };
-    
-    createAppointmentMutation.mutate(appointmentData);
+    if (isPrivateAppointment) {
+      // Dados para compromisso particular
+      const privateAppointmentData = {
+        professional_id: selectedProfessional.id,
+        appointment_date: fakeISOString,
+        private_description: privateDescription
+      };
+      
+      createPrivateAppointmentMutation.mutate(privateAppointmentData);
+    } else {
+      // Dados para agendamento normal
+      const appointmentData = {
+        client_name: clientName,
+        client_phone: clientPhone,
+        service_id: selectedService.id,
+        professional_id: selectedProfessional.id,
+        // Enviar a string formatada com o horário exato
+        appointment_date: fakeISOString,
+        notify_whatsapp: notifyWhatsapp,
+        is_loyalty_reward: isRewardRedemption
+      };
+      
+      createAppointmentMutation.mutate(appointmentData);
+    }
   };
   
   const returnToHome = () => {
