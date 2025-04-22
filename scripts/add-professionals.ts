@@ -4,7 +4,7 @@
 
 import { db } from "../server/db";
 import { storage } from "../server/storage";
-import { professionals, availability } from "../shared/schema";
+import { professionals, availability, services } from "../shared/schema";
 import { eq } from "drizzle-orm";
 
 async function run() {
@@ -19,44 +19,51 @@ async function run() {
     }
     console.log(`Tenant encontrado: ${tenant.name} (ID: ${tenant.id})`);
     
-    // Buscar todos os serviços para o tenant
-    const services = await storage.getServices(tenant.id);
-    console.log(`Serviços encontrados: ${services.length}`);
+    // Buscar todos os serviços para o tenant usando consulta direta
+    const servicesList = await db.select().from(services).where(eq(services.tenant_id, tenant.id));
+    console.log(`Serviços encontrados: ${servicesList.length}`);
     
-    if (services.length === 0) {
+    if (servicesList.length === 0) {
       console.log("Criando serviços básicos...");
-      await storage.createService({
-        name: "Corte Masculino",
-        description: "Corte de cabelo masculino",
-        price: 45.0,
-        duration: 30,
-        tenant_id: tenant.id
-      });
       
-      await storage.createService({
-        name: "Barba",
-        description: "Barba tradicional com toalha quente",
-        price: 35.0,
-        duration: 20,
-        tenant_id: tenant.id
-      });
+      const defaultServices = [
+        {
+          name: "Corte Masculino",
+          description: "Corte de cabelo masculino",
+          price: 45.0,
+          duration: 30,
+          tenant_id: tenant.id
+        },
+        {
+          name: "Barba",
+          description: "Barba tradicional com toalha quente",
+          price: 35.0,
+          duration: 20,
+          tenant_id: tenant.id
+        },
+        {
+          name: "Corte + Barba",
+          description: "Pacote completo corte e barba",
+          price: 70.0,
+          duration: 45,
+          tenant_id: tenant.id
+        }
+      ];
       
-      await storage.createService({
-        name: "Corte + Barba",
-        description: "Pacote completo corte e barba",
-        price: 70.0,
-        duration: 45,
-        tenant_id: tenant.id
-      });
+      for (const serviceData of defaultServices) {
+        await db.insert(services).values(serviceData);
+        console.log(`Serviço '${serviceData.name}' criado`);
+      }
       
       // Buscar novamente após criar
-      const updatedServices = await storage.getServices(tenant.id);
+      const updatedServices = await db.select().from(services).where(eq(services.tenant_id, tenant.id));
       console.log(`Serviços atualizados: ${updatedServices.length}`);
-      services.push(...updatedServices);
+      servicesList.length = 0; // Clear array
+      servicesList.push(...updatedServices);
     }
     
     // Obter IDs dos serviços
-    const serviceIds = services.map(s => s.id);
+    const serviceIds = servicesList.map(s => s.id);
     
     // Criar profissionais
     const profData = { 
