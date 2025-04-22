@@ -11,7 +11,6 @@ import {
   availability,
   professionals, 
   services,
-  professionalToService,
   users 
 } from "../shared/schema";
 
@@ -114,12 +113,12 @@ async function createTestData() {
     // Associar serviços aos profissionais
     for (const prof of createdProfessionals) {
       for (const service of allServices) {
-        const existingAssoc = await db.select().from(professionalServices).where(
-          sql => sql`${professionalServices.professional_id} = ${prof.id} AND ${professionalServices.service_id} = ${service.id}`
+        const existingAssoc = await db.select().from(professionalToService).where(
+          sql => sql`${professionalToService.professional_id} = ${prof.id} AND ${professionalToService.service_id} = ${service.id}`
         ).limit(1);
         
         if (existingAssoc.length === 0) {
-          await db.insert(professionalServices).values({
+          await db.insert(professionalToService).values({
             professional_id: prof.id,
             service_id: service.id
           });
@@ -135,12 +134,12 @@ async function createTestData() {
     
     for (const prof of createdProfessionals) {
       for (const day of daysOfWeek) {
-        const existingAvailability = await db.select().from(availabilities).where(
-          sql => sql`${availabilities.professional_id} = ${prof.id} AND ${availabilities.day_of_week} = ${day} AND ${availabilities.tenant_id} = ${tenant.id}`
+        const existingAvailability = await db.select().from(availability).where(
+          sql => sql`${availability.professional_id} = ${prof.id} AND ${availability.day_of_week} = ${day} AND ${availability.tenant_id} = ${tenant.id}`
         ).limit(1);
         
         if (existingAvailability.length === 0) {
-          await db.insert(availabilities).values({
+          await db.insert(availability).values({
             professional_id: prof.id,
             day_of_week: day,
             start_time: "09:00",
