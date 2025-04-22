@@ -317,6 +317,18 @@ const CalendarPage = () => {
             <span>{format(day, 'EEEE', { locale: pt })}</span>
             <span className="text-sm font-normal">{format(day, 'dd/MM')}</span>
           </CardTitle>
+          {/* Botão para adicionar compromisso particular */}
+          {(userData?.role === 'admin' || userData?.role === 'barber') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full mt-1 text-xs h-7 flex items-center justify-center text-muted-foreground hover:text-foreground"
+              onClick={() => handleOpenPrivateAppointment(day)}
+            >
+              <Lock className="h-3 w-3 mr-1" />
+              <span>Bloquear horário</span>
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-2">
           {isLoading ? (
@@ -457,6 +469,58 @@ const CalendarPage = () => {
     }
   });
   
+  // Mutation para criar compromisso particular
+  const createPrivateAppointmentMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedDay || !selectedProfessionalId || !privateDescription || !privateAppointmentTime) {
+        throw new Error('Preencha todos os campos obrigatórios');
+      }
+      
+      // Combinar a data selecionada com o horário escolhido
+      const [hours, minutes] = privateAppointmentTime.split(':').map(Number);
+      const appointmentDateTime = setMinutes(setHours(selectedDay, hours), minutes);
+      
+      const payload = {
+        professional_id: selectedProfessionalId,
+        appointment_date: appointmentDateTime.toISOString(),
+        client_name: 'Compromisso Particular',
+        client_phone: '0000000000',
+        service_id: 1, // Serviço fictício para ocupar o slot de tempo
+        is_private: true,
+        private_description: privateDescription
+      };
+      
+      const response = await apiRequest('POST', '/api/appointments/private', payload);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Falha ao criar compromisso particular');
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
+      // Invalidar cache para recarregar os agendamentos
+      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+      
+      // Fechar o diálogo e limpar os campos
+      setPrivateAppointmentDialogOpen(false);
+      setPrivateDescription('');
+      setPrivateAppointmentTime('08:00');
+      setSelectedDay(null);
+      
+      toast({
+        title: "Compromisso particular criado",
+        description: "O compromisso particular foi criado com sucesso.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao criar compromisso particular",
+        description: `Ocorreu um erro: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+  
   // Handler para selecionar um agendamento
   const handleSelectAppointment = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
@@ -481,6 +545,18 @@ const CalendarPage = () => {
       setLocation(`/admin/orders/new?${queryParams.toString()}`);
       setCancelDialogOpen(false);
     }
+  };
+  
+  // Handler para abrir modal de compromisso particular
+  const handleOpenPrivateAppointment = (day: Date, professionalId?: number) => {
+    setSelectedDay(day);
+    setSelectedProfessionalId(professionalId || (selectedProfessionalIds.length === 1 ? selectedProfessionalIds[0] : null));
+    setPrivateAppointmentDialogOpen(true);
+  };
+  
+  // Handler para criar compromisso particular
+  const handleCreatePrivateAppointment = () => {
+    createPrivateAppointmentMutation.mutate();
   };
   
   // Permitir que todos os usuários possam filtrar por profissional
@@ -752,6 +828,106 @@ const CalendarPage = () => {
                 <>
                   <X className="h-4 w-4 mr-2" />
                   Cancelar Agendamento
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal para criar compromisso particular */}
+      <Dialog open={privateAppointmentDialogOpen} onOpenChange={setPrivateAppointmentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Compromisso Particular</DialogTitle>
+            <DialogDescription>
+              Preencha os detalhes para bloquear um horário na agenda.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {selectedDay && (
+              <div className="flex items-center p-3 bg-primary/10 rounded-md">
+                <Calendar className="h-5 w-5 mr-2 text-primary" />
+                <div className="text-sm font-medium">
+                  {format(selectedDay, 'dd/MM/yyyy, EEEE', { locale: pt })}
+                </div>
+              </div>
+            )}
+            
+            {/* Seleção de profissional */}
+            {selectedProfessionalIds.length !== 1 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Profissional</label>
+                <Select 
+                  value={selectedProfessionalId?.toString() || ""}
+                  onValueChange={(value) => setSelectedProfessionalId(parseInt(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um profissional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {professionals.map((prof) => (
+                      <SelectItem key={prof.id} value={prof.id.toString()}>
+                        {prof.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {/* Hora do compromisso */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Horário</label>
+              <input 
+                type="time" 
+                value={privateAppointmentTime}
+                onChange={(e) => setPrivateAppointmentTime(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+              />
+            </div>
+            
+            {/* Descrição do compromisso */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Descrição</label>
+              <textarea 
+                value={privateDescription}
+                onChange={(e) => setPrivateDescription(e.target.value)}
+                placeholder="Informe uma descrição para o bloqueio de horário"
+                className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPrivateAppointmentDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreatePrivateAppointment}
+              disabled={
+                createPrivateAppointmentMutation.isPending || 
+                !selectedDay || 
+                !selectedProfessionalId || 
+                !privateDescription || 
+                !privateAppointmentTime
+              }
+              className="w-full sm:w-auto"
+            >
+              {createPrivateAppointmentMutation.isPending ? (
+                <>
+                  <span className="animate-spin mr-2">&#8987;</span>
+                  Criando...
+                </>
+              ) : (
+                <>
+                  <Lock className="h-4 w-4 mr-2" />
+                  Bloquear Horário
                 </>
               )}
             </Button>
