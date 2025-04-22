@@ -1,12 +1,12 @@
 /**
- * Script para configurar dados de teste no sistema
+ * Script para inicializar dados de teste no sistema
  * Este script cria serviços, profissionais e disponibilidade para o tenant padrão
  */
 
 import { hashPassword } from "../server/auth";
 import { db } from "../server/db";
 import { storage } from "../server/storage";
-import { sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { 
   availability,
   professionals, 
@@ -14,7 +14,9 @@ import {
   users 
 } from "../shared/schema";
 
-async function createTestData() {
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function initializeTestData() {
   try {
     console.log("Iniciando configuração de dados de teste...");
     
@@ -26,12 +28,15 @@ async function createTestData() {
     }
     console.log(`Tenant padrão encontrado: ${tenant.name} (ID: ${tenant.id})`);
     
-    // Criar um usuário admin para o tenant
-    const existingAdmin = await db.select().from(users).where(
-      sql => sql`${users.username} = 'admin_barbearia' AND ${users.tenant_id} = ${tenant.id}`
-    ).limit(1);
+    // Criar um usuário admin para o tenant se não existir
+    const existingAdmin = await db.query.users.findFirst({
+      where: and(
+        eq(users.username, "admin_barbearia"),
+        eq(users.tenant_id, tenant.id)
+      )
+    });
     
-    if (existingAdmin.length === 0) {
+    if (!existingAdmin) {
       const hashedPassword = await hashPassword("senha123");
       
       await db.insert(users).values({
@@ -41,8 +46,8 @@ async function createTestData() {
         email: "admin@barbearia-modelo.com",
         role: "admin",
         tenant_id: tenant.id,
-        is_active: true,
-        permissions: ["all"]
+        is_active: true
+        // Removido campo permissions que não existe no banco
       });
       
       console.log("Usuário admin criado para o tenant");
@@ -58,11 +63,14 @@ async function createTestData() {
     ];
     
     for (const serviceData of testServices) {
-      const existingService = await db.select().from(services).where(
-        sql => sql`${services.name} = ${serviceData.name} AND ${services.tenant_id} = ${tenant.id}`
-      ).limit(1);
+      const existingService = await db.query.services.findFirst({
+        where: and(
+          eq(services.name, serviceData.name),
+          eq(services.tenant_id, tenant.id)
+        )
+      });
       
-      if (existingService.length === 0) {
+      if (!existingService) {
         await db.insert(services).values(serviceData);
         console.log(`Serviço '${serviceData.name}' criado`);
       } else {
@@ -71,9 +79,9 @@ async function createTestData() {
     }
     
     // Buscar todos os serviços criados
-    const allServices = await db.select().from(services).where(
-      sql => sql`${services.tenant_id} = ${tenant.id}`
-    );
+    const allServices = await db.query.services.findMany({
+      where: eq(services.tenant_id, tenant.id)
+    });
     
     console.log(`Total de serviços: ${allServices.length}`);
     
@@ -82,13 +90,13 @@ async function createTestData() {
       { 
         name: "João Silva", 
         description: "Especialista em cortes modernos", 
-        services_offered: [],
+        services_offered: allServices.map(s => s.id),
         tenant_id: tenant.id 
       },
       { 
         name: "Maria Oliveira", 
         description: "Especialista em cabelos femininos", 
-        services_offered: [],
+        services_offered: allServices.map(s => s.id),
         tenant_id: tenant.id 
       }
     ];
@@ -96,31 +104,27 @@ async function createTestData() {
     const createdProfessionals = [];
     
     for (const profData of testProfessionals) {
-      const existingProf = await db.select().from(professionals).where(
-        sql => sql`${professionals.name} = ${profData.name} AND ${professionals.tenant_id} = ${tenant.id}`
-      ).limit(1);
+      const existingProf = await db.query.professionals.findFirst({
+        where: and(
+          eq(professionals.name, profData.name),
+          eq(professionals.tenant_id, tenant.id)
+        )
+      });
       
-      if (existingProf.length === 0) {
+      if (!existingProf) {
+        // Inserir e obter o profissional criado
         const [newProf] = await db.insert(professionals).values(profData).returning();
         createdProfessionals.push(newProf);
         console.log(`Profissional '${profData.name}' criado com ID ${newProf.id}`);
       } else {
-        createdProfessionals.push(existingProf[0]);
-        console.log(`Profissional '${profData.name}' já existe com ID ${existingProf[0].id}`);
+        // Atualizar services_offered do profissional existente
+        await db.update(professionals)
+          .set({ services_offered: allServices.map(s => s.id) })
+          .where(eq(professionals.id, existingProf.id));
+        
+        createdProfessionals.push(existingProf);
+        console.log(`Profissional '${profData.name}' atualizado com ID ${existingProf.id}`);
       }
-    }
-    
-    // Associar serviços aos profissionais atualizando o campo services_offered
-    for (const prof of createdProfessionals) {
-      // Obter os IDs de todos os serviços
-      const serviceIds = allServices.map(service => service.id);
-      
-      // Atualizar o array services_offered do profissional
-      await db.update(professionals)
-        .set({ services_offered: serviceIds })
-        .where(sql`${professionals.id} = ${prof.id}`);
-      
-      console.log(`Associados ${serviceIds.length} serviços ao profissional '${prof.name}'`);
     }
     
     // Criar disponibilidade para os profissionais
@@ -128,11 +132,15 @@ async function createTestData() {
     
     for (const prof of createdProfessionals) {
       for (const day of daysOfWeek) {
-        const existingAvailability = await db.select().from(availability).where(
-          sql => sql`${availability.professional_id} = ${prof.id} AND ${availability.day_of_week} = ${day} AND ${availability.tenant_id} = ${tenant.id}`
-        ).limit(1);
+        const existingAvailability = await db.query.availability.findFirst({
+          where: and(
+            eq(availability.professional_id, prof.id),
+            eq(availability.day_of_week, day),
+            eq(availability.tenant_id, tenant.id)
+          )
+        });
         
-        if (existingAvailability.length === 0) {
+        if (!existingAvailability) {
           await db.insert(availability).values({
             professional_id: prof.id,
             day_of_week: day,
@@ -146,6 +154,9 @@ async function createTestData() {
         } else {
           console.log(`Disponibilidade para '${prof.name}' no dia ${day} já existe`);
         }
+        
+        // Pequena pausa para evitar sobrecarga do banco
+        await sleep(100);
       }
     }
     
@@ -155,9 +166,8 @@ async function createTestData() {
     console.error("Erro durante a configuração dos dados de teste:", error);
   } finally {
     // Fechar conexão com o banco de dados
-    await db.end?.();
     process.exit(0);
   }
 }
 
-createTestData();
+initializeTestData();
