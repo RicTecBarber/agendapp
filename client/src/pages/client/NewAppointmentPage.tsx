@@ -52,9 +52,7 @@ const NewAppointmentPage = () => {
   const [appointment, setAppointment] = useState<any>(null);
   const [isRewardRedemption, setIsRewardRedemption] = useState(false);
   
-  // Estados para compromisso particular
-  const [isPrivateAppointment, setIsPrivateAppointment] = useState(false);
-  const [privateDescription, setPrivateDescription] = useState("");
+  // Valores de estado removidos
   
   // Obter o tenant atual a partir da URL
   const [location] = useLocation();
@@ -125,38 +123,7 @@ const NewAppointmentPage = () => {
     },
   });
   
-  // Mutation para criar compromisso particular
-  const createPrivateAppointmentMutation = useMutation({
-    mutationFn: async (privateAppointmentData: any) => {
-      // Adicionar tenant_id aos dados do agendamento particular
-      const appointmentWithTenant = {
-        ...privateAppointmentData,
-        tenant_id: Number(tenantParam)
-      };
-      
-      const res = await apiRequest("POST", "/api/appointments/private", appointmentWithTenant);
-      return await res.json();
-    },
-    onSuccess: (data) => {
-      setAppointment(data);
-      setCurrentStep("confirmation");
-      
-      // Invalidar a consulta de disponibilidade para que os horários sejam atualizados
-      if (selectedDate && selectedProfessional) {
-        const formattedDate = format(selectedDate, "yyyy-MM-dd");
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/availability/${selectedProfessional.id}/${formattedDate}`, tenantParam] 
-        });
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro ao criar compromisso particular",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  // Mutação para compromisso particular removida
   
   // Query para buscar horários disponíveis
   const { data: availabilityData, isLoading: isLoadingAvailability } = useQuery({
@@ -282,20 +249,7 @@ const NewAppointmentPage = () => {
       return;
     }
     
-    if (currentStep === "private_appointment") {
-      if (!privateDescription) {
-        toast({
-          title: "Descrição necessária",
-          description: "Por favor, adicione uma descrição para o compromisso particular.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Submit private appointment
-      submitAppointment();
-      return;
-    }
+    // Etapa "private_appointment" removida
     
     // Navigate to next step
     if (currentStep === "service") setCurrentStep("professional");
@@ -368,71 +322,7 @@ const NewAppointmentPage = () => {
   // Render content based on current step
   const renderStepContent = () => {
     switch (currentStep) {
-      case "private_appointment":
-        return (
-          <>
-            <h3 className="text-xl font-bold text-primary mb-4">Compromisso Particular</h3>
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                submitAppointment();
-              }}>
-                <div className="mb-6">
-                  <Label htmlFor="description">Descrição do Compromisso</Label>
-                  <textarea
-                    id="description"
-                    value={privateDescription}
-                    onChange={(e) => setPrivateDescription(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 mt-1"
-                    rows={4}
-                    placeholder="Descreva o motivo e detalhes deste compromisso particular"
-                    required
-                  />
-                  <p className="text-xs text-neutral-dark mt-1">
-                    Esta descrição será visível apenas para administradores do sistema.
-                  </p>
-                </div>
-                
-                <div className="bg-primary/5 p-4 rounded-md mb-6">
-                  <h4 className="font-bold text-primary mb-2">Resumo do Compromisso</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-neutral-dark">Tipo:</p>
-                      <p className="font-medium">Compromisso Particular</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-neutral-dark">Profissional:</p>
-                      <p className="font-medium">{selectedProfessional?.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-neutral-dark">Data:</p>
-                      <p className="font-medium">{format(selectedDate!, "dd/MM/yyyy")}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-neutral-dark">Horário:</p>
-                      <p className="font-medium">{selectedTime}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md mb-6">
-                  <div className="flex items-start">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mt-0.5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <p className="font-medium">Importante</p>
-                      <p className="text-sm mt-1">
-                        Este compromisso bloqueará o horário na agenda do profissional e não será visível para os clientes.
-                        Apenas administradores poderão ver os detalhes deste compromisso no sistema.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </>
-        );
+      // Caso "private_appointment" removido
       case "service":
         return (
           <>
@@ -688,74 +578,11 @@ const NewAppointmentPage = () => {
         );
         
       case "confirmation":
-        if (!appointment || !selectedProfessional) {
+        if (!appointment || !selectedProfessional || !selectedService) {
           return <div>Carregando...</div>;
         }
         
-        // Verificar se é um compromisso particular ou agendamento normal
-        if (isPrivateAppointment) {
-          return (
-            <div className="bg-white rounded-xl shadow-lg p-8 text-center mb-8">
-              <div className="flex justify-center mb-6">
-                <div className="bg-green-100 p-4 rounded-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-display font-bold text-primary mb-4">Compromisso Registrado!</h2>
-              <p className="text-neutral-dark mb-8">
-                Seu compromisso particular foi registrado com sucesso.
-                Apenas administradores poderão ver os detalhes deste compromisso.
-              </p>
-              
-              <div className="bg-neutral-light p-6 rounded-lg max-w-md mx-auto mb-6">
-                <div className="flex justify-between mb-3">
-                  <p className="text-neutral-dark">Tipo:</p>
-                  <p className="font-bold text-primary">Compromisso Particular</p>
-                </div>
-                <div className="flex justify-between mb-3">
-                  <p className="text-neutral-dark">Profissional:</p>
-                  <p className="font-bold text-primary">{selectedProfessional.name}</p>
-                </div>
-                <div className="flex justify-between mb-3">
-                  <p className="text-neutral-dark">Data:</p>
-                  <p className="font-bold text-primary">
-                    {format(new Date(appointment.appointment_date), "dd/MM/yyyy")}
-                  </p>
-                </div>
-                <div className="flex justify-between mb-3">
-                  <p className="text-neutral-dark">Horário:</p>
-                  <p className="font-bold text-primary">
-                    {selectedTime || appointment.appointment_date.toString().split('T')[1].substring(0, 5)}
-                    <span className="text-xs text-gray-500 ml-1">(horário local)</span>
-                  </p>
-                </div>
-                <div className="flex justify-between">
-                  <p className="text-neutral-dark">Descrição:</p>
-                  <p className="font-bold text-primary max-w-[200px] text-right truncate">
-                    {privateDescription}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex justify-center mb-6 flex-wrap gap-2">
-                <Button className="bg-primary hover:bg-primary/90">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Adicionar ao Calendário
-                </Button>
-              </div>
-            </div>
-          );
-        } else {
-          // Verificação adicional para agendamento normal
-          if (!selectedService) {
-            return <div>Carregando...</div>;
-          }
-          
-          return (
+        return (
             <div className="bg-white rounded-xl shadow-lg p-8 text-center mb-8">
               <div className="flex justify-center mb-6">
                 <div className="bg-green-100 p-4 rounded-full">
@@ -818,18 +645,12 @@ const NewAppointmentPage = () => {
                   Compartilhar
                 </Button>
               </div>
+              
+              <Button variant="ghost" onClick={returnToHome}>
+                Voltar à página inicial
+              </Button>
             </div>
           );
-        }
-            
-        return (
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center mb-8">
-            {/* O conteúdo é renderizado condicionalmente acima */}
-            <Button variant="ghost" onClick={returnToHome}>
-              Voltar à página inicial
-            </Button>
-          </div>
-        );
       
       default:
         return null;
