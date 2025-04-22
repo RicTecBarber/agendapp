@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, Clock } from "lucide-react";
 
 // Step types
-type Step = "service" | "professional" | "datetime" | "info" | "confirmation" | "private_appointment";
+type Step = "service" | "professional" | "datetime" | "info" | "confirmation";
 
 // Interface para dados de fidelidade
 interface LoyaltyData {
