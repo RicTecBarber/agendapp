@@ -2061,12 +2061,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProduct(id: number, tenantId?: number | null): Promise<Product | undefined> {
+    console.log(`[DB] Buscando produto ${id}${tenantId !== undefined ? ` para tenant ${tenantId}` : ''}`);
+    
     const query = eq(products.id, id);
     const finalQuery = tenantId !== undefined 
       ? and(query, eq(products.tenant_id, tenantId)) 
       : query;
     
     const result = await db.select().from(products).where(finalQuery);
+    console.log(`[DB] Produto encontrado:`, result[0] || 'Não encontrado');
+    
     return result[0];
   }
 
@@ -2085,17 +2089,59 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProduct(id: number, productData: Partial<InsertProduct>, tenantId?: number | null): Promise<Product | undefined> {
+    console.log(`[DB] Atualizando produto ${id} para o tenant ${tenantId}. Dados recebidos:`, productData);
+    
+    // Garantir que o tenant_id está nos dados do produto, mesmo se já foi enviado como parâmetro separado
+    if (tenantId !== undefined && !productData.tenant_id) {
+      productData.tenant_id = tenantId;
+      console.log(`[DB] Adicionando tenant_id ${tenantId} aos dados do produto antes da atualização.`);
+    }
+    
+    // Iniciar buscando o produto existente para verificar 
+    try {
+      const existingProduct = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, id))
+        .limit(1);
+      
+      console.log(`[DB] Produto atual antes da atualização:`, existingProduct[0] || 'Não encontrado');
+      
+      if (existingProduct.length === 0) {
+        console.log(`[DB] Produto ${id} não encontrado.`);
+        return undefined;
+      }
+      
+      // Verificar se o produto pertence ao tenant correto
+      if (tenantId !== undefined && existingProduct[0].tenant_id !== tenantId) {
+        console.log(`[DB] Produto ${id} pertence ao tenant ${existingProduct[0].tenant_id}, mas a requisição é para o tenant ${tenantId}.`);
+        return undefined;
+      }
+    } catch (error) {
+      console.error(`[DB] Erro ao verificar produto existente:`, error);
+    }
+    
     const query = eq(products.id, id);
     const finalQuery = tenantId !== undefined
       ? and(query, eq(products.tenant_id, tenantId))
       : query;
+    
+    console.log(`[DB] Critério de pesquisa para atualização:`, 
+                { id, tenantId, usandoFiltroTenant: tenantId !== undefined });
       
-    const result = await db
-      .update(products)
-      .set(productData)
-      .where(finalQuery)
-      .returning();
-    return result[0];
+    try {
+      const result = await db
+        .update(products)
+        .set(productData)
+        .where(finalQuery)
+        .returning();
+        
+      console.log(`[DB] Resultado da atualização:`, result[0] || 'Nenhum produto atualizado');
+      return result[0];
+    } catch (error) {
+      console.error(`[DB] Erro ao atualizar produto:`, error);
+      return undefined;
+    }
   }
 
   async deleteProduct(id: number, tenantId?: number | null): Promise<boolean> {
