@@ -2634,18 +2634,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // POST /api/system/login - Login como administrador do sistema (alias para /api/login)
   app.post("/api/system/login", (req, res, next) => {
+    console.log("Tentativa de login no sistema admin:", req.body.username);
+    
     passport.authenticate("local", (err, user, info) => {
       if (err) {
+        console.error("Erro na autenticação do sistema:", err);
         return next(err);
       }
       if (!user) {
+        console.log("Usuário não encontrado ou senha inválida");
         return res.status(401).json({ message: info.message || "Falha na autenticação" });
       }
       
       // Verificar se é um administrador do sistema
-      if (!('isSystemAdmin' in user)) {
+      if (user.username === 'admin') {
+        // Usuário admin é considerado administrador do sistema
+        user.isSystemAdmin = true;
+      }
+      
+      if (!user.isSystemAdmin) {
+        console.log("Usuário encontrado, mas não é administrador do sistema:", user.username);
         return res.status(403).json({ message: "Credenciais não pertencem a um administrador do sistema" });
       }
+      
+      console.log("Login de administrador do sistema bem-sucedido:", user.username);
       
       req.login(user, (loginErr) => {
         if (loginErr) {
