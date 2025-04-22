@@ -234,12 +234,24 @@ const NewAppointmentPage = () => {
   
   // Navigation functions
   const nextStep = () => {
-    if (currentStep === "service" && !selectedService) {
-      toast({
-        title: "Selecione um serviço",
-        description: "Por favor, selecione um serviço para continuar.",
-        variant: "destructive",
-      });
+    if (currentStep === "service") {
+      // Verificar se é um compromisso particular
+      if (isPrivateAppointment) {
+        setCurrentStep("professional");
+        return;
+      }
+      
+      // Se não for compromisso particular, verificar se um serviço foi selecionado
+      if (!selectedService) {
+        toast({
+          title: "Selecione um serviço",
+          description: "Por favor, selecione um serviço ou selecione 'Compromisso Particular'.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setCurrentStep("professional");
       return;
     }
     
@@ -276,16 +288,39 @@ const NewAppointmentPage = () => {
       return;
     }
     
+    if (currentStep === "private_appointment") {
+      if (!privateDescription) {
+        toast({
+          title: "Descrição necessária",
+          description: "Por favor, adicione uma descrição para o compromisso particular.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Submit private appointment
+      submitAppointment();
+      return;
+    }
+    
     // Navigate to next step
     if (currentStep === "service") setCurrentStep("professional");
     else if (currentStep === "professional") setCurrentStep("datetime");
-    else if (currentStep === "datetime") setCurrentStep("info");
+    else if (currentStep === "datetime") {
+      // Se for compromisso particular, ir para o formulário específico
+      if (isPrivateAppointment) {
+        setCurrentStep("private_appointment");
+      } else {
+        setCurrentStep("info");
+      }
+    }
   };
   
   const prevStep = () => {
     if (currentStep === "professional") setCurrentStep("service");
     else if (currentStep === "datetime") setCurrentStep("professional");
     else if (currentStep === "info") setCurrentStep("datetime");
+    else if (currentStep === "private_appointment") setCurrentStep("datetime");
   };
   
   // Submit the appointment
@@ -368,6 +403,71 @@ const NewAppointmentPage = () => {
   // Render content based on current step
   const renderStepContent = () => {
     switch (currentStep) {
+      case "private_appointment":
+        return (
+          <>
+            <h3 className="text-xl font-bold text-primary mb-4">Compromisso Particular</h3>
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                submitAppointment();
+              }}>
+                <div className="mb-6">
+                  <Label htmlFor="description">Descrição do Compromisso</Label>
+                  <textarea
+                    id="description"
+                    value={privateDescription}
+                    onChange={(e) => setPrivateDescription(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 mt-1"
+                    rows={4}
+                    placeholder="Descreva o motivo e detalhes deste compromisso particular"
+                    required
+                  />
+                  <p className="text-xs text-neutral-dark mt-1">
+                    Esta descrição será visível apenas para administradores do sistema.
+                  </p>
+                </div>
+                
+                <div className="bg-primary/5 p-4 rounded-md mb-6">
+                  <h4 className="font-bold text-primary mb-2">Resumo do Compromisso</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-neutral-dark">Tipo:</p>
+                      <p className="font-medium">Compromisso Particular</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-neutral-dark">Profissional:</p>
+                      <p className="font-medium">{selectedProfessional?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-neutral-dark">Data:</p>
+                      <p className="font-medium">{format(selectedDate!, "dd/MM/yyyy")}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-neutral-dark">Horário:</p>
+                      <p className="font-medium">{selectedTime}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md mb-6">
+                  <div className="flex items-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mt-0.5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="font-medium">Importante</p>
+                      <p className="text-sm mt-1">
+                        Este compromisso bloqueará o horário na agenda do profissional e não será visível para os clientes.
+                        Apenas administradores poderão ver os detalhes deste compromisso no sistema.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </>
+        );
       case "service":
         return (
           <>
@@ -377,31 +477,75 @@ const NewAppointmentPage = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {Array.isArray(services) && services.map((service: any) => (
-                  <div 
-                    key={service.id}
-                    className={`bg-white rounded-xl shadow p-6 cursor-pointer hover:shadow-md transition ${selectedService?.id === service.id ? 'ring-2 ring-secondary' : ''}`}
-                    onClick={() => setSelectedService(service)}
-                  >
-                    {service.image_url && (
-                      <div className="mb-3 w-full h-36 rounded-md overflow-hidden">
-                        <img 
-                          src={service.image_url} 
-                          alt={service.name} 
-                          className="w-full h-full object-cover" 
-                        />
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <h3 className="text-lg font-bold text-primary">{service.name}</h3>
-                      <span className="font-bold text-secondary">R$ {service.price.toFixed(2)}</span>
+              <>
+                {/* Opção para compromisso particular */}
+                <div 
+                  className={`bg-white rounded-xl shadow p-6 cursor-pointer hover:shadow-md transition mb-6 border-2 ${isPrivateAppointment ? 'border-secondary bg-secondary/5' : 'border-transparent'}`}
+                  onClick={() => {
+                    setIsPrivateAppointment(true);
+                    setSelectedService(null); // Limpar serviço selecionado quando escolher compromisso particular
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-primary">Compromisso Particular</h3>
+                    <div className="bg-primary rounded-full p-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
                     </div>
-                    <p className="text-neutral-dark mt-2 mb-3">{service.description}</p>
-                    <div className="bg-neutral p-2 rounded text-sm text-neutral-dark">Duração: {service.duration} min</div>
                   </div>
-                ))}
-              </div>
+                  <p className="text-neutral-dark mt-2 mb-3">
+                    Crie um compromisso particular para bloquear um horário na agenda do profissional.
+                    Ideal para reuniões, treinamentos ou outros tipos de atividades internas.
+                  </p>
+                  <div className="bg-neutral p-2 rounded text-sm text-neutral-dark">
+                    Visível apenas para administradores
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-md font-medium text-neutral-dark">Ou selecione um serviço para agendamento normal:</h4>
+                  
+                  {isPrivateAppointment && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setIsPrivateAppointment(false)}
+                    >
+                      Voltar para serviços normais
+                    </Button>
+                  )}
+                </div>
+
+                {/* Serviços normais - escondidos se compromisso particular estiver selecionado */}
+                {!isPrivateAppointment && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    {Array.isArray(services) && services.map((service: any) => (
+                      <div 
+                        key={service.id}
+                        className={`bg-white rounded-xl shadow p-6 cursor-pointer hover:shadow-md transition ${selectedService?.id === service.id ? 'ring-2 ring-secondary' : ''}`}
+                        onClick={() => setSelectedService(service)}
+                      >
+                        {service.image_url && (
+                          <div className="mb-3 w-full h-36 rounded-md overflow-hidden">
+                            <img 
+                              src={service.image_url} 
+                              alt={service.name} 
+                              className="w-full h-full object-cover" 
+                            />
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <h3 className="text-lg font-bold text-primary">{service.name}</h3>
+                          <span className="font-bold text-secondary">R$ {service.price.toFixed(2)}</span>
+                        </div>
+                        <p className="text-neutral-dark mt-2 mb-3">{service.description}</p>
+                        <div className="bg-neutral p-2 rounded text-sm text-neutral-dark">Duração: {service.duration} min</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </>
         );
