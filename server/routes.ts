@@ -1023,6 +1023,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Horário de almoço configurado: ${dayConfig.lunch_start} - ${dayConfig.lunch_end} (${lunchStartMinutes} - ${lunchEndMinutes} minutos)`);
       }
       
+      // Primeiramente, buscamos todos os serviços necessários para os agendamentos de uma só vez
+      // Essa abordagem evita chamadas assíncronas dentro de callbacks
+      // Usar Array.from em vez de spread operator com Set para evitar problemas com target
+      const serviceIds = Array.from(new Set(dateAppointments.map(app => app.service_id)));
+      const servicePromises = serviceIds.map(id => storage.getService(id, req.tenantId));
+      const services = await Promise.all(servicePromises);
+      const serviceMap = services.reduce((map, service) => {
+        if (service) map[service.id] = service;
+        return map;
+      }, {} as Record<number, any>);
+      
       const slotDetails: SlotDetail[] = slots.map(slot => {
         const [hours, minutes] = slot.split(':').map(Number);
         const slotTime = new Date(dateObj);
@@ -1049,8 +1060,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const appSlotMinutes = appHours * 60 + appMinutes;
             const currentSlotMinutes = hours * 60 + minutes;
             
-            // Obter a duração do serviço (padrão: 30 minutos)
-            const serviceDuration = app.service_duration || 30;
+            // Buscar o serviço para obter a duração do mapa pré-carregado que já foi buscado anteriormente
+            // Como não temos mais o service_duration diretamente no agendamento, buscamos pelo serviço
+            const existingService = serviceMap[app.service_id];
+            const serviceDuration = existingService ? existingService.duration : 30; // Padrão: 30 minutos
             
             // Verificar se o horário atual conflita com um agendamento existente considerando a duração
             // Conflito ocorre se:
@@ -1194,6 +1207,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Filtrar apenas agendamentos deste tenant
         const appointments = allAppointments.filter(a => a.tenant_id === req.tenantId);
         
+        // Primeiro, buscar todos os serviços necessários para os agendamentos
+        // Usar Array.from em vez de spread operator com Set para evitar problemas com target
+        const serviceIds = Array.from(new Set(appointments.map(app => app.service_id)));
+        const servicePromises = serviceIds.map(id => storage.getService(id, req.tenantId));
+        const services = await Promise.all(servicePromises);
+        const serviceMap = services.reduce((map, service) => {
+          if (service) map[service.id] = service;
+          return map;
+        }, {} as Record<number, any>);
+        
         // Filtrar agendamentos na mesma data e hora, considerando duração do serviço
         const conflictingAppointments = appointments.filter(app => {
           if (app.status === 'cancelled') return false; // Ignorar agendamentos cancelados
@@ -1213,8 +1236,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const appStartMinutes = appDate.getHours() * 60 + appDate.getMinutes();
           const newStartMinutes = appointmentDate.getHours() * 60 + appointmentDate.getMinutes();
           
-          // Obter durações dos serviços
-          const existingServiceDuration = app.service_duration || 30; // Duração padrão: 30 minutos
+          // Buscar o serviço para obter a duração do mapa pré-carregado
+          // Como não temos mais o service_duration diretamente no agendamento, buscamos pelo serviço
+          const existingService = serviceMap[app.service_id];
+          const existingServiceDuration = existingService ? existingService.duration : 30; // Padrão: 30 minutos
           
           // Para compromissos particulares, usar duração padrão ou a informada
           let newServiceDuration = 30; // Duração padrão
