@@ -12,7 +12,6 @@ import { TenantProvider } from "@/hooks/use-tenant";
 import ClientHomePage from "@/pages/client/ClientHomePage";
 import NewAppointmentPage from "@/pages/client/NewAppointmentPage";
 import CheckAppointmentPage from "@/pages/client/CheckAppointmentPage";
-import LoyaltyPage from "@/pages/client/LoyaltyPage";
 
 // Admin Pages
 import AuthPage from "@/pages/admin/AuthPage";
@@ -48,7 +47,6 @@ function Router() {
       <Route path="/new-appointment" component={NewAppointmentPage} />
       <Route path="/client/consultar" component={CheckAppointmentPage} />
       <Route path="/check-appointment" component={CheckAppointmentPage} />
-      <Route path="/loyalty" component={LoyaltyPage} />
       
       {/* Admin Routes */}
       <Route path="/admin/auth" component={AuthPage} />
