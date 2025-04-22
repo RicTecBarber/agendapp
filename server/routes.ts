@@ -2397,7 +2397,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const productId = parseInt(req.params.id);
       const productData = req.body;
-      const updated = await storage.updateProduct(productId, productData);
+      
+      // Garantir que o tenant_id esteja nos dados
+      if (!productData.tenant_id && req.tenantId) {
+        productData.tenant_id = req.tenantId;
+      }
+      
+      console.log(`Atualizando produto ${productId} com tenant_id ${productData.tenant_id}`);
+      
+      // Passar o tenantId como terceiro parâmetro para garantir a filtragem correta
+      const updated = await storage.updateProduct(productId, productData, req.tenantId);
       
       if (!updated) {
         return res.status(404).json({ message: "Product not found" });
@@ -2416,7 +2425,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificação de autenticação removida temporariamente para permitir testes
       
       const productId = parseInt(req.params.id);
-      const deleted = await storage.deleteProduct(productId);
+      
+      console.log(`Excluindo produto ${productId} do tenant ${req.tenantId}`);
+      
+      // Passar o tenantId como segundo parâmetro para garantir a filtragem correta
+      const deleted = await storage.deleteProduct(productId, req.tenantId);
       
       if (!deleted) {
         return res.status(404).json({ message: "Product not found" });
@@ -2441,7 +2454,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Quantity must be a number" });
       }
       
-      const updated = await storage.updateProductStock(productId, quantity);
+      console.log(`Atualizando estoque do produto ${productId} para ${quantity} do tenant ${req.tenantId}`);
+      
+      // Passar o tenantId como terceiro parâmetro para garantir a filtragem correta
+      const updated = await storage.updateProductStock(productId, quantity, req.tenantId);
       
       if (!updated) {
         return res.status(404).json({ message: "Product not found" });
