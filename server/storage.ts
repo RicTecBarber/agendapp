@@ -2089,15 +2089,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProduct(id: number, productData: Partial<InsertProduct>, tenantId?: number | null): Promise<Product | undefined> {
-    console.log(`[DB] Atualizando produto ${id} para o tenant ${tenantId}. Dados recebidos:`, productData);
+    console.log(`[DB] Atualizando produto ${id} para o tenant ${tenantId}. Dados recebidos:`, JSON.stringify(productData));
     
     // Garantir que o tenant_id está nos dados do produto, mesmo se já foi enviado como parâmetro separado
-    if (tenantId !== undefined && !productData.tenant_id) {
+    if (tenantId !== undefined) {
+      // Garantir que o tenant_id seja mantido mesmo se null for passado nos dados do produto
       productData.tenant_id = tenantId;
-      console.log(`[DB] Adicionando tenant_id ${tenantId} aos dados do produto antes da atualização.`);
+      console.log(`[DB] Definindo tenant_id ${tenantId} aos dados do produto antes da atualização.`);
     }
     
-    // Iniciar buscando o produto existente para verificar 
+    // Iniciar buscando o produto existente para verificar e preservar os campos existentes
     try {
       const existingProduct = await db
         .select()
@@ -2105,7 +2106,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(products.id, id))
         .limit(1);
       
-      console.log(`[DB] Produto atual antes da atualização:`, existingProduct[0] || 'Não encontrado');
+      console.log(`[DB] Produto atual antes da atualização:`, JSON.stringify(existingProduct[0] || 'Não encontrado'));
       
       if (existingProduct.length === 0) {
         console.log(`[DB] Produto ${id} não encontrado.`);
@@ -2117,27 +2118,59 @@ export class DatabaseStorage implements IStorage {
         console.log(`[DB] Produto ${id} pertence ao tenant ${existingProduct[0].tenant_id}, mas a requisição é para o tenant ${tenantId}.`);
         return undefined;
       }
+      
+      // Preservando o tenant_id original em todos os casos para garantir que não seja alterado
+      if (existingProduct[0].tenant_id !== null) {
+        productData.tenant_id = existingProduct[0].tenant_id;
+        console.log(`[DB] Preservando tenant_id original ${existingProduct[0].tenant_id} nos dados do produto.`);
+      }
     } catch (error) {
       console.error(`[DB] Erro ao verificar produto existente:`, error);
+      // Não impedimos a continuação, vamos tentar a atualização mesmo assim
     }
     
     const query = eq(products.id, id);
+    // Aplicamos o filtro de tenant apenas se foi explicitamente fornecido
     const finalQuery = tenantId !== undefined
       ? and(query, eq(products.tenant_id, tenantId))
       : query;
     
     console.log(`[DB] Critério de pesquisa para atualização:`, 
-                { id, tenantId, usandoFiltroTenant: tenantId !== undefined });
+                { id, tenantId, productDataTenantId: productData.tenant_id, usandoFiltroTenant: tenantId !== undefined });
       
     try {
+      // Executar a atualização
       const result = await db
         .update(products)
         .set(productData)
         .where(finalQuery)
         .returning();
         
-      console.log(`[DB] Resultado da atualização:`, result[0] || 'Nenhum produto atualizado');
-      return result[0];
+      console.log(`[DB] Resultado da atualização:`, JSON.stringify(result[0] || 'Nenhum produto atualizado'));
+      
+      if (!result.length) {
+        console.log(`[DB] Nenhum produto foi atualizado. Tentando buscar o produto para confirmar se existe.`);
+        
+        // Se não atualizou nenhum produto, verificar se o produto ainda existe (pode ser um problema de tenant_id)
+        const productCheck = await db
+          .select()
+          .from(products)
+          .where(eq(products.id, id));
+          
+        if (productCheck.length) {
+          console.log(`[DB] Produto existe, mas não foi atualizado. Tenant atual do produto: ${productCheck[0].tenant_id}, tenant da requisição: ${tenantId}`);
+        } else {
+          console.log(`[DB] Produto ${id} não existe mais na base de dados.`);
+        }
+        
+        return undefined;
+      }
+      
+      // Se atualizou com sucesso, buscamos novamente o produto para ter certeza de retornar todos os campos atualizados
+      const updatedProduct = await this.getProduct(id, productData.tenant_id);
+      console.log(`[DB] Produto após atualização (re-consultado):`, JSON.stringify(updatedProduct));
+      
+      return updatedProduct || result[0];
     } catch (error) {
       console.error(`[DB] Erro ao atualizar produto:`, error);
       return undefined;
