@@ -267,17 +267,32 @@ function ProductsPage() {
   const { tenant } = useTenant();
 
   // Buscar todos os produtos
-  const { data: products = [], isLoading } = useQuery({
+  const { data: products = [], isLoading, refetch } = useQuery({
     queryKey: ["/api/products", tenant],
     queryFn: async () => {
-      console.log("Buscando produtos para tenant:", tenant);
+      console.log("[Query] Buscando produtos para tenant:", tenant);
       // Usar apiRequest para manter o contexto do tenant
       const response = await apiRequest("GET", "/api/products");
       if (!response.ok) {
+        console.error("[Query] Erro ao buscar produtos:", response.status, response.statusText);
         throw new Error("Erro ao buscar produtos");
       }
       const data = await response.json();
-      console.log(`Produtos recebidos: ${data.length}`);
+      console.log(`[Query] Produtos recebidos: ${data.length}`);
+      
+      // Verificar a integridade dos dados recebidos
+      if (!Array.isArray(data)) {
+        console.error("[Query] Dados recebidos não são um array:", data);
+        return [];
+      }
+      
+      // Registrar IDs de produtos recebidos para depuração
+      if (data.length > 0) {
+        console.log("[Query] IDs dos produtos recebidos:", data.map((p: any) => p.id).join(", "));
+      } else {
+        console.log("[Query] Nenhum produto recebido");
+      }
+      
       return data;
     },
     enabled: !!tenant, // Só executa a query quando tiver o tenant
@@ -324,31 +339,67 @@ function ProductsPage() {
   // Mutation para atualizar um produto
   const updateProductMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      console.log(`[Mutation] Enviando requisição PUT para /api/products/${id} com dados:`, JSON.stringify(data));
       const res = await apiRequest("PUT", `/api/products/${id}`, data);
       if (!res.ok) {
         const errorText = await res.text();
-        console.error(`Erro ao atualizar produto. Status: ${res.status}, Resposta:`, errorText);
+        console.error(`[Mutation] Erro ao atualizar produto. Status: ${res.status}, Resposta:`, errorText);
         throw new Error(`Falha ao atualizar produto: ${res.statusText}`);
       }
-      return await res.json();
+      const responseData = await res.json();
+      console.log(`[Mutation] Resposta do servidor após atualização:`, JSON.stringify(responseData));
+      return responseData;
     },
     onSuccess: (data) => {
-      console.log("Produto atualizado com sucesso:", data);
+      console.log("[Mutation] Produto atualizado com sucesso:", JSON.stringify(data));
       
-      // Forçar uma nova requisição ao backend para atualizar a lista
+      if (!data || !data.id) {
+        console.error("[Mutation] Resposta da API não contém dados do produto ou ID");
+        toast({
+          title: "Aviso",
+          description: "Produto atualizado, mas com resposta incompleta. Atualizando lista...",
+          variant: "warning",
+        });
+        // Força a busca de todos os produtos novamente
+        refetch();
+        setEditProduct(null);
+        return;
+      }
+      
+      // Estratégia 1: Invalidar a consulta para forçar nova busca
+      console.log(`[Mutation] Invalidando queryKey ["/api/products", ${tenant}]`);
       queryClient.invalidateQueries({ queryKey: ["/api/products", tenant] });
       
-      // Atualiza também os dados no cache diretamente
+      // Estratégia 2: Atualizar o cache diretamente com os dados recebidos
       queryClient.setQueryData(["/api/products", tenant], (oldData: any) => {
-        if (!oldData) return oldData;
+        if (!oldData || !Array.isArray(oldData)) {
+          console.log("[Mutation] Cache anterior não existe ou não é um array, usando apenas dado recebido");
+          return [data];
+        }
         
-        console.log("Atualizando cache local com dado recebido:", data);
+        console.log(`[Mutation] Atualizando cache local. Produtos antes: ${oldData.length}`);
         
-        // Se o produto atualizado existir na lista, atualiza. Caso contrário, mantém o mesmo array.
-        return oldData.map((product: any) => 
-          product.id === data.id ? data : product
-        );
+        // Verificamos se o produto já existe na lista
+        const existingProductIndex = oldData.findIndex((product: any) => product.id === data.id);
+        
+        if (existingProductIndex >= 0) {
+          console.log(`[Mutation] Produto ${data.id} encontrado na posição ${existingProductIndex}, substituindo`);
+          // Criar uma nova cópia do array para garantir que o React detecte a mudança
+          const updatedData = [...oldData];
+          updatedData[existingProductIndex] = data;
+          return updatedData;
+        } else {
+          console.log(`[Mutation] Produto ${data.id} não encontrado no cache, adicionando`);
+          // Adicionar o produto ao array existente
+          return [...oldData, data];
+        }
       });
+      
+      // Estratégia 3: Buscar novamente todos os produtos após um pequeno delay
+      setTimeout(() => {
+        console.log("[Mutation] Executando refetch após timeout para garantir dados atualizados");
+        refetch();
+      }, 500);
       
       setEditProduct(null);
       toast({
@@ -357,7 +408,7 @@ function ProductsPage() {
       });
     },
     onError: (error: Error) => {
-      console.error("Erro na mutação ao atualizar produto:", error);
+      console.error("[Mutation] Erro na mutação ao atualizar produto:", error);
       toast({
         title: "Erro ao atualizar produto",
         description: error.message,

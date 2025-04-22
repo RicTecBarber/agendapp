@@ -2398,23 +2398,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const productId = parseInt(req.params.id);
       const productData = req.body;
       
-      // Garantir que o tenant_id esteja nos dados
-      if (!productData.tenant_id && req.tenantId) {
-        productData.tenant_id = req.tenantId;
+      console.log(`[API] Atualizando produto ${productId}, dados recebidos:`, JSON.stringify(productData));
+      console.log(`[API] Tenant atual: ${req.tenantId}, Tenant no corpo: ${productData.tenant_id || 'não especificado'}`);
+      
+      // Verificar primeiro se o produto existe para o tenant atual
+      const existingProduct = await storage.getProduct(productId, req.tenantId);
+      if (!existingProduct) {
+        console.log(`[API] Produto ${productId} não encontrado para o tenant ${req.tenantId}`);
+        return res.status(404).json({ 
+          message: "Product not found",
+          details: `Product ${productId} not found for tenant ${req.tenantId}`
+        });
       }
       
-      console.log(`Atualizando produto ${productId} com tenant_id ${productData.tenant_id}`);
+      console.log(`[API] Produto encontrado antes da atualização:`, JSON.stringify(existingProduct));
+      
+      // Garantir que o tenant_id esteja preservado nos dados
+      // Usamos explicitamente o tenant_id do produto existente para preservá-lo
+      productData.tenant_id = existingProduct.tenant_id;
+      
+      console.log(`[API] Garantindo tenant_id ${productData.tenant_id} nos dados antes da atualização`);
       
       // Passar o tenantId como terceiro parâmetro para garantir a filtragem correta
       const updated = await storage.updateProduct(productId, productData, req.tenantId);
       
       if (!updated) {
-        return res.status(404).json({ message: "Product not found" });
+        console.log(`[API] Falha ao atualizar produto ${productId}`);
+        return res.status(500).json({ 
+          message: "Failed to update product",
+          details: "Product update operation did not return any data"
+        });
       }
       
-      res.json(updated);
+      console.log(`[API] Produto atualizado com sucesso:`, JSON.stringify(updated));
+      
+      // Buscar o produto novamente para garantir que temos a versão mais atualizada
+      const refreshedProduct = await storage.getProduct(productId, req.tenantId);
+      
+      if (refreshedProduct) {
+        console.log(`[API] Produto recarregado após atualização:`, JSON.stringify(refreshedProduct));
+        res.json(refreshedProduct);
+      } else {
+        console.log(`[API] Produto não encontrado após atualização, usando dados retornados do update`);
+        res.json(updated);
+      }
     } catch (error) {
-      res.status(500).json({ message: "Failed to update product" });
+      console.error(`[API] Erro ao atualizar produto:`, error);
+      res.status(500).json({ 
+        message: "Failed to update product",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
