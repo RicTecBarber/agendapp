@@ -1809,7 +1809,22 @@ export class DatabaseStorage implements IStorage {
       ? and(query, eq(appointments.tenant_id, tenantId)) 
       : query;
     
-    return db.select().from(appointments).where(finalQuery);
+    // Selecionar explicitamente apenas os campos necessários
+    // para evitar erros com campos que foram removidos do banco de dados
+    return db.select({
+      id: appointments.id,
+      tenant_id: appointments.tenant_id,
+      client_name: appointments.client_name,
+      client_phone: appointments.client_phone,
+      service_id: appointments.service_id,
+      professional_id: appointments.professional_id,
+      appointment_date: appointments.appointment_date,
+      status: appointments.status,
+      created_at: appointments.created_at,
+      notify_whatsapp: appointments.notify_whatsapp,
+      is_loyalty_reward: appointments.is_loyalty_reward
+      // is_private e private_description foram removidos
+    }).from(appointments).where(finalQuery);
   }
 
   async getAppointmentsByClientPhone(clientPhone: string, tenantId?: number | null): Promise<Appointment[]> {
@@ -1818,7 +1833,20 @@ export class DatabaseStorage implements IStorage {
       ? and(query, eq(appointments.tenant_id, tenantId)) 
       : query;
     
-    return db.select().from(appointments).where(finalQuery);
+    // Selecionar explicitamente apenas os campos necessários
+    return db.select({
+      id: appointments.id,
+      tenant_id: appointments.tenant_id,
+      client_name: appointments.client_name,
+      client_phone: appointments.client_phone,
+      service_id: appointments.service_id,
+      professional_id: appointments.professional_id,
+      appointment_date: appointments.appointment_date,
+      status: appointments.status,
+      created_at: appointments.created_at,
+      notify_whatsapp: appointments.notify_whatsapp,
+      is_loyalty_reward: appointments.is_loyalty_reward
+    }).from(appointments).where(finalQuery);
   }
 
   async getAppointmentById(id: number, tenantId?: number | null): Promise<Appointment | undefined> {
@@ -1827,12 +1855,40 @@ export class DatabaseStorage implements IStorage {
       ? and(query, eq(appointments.tenant_id, tenantId)) 
       : query;
     
-    const result = await db.select().from(appointments).where(finalQuery);
+    // Selecionar explicitamente apenas os campos necessários
+    const result = await db.select({
+      id: appointments.id,
+      tenant_id: appointments.tenant_id,
+      client_name: appointments.client_name,
+      client_phone: appointments.client_phone,
+      service_id: appointments.service_id,
+      professional_id: appointments.professional_id,
+      appointment_date: appointments.appointment_date,
+      status: appointments.status,
+      created_at: appointments.created_at,
+      notify_whatsapp: appointments.notify_whatsapp,
+      is_loyalty_reward: appointments.is_loyalty_reward
+    }).from(appointments).where(finalQuery);
+    
     return result[0];
   }
 
   async createAppointment(appointmentData: InsertAppointment): Promise<Appointment> {
-    const result = await db.insert(appointments).values(appointmentData).returning();
+    const result = await db.insert(appointments)
+      .values(appointmentData)
+      .returning({
+        id: appointments.id,
+        tenant_id: appointments.tenant_id,
+        client_name: appointments.client_name,
+        client_phone: appointments.client_phone,
+        service_id: appointments.service_id,
+        professional_id: appointments.professional_id,
+        appointment_date: appointments.appointment_date,
+        status: appointments.status,
+        created_at: appointments.created_at,
+        notify_whatsapp: appointments.notify_whatsapp,
+        is_loyalty_reward: appointments.is_loyalty_reward
+      });
     return result[0];
   }
 
@@ -1846,7 +1902,20 @@ export class DatabaseStorage implements IStorage {
       .update(appointments)
       .set({ status })
       .where(finalQuery)
-      .returning();
+      .returning({
+        id: appointments.id,
+        tenant_id: appointments.tenant_id,
+        client_name: appointments.client_name,
+        client_phone: appointments.client_phone,
+        service_id: appointments.service_id,
+        professional_id: appointments.professional_id,
+        appointment_date: appointments.appointment_date,
+        status: appointments.status,
+        created_at: appointments.created_at,
+        notify_whatsapp: appointments.notify_whatsapp,
+        is_loyalty_reward: appointments.is_loyalty_reward
+      });
+    
     return result[0];
   }
 
