@@ -965,12 +965,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Slots já agendados: ${bookedSlots.join(', ')}`);
       
       // Remover slots já agendados e no passado
+      // Usar o fuso horário do usuário (passado como parâmetro) para calcular o horário atual
       const now = new Date();
+      
+      // Ajustar para o fuso horário do cliente, se fornecido
+      if (timezone) {
+        try {
+          console.log(`Ajustando horário atual para fuso horário do cliente: ${timezone}`);
+          // Obter a data atual no fuso horário do cliente
+          const clientNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+          console.log(`Horário local do servidor: ${now.toISOString()}`);
+          console.log(`Horário ajustado para o cliente: ${clientNow.toISOString()}`);
+          // Usar o horário ajustado
+          now.setHours(clientNow.getHours());
+          now.setMinutes(clientNow.getMinutes());
+        } catch (err) {
+          console.warn(`Erro ao ajustar para fuso horário ${timezone}:`, err);
+          console.warn("Usando horário do servidor como fallback");
+        }
+      }
+      
       const isToday = (
         now.getFullYear() === dateObj.getFullYear() &&
         now.getMonth() === dateObj.getMonth() &&
         now.getDate() === dateObj.getDate()
       );
+      
+      console.log(`Data atual: ${now.toISOString()}, É hoje: ${isToday}`);
+      if (isToday) {
+        console.log(`Horário atual: ${now.getHours()}:${now.getMinutes()}, horários anteriores serão bloqueados`);
+      }
       
       // Fazer um mapeamento de diagnóstico com detalhes sobre cada slot
       interface SlotDetail {
