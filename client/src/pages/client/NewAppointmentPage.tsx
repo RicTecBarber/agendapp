@@ -126,13 +126,32 @@ const NewAppointmentPage = () => {
   // Mutação para compromisso particular removida
   
   // Query para buscar horários disponíveis
-  const { data: availabilityData, isLoading: isLoadingAvailability } = useQuery({
+  const { data: availabilityData, isLoading: isLoadingAvailability, error: availabilityError } = useQuery({
     queryKey: selectedDate && selectedProfessional 
       ? [`/api/availability/${selectedProfessional.id}/${format(selectedDate, "yyyy-MM-dd")}`, tenantParam]
       : ['no-availability', tenantParam],
     enabled: !!(selectedDate && selectedProfessional),
     staleTime: 0, // Não armazenar em cache para sempre garantir dados atualizados
-    refetchOnWindowFocus: true, // Recarregar quando o usuário volta para a janela
+    refetchOnWindowFocus: true, // Recarregar quando o usuário volta para a janela,
+    queryFn: async ({ queryKey }) => {
+      if (queryKey[0] === 'no-availability') {
+        return null;
+      }
+      
+      // Buscar os dados com manejo explícito de erros para debug
+      const url = `${queryKey[0]}${queryKey[1] ? `?tenant=${queryKey[1]}` : ''}`;
+      console.log("DEBUG: Chamando API:", url);
+      
+      try {
+        const response = await apiRequest("GET", url);
+        const data = await response.json();
+        console.log("DEBUG: Resposta da disponibilidade:", data);
+        return data;
+      } catch (error) {
+        console.error("DEBUG: Erro ao buscar disponibilidade:", error);
+        throw error;
+      }
+    }
   });
   
   // Processar dados de disponibilidade quando eles mudam
