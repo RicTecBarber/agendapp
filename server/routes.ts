@@ -1116,6 +1116,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Obtém os dados do corpo da requisição
       const appointmentData = req.body;
       
+      // Verificando se é um compromisso particular
+      const isPrivate = !!appointmentData.is_private;
+      
       try {
         console.log("Dados do agendamento recebidos:", appointmentData);
         
@@ -1128,13 +1131,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // Verificar se o serviço pertence ao tenant atual
-        const service = await storage.getService(appointmentData.service_id, req.tenantId);
-        if (!service) {
-          return res.status(404).json({ 
-            message: "Serviço não encontrado ou não pertence a este tenant",
-            error: "tenant_validation_failed"
-          });
+        // Para compromissos particulares, não precisamos verificar serviço
+        let service;
+        if (!isPrivate) {
+          // Verificar se o serviço pertence ao tenant atual
+          service = await storage.getService(appointmentData.service_id, req.tenantId);
+          if (!service) {
+            return res.status(404).json({ 
+              message: "Serviço não encontrado ou não pertence a este tenant",
+              error: "tenant_validation_failed"
+            });
+          }
         }
         
         // Verificar se há timestamp especial LOCAL para processar
@@ -1204,7 +1211,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Obter durações dos serviços
           const existingServiceDuration = app.service_duration || 30; // Duração padrão: 30 minutos
-          const newServiceDuration = service.duration || 30; // Duração do novo serviço
+          
+          // Para compromissos particulares, usar duração padrão ou a informada
+          let newServiceDuration = 30; // Duração padrão
+          if (isPrivate) {
+            // Se for compromisso particular, verificar se foi informada uma duração específica
+            newServiceDuration = appointmentData.duration || 30;
+          } else {
+            // Se for agendamento normal, usar a duração do serviço
+            newServiceDuration = service.duration || 30;
+          }
           
           // Calcular o horário de término de cada agendamento
           const appEndMinutes = appStartMinutes + existingServiceDuration;
@@ -1384,6 +1400,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(`Erro ao buscar agendamento:`, error);
       res.status(500).json({ message: "Failed to get appointment" });
+    }
+  });
+
+  // POST /api/appointments/private - Criar compromisso particular
+  app.post("/api/appointments/private", requireTenant, async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ message: "Autenticação necessária" });
+      }
+      
+      console.log(`Criando compromisso particular - Tenant ID: ${req.tenantId}`);
+      
+      // Obter dados do corpo da requisição
+      const { 
+        professional_id, 
+        appointment_date, 
+        duration = 30, 
+        private_description 
+      } = req.body;
+      
+      // Validar os dados
+      if (!professional_id || !appointment_date) {
+        return res.status(400).json({ 
+          message: "Dados incompletos. É necessário informar o profissional e a data/hora" 
+        });
+      }
+      
+      // Verificar se o profissional pertence ao tenant atual
+      const professional = await storage.getProfessional(professional_id, req.tenantId);
+      if (!professional) {
+        return res.status(404).json({ 
+          message: "Profissional não encontrado ou não pertence a este tenant"
+        });
+      }
+      
+      // Criar objeto de agendamento particular
+      const privateAppointmentData: InsertAppointment = {
+        professional_id,
+        appointment_date: appointment_date,
+        // Use o nome do profissional para o cliente e descrição para indicar que é um compromisso particular
+        client_name: professional.name,
+        client_phone: "Particular",
+        service_id: 0, // Usar ID fictício, já que não é um serviço real
+        is_private: true,
+        private_description: private_description || "Compromisso particular",
+        tenant_id: req.tenantId
+      };
+      
+      // Verificar se a data é válida
+      const appointmentDate = new Date(appointment_date);
+      if (isNaN(appointmentDate.getTime())) {
+        return res.status(400).json({ 
+          message: "Data/hora inválida" 
+        });
+      }
+      
+      // Verificar se o horário já está agendado (mesmo processo do endpoint normal)
+      const allAppointments = await storage.getAppointmentsByProfessionalId(professional_id);
+      const appointments = allAppointments.filter(a => a.tenant_id === req.tenantId);
+      
+      // Filtrar agendamentos na mesma data e hora, considerando a duração
+      const conflictingAppointments = appointments.filter(app => {
+        if (app.status === 'cancelled') return false; // Ignorar agendamentos cancelados
+        
+        const appDate = new Date(app.appointment_date);
+        
+        // Verificar se é o mesmo dia
+        const isSameDay = (
+          appDate.getFullYear() === appointmentDate.getFullYear() &&
+          appDate.getMonth() === appointmentDate.getMonth() &&
+          appDate.getDate() === appointmentDate.getDate()
+        );
+        
+        if (!isSameDay) return false;
+        
+        // Calcular os horários em minutos para facilitar a comparação considerando a duração
+        const appStartMinutes = appDate.getHours() * 60 + appDate.getMinutes();
+        const newStartMinutes = appointmentDate.getHours() * 60 + appointmentDate.getMinutes();
+        
+        // Obter durações dos serviços
+        const existingServiceDuration = 30; // Duração padrão: 30 minutos
+        const newServiceDuration = duration || 30;
+        
+        // Calcular o horário de término de cada agendamento
+        const appEndMinutes = appStartMinutes + existingServiceDuration;
+        const newEndMinutes = newStartMinutes + newServiceDuration;
+        
+        // Verificar se há sobreposição
+        const hasOverlap = (
+          (newStartMinutes >= appStartMinutes && newStartMinutes < appEndMinutes) ||
+          (newEndMinutes > appStartMinutes && newEndMinutes <= appEndMinutes) ||
+          (newStartMinutes <= appStartMinutes && newEndMinutes >= appEndMinutes)
+        );
+        
+        return hasOverlap;
+      });
+      
+      if (conflictingAppointments.length > 0) {
+        return res.status(400).json({ 
+          message: "Este horário já está ocupado",
+          conflicts: conflictingAppointments
+        });
+      }
+      
+      // Verificar disponibilidade do profissional neste dia
+      const dayOfWeek = appointmentDate.getDay();
+      const availabilitySettings = await storage.getAvailabilityByProfessionalId(professional_id, req.tenantId);
+      const dayConfig = availabilitySettings.find(a => a.day_of_week === dayOfWeek);
+      
+      if (!dayConfig || !dayConfig.is_available) {
+        return res.status(400).json({
+          message: "O profissional não está disponível neste dia"
+        });
+      }
+      
+      // Criar o compromisso particular
+      const appointment = await storage.createAppointment(privateAppointmentData);
+      
+      res.status(201).json(appointment);
+    } catch (error) {
+      console.error("Erro ao criar compromisso particular:", error);
+      res.status(500).json({ 
+        message: "Falha ao criar compromisso particular",
+        error: (error as Error).message 
+      });
     }
   });
 

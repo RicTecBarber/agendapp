@@ -106,6 +106,8 @@ export const appointments = pgTable("appointments", {
   created_at: timestamp("created_at").notNull().defaultNow(),
   notify_whatsapp: boolean("notify_whatsapp").default(false),
   is_loyalty_reward: boolean("is_loyalty_reward").default(false),
+  is_private: boolean("is_private").default(false), // Novo campo para indicar compromisso particular
+  private_description: text("private_description"), // Descrição do compromisso particular
   tenant_id: integer("tenant_id"), // FK para o tenant
 });
 
