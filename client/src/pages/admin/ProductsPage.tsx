@@ -399,10 +399,22 @@ function ProductsPage() {
         const formData = new FormData();
         formData.append("image", file);
         
-        // Usar a URL direta e deixar os headers cuidarem do tenant
-        console.log("Enviando upload para: /api/upload/product");
+        // Adicionar o parâmetro de tenant à URL (solução para o problema de tenant não identificado)
+        let uploadUrl = '/api/upload/product';
+        if (tenant) {
+          uploadUrl = `${uploadUrl}?tenant=${tenant}`;
+          console.log("Enviando upload para URL com tenant:", uploadUrl);
+        } else {
+          console.warn("Tenant não disponível para upload, tentando extrair da URL atual");
+          // Tentar extrair tenant da URL atual como fallback
+          const currentTenant = localStorage.getItem('lastTenant');
+          if (currentTenant) {
+            uploadUrl = `${uploadUrl}?tenant=${currentTenant}`;
+            console.log("Usando tenant do localStorage para upload:", uploadUrl);
+          }
+        }
         
-        const response = await fetch('/api/upload/product', {
+        const response = await fetch(uploadUrl, {
           method: "POST",
           // Importante: não definir o Content-Type ao enviar FormData
           // O navegador configurará automaticamente o boundary correto
