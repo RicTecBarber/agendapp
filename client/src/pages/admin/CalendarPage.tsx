@@ -48,9 +48,15 @@ const CalendarPage = () => {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  // Estado para agendamento selecionado e modal
+  // Estado para agendamento selecionado e modais
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [privateAppointmentDialogOpen, setPrivateAppointmentDialogOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(null);
+  const [privateDescription, setPrivateDescription] = useState('');
+  const [privateAppointmentTime, setPrivateAppointmentTime] = useState('08:00');
+  const [privateAppointmentDuration, setPrivateAppointmentDuration] = useState(30);
   
   // Cache para armazenar a semana selecionada
   const cache = useLocalCache<{ selectedDate: string; selectedProfessionalId?: number }>({
