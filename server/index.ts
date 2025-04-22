@@ -3,6 +3,7 @@ import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { tenantMiddleware, requireTenant } from "./middleware";
+import { storage } from "./storage";
 
 const app = express();
 app.use(express.json());
@@ -60,7 +61,43 @@ app.use((req, res, next) => {
   next();
 });
 
+/**
+ * Função para garantir que o tenant padrão exista no sistema
+ */
+async function ensureDefaultTenantExists() {
+  try {
+    console.log("Verificando existência do tenant padrão 'barbearia-modelo'...");
+    const defaultTenant = await storage.getTenantBySlug('barbearia-modelo');
+    
+    if (!defaultTenant) {
+      console.log("Tenant padrão 'barbearia-modelo' não encontrado. Criando...");
+      const newTenant = await storage.createTenant({
+        name: "Barbearia Modelo",
+        slug: "barbearia-modelo",
+        active: true,
+        is_active: true,
+        production_url: null
+      });
+      console.log("Tenant padrão criado com sucesso:", newTenant);
+    } else {
+      // Garantir que o tenant esteja ativo
+      if (!defaultTenant.is_active) {
+        console.log("Tenant padrão 'barbearia-modelo' encontrado, mas está inativo. Ativando...");
+        await storage.activateTenant(defaultTenant.id);
+        console.log("Tenant padrão ativado com sucesso.");
+      } else {
+        console.log("Tenant padrão 'barbearia-modelo' já existe e está ativo:", defaultTenant);
+      }
+    }
+  } catch (error) {
+    console.error("Erro ao verificar/criar tenant padrão:", error);
+  }
+}
+
 (async () => {
+  // Garantir que o tenant padrão exista antes de registrar as rotas
+  await ensureDefaultTenantExists();
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
