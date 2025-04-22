@@ -186,33 +186,8 @@ function ProductForm({
           />
         </div>
 
-        <FormField
-          control={form.control}
-          name="category"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Categoria</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Campo de categoria oculto com valor padrão */}
+        <input type="hidden" {...form.register("category")} value="outros" />
 
         {/* Campo para upload de imagem */}
         <FormField
@@ -225,17 +200,17 @@ function ProductForm({
                 <div className="space-y-4">
                   {/* Exibe a prévia da imagem quando disponível */}
                   {imagePreview && (
-                    <div className="w-full max-h-32 relative rounded-md overflow-hidden">
+                    <div className="w-full max-h-24 relative rounded-md overflow-hidden">
                       <img 
                         src={imagePreview} 
                         alt="Prévia da imagem" 
-                        className="w-auto max-w-full h-32 object-contain mx-auto"
+                        className="w-auto max-h-24 object-contain mx-auto"
                       />
                       <Button
                         type="button"
                         variant="destructive"
                         size="sm"
-                        className="absolute top-2 right-2"
+                        className="absolute top-1 right-1"
                         onClick={() => {
                           setImagePreview(null);
                           onChange(null);
@@ -602,7 +577,7 @@ function ProductsPage() {
                 <CardHeader>
                   <CardTitle>{product.name}</CardTitle>
                   <CardDescription>
-                    {getCategoryLabel(product.category)}
+                    Produto
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
