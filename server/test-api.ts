@@ -6,7 +6,6 @@
 import { pool, db } from "./db";
 import { storage } from "./storage";
 import { parseISO, format, startOfDay, addMinutes, isWithinInterval, isPast, getDay } from "date-fns";
-import { utcToZonedTime, zonedTimeToUtc } from "date-fns-tz";
 
 async function testAvailabilityAPI() {
   try {
@@ -94,11 +93,11 @@ async function testAvailabilityAPI() {
     
     const dateObj = startOfDay(parseISO(dateStr));
     
-    // Converter para fuso horário local
-    const localStartDate = utcToZonedTime(dateObj, timezone);
+    // Usar objeto Date diretamente, sem conversão de timezone
+    const localStartDate = new Date(dateObj);
     localStartDate.setHours(startHours, startMinutes, 0, 0);
     
-    const localEndDate = utcToZonedTime(dateObj, timezone);
+    const localEndDate = new Date(dateObj);
     localEndDate.setHours(endHours, endMinutes, 0, 0);
     
     // Gerar slots

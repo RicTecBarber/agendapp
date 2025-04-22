@@ -842,9 +842,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // GET /api/availability/:professionalId/:date - Get time slots for date
   app.get("/api/availability/:professionalId/:date", requireTenant, async (req: Request, res: Response) => {
+    console.log(`-----------------------------------------`);
+    console.log(`BUSCA DE SLOTS DE DISPONIBILIDADE - DEBUG`);
+    console.log(`-----------------------------------------`);
     console.log(`Buscando slots disponíveis para o profissional ${req.params.professionalId} na data ${req.params.date} - Tenant ID: ${req.tenantId}, Tenant Slug: ${req.tenantSlug}`);
     try {
       if (!req.tenantId) {
+        console.error("Erro: tenant não identificado na requisição");
         return res.status(400).json({ message: "Tenant não identificado. Use o parâmetro ?tenant=SLUG" });
       }
       
